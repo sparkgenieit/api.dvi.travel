@@ -135,10 +135,12 @@ export class HotelsController {
   }
 
   // NEW: simple meal types meta (1=B, 2=L, 3=D)
-  @Get('meal-types')
-  mealTypes() {
-    return this.hotels.mealTypes();
-  }
+ // NEW: simple meal types meta (1=B, 2=L, 3=D)
+@Get('meal-types')
+mealTypes() {
+  return this.hotels.mealTypes();
+}
+
 
   @Get(':id/roomtypes')
   roomTypesAliasPlain(@Param('id', ParseIntPipe) _id: number) {

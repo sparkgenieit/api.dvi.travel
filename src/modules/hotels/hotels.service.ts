@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { PaginationQueryDto } from './dto/pagination.dto';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
-import { CreateHotelRoomDto as CreateRoomDto } from './dto/create-room.dto';
+import { UiRoomItemDto as CreateRoomDto } from './dto/create-room.dto';
 import { CreateAmenityDto } from './dto/create-amenity.dto';
 import { CreatePriceBookDto } from './dto/create-pricebook.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -152,11 +152,13 @@ export class HotelsService {
     const limit = Math.max(1, Math.min(100, Number(q.limit ?? 10)));
     const skip = (page - 1) * limit;
 
-    const AND: Prisma.dvi_hotelWhereInput[] = [this.notDeletedBool as any];
+        const AND: Prisma.dvi_hotelWhereInput[] = [this.notDeletedBool as any];
 
-    if (q.status !== undefined && q.status !== null && q.status !== '') {
-      AND.push({ status: Number(q.status) } as any);
+    const rawStatus: any = (q as any).status;
+    if (rawStatus !== undefined && rawStatus !== null && rawStatus !== '') {
+      AND.push({ status: Number(rawStatus) } as any);
     }
+
     if (q.hotel_state) AND.push({ hotel_state: q.hotel_state } as any);
     if (q.hotel_city) AND.push({ hotel_city: q.hotel_city } as any);
 
@@ -300,7 +302,14 @@ export class HotelsService {
       .map((name) => ({ name }));
   }
   // -----------------------------------
-
+ // Simple static meal types meta: 1 = Breakfast, 2 = Lunch, 3 = Dinner
+  mealTypes() {
+    return [
+      { id: 1, value: 1, code: 'B', name: 'Breakfast' },
+      { id: 2, value: 2, code: 'L', name: 'Lunch' },
+      { id: 3, value: 3, code: 'D', name: 'Dinner' },
+    ];
+  }
   getOne(hotel_id: number) {
     const id = Number(hotel_id);
     if (!Number.isFinite(id) || id <= 0) {

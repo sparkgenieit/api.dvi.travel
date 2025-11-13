@@ -4,8 +4,8 @@ import { AuthService } from './auth.service';
 import { Public } from '../../auth/public.decorator';
 
 class LoginDto {
-  email: string;
-  password: string;
+    email!: string;
+  password!: string;
 }
 
 @ApiTags('auth')
