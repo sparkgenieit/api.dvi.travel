@@ -5,9 +5,10 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { UsersModule } from './modules/users/users.module';
 import { HotelsModule } from './modules/hotels/hotels.module';
 import { AuthModule } from './modules/auth/auth.module';
+import {AccountsManagerModule} from './modules/accounts-manager/accounts-manager.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, HotelsModule ],
+  imports: [AuthModule, UsersModule, HotelsModule, AccountsManagerModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

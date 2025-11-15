@@ -12,7 +12,10 @@ import {
   DefaultValuePipe,
   BadRequestException,
   Req,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { HotelsService } from './hotels.service';
 import { PaginationQueryDto } from './dto/pagination.dto';
 import { CreateHotelDto } from './dto/create-hotel.dto';
@@ -135,12 +138,10 @@ export class HotelsController {
   }
 
   // NEW: simple meal types meta (1=B, 2=L, 3=D)
- // NEW: simple meal types meta (1=B, 2=L, 3=D)
-@Get('meal-types')
-mealTypes() {
-  return this.hotels.mealTypes();
-}
-
+  @Get('meal-types')
+  mealTypes() {
+    return this.hotels.mealTypes();
+  }
 
   @Get(':id/roomtypes')
   roomTypesAliasPlain(@Param('id', ParseIntPipe) _id: number) {
@@ -164,7 +165,12 @@ mealTypes() {
   create(@Body() dto: CreateHotelDto) {
     const payload: any = { ...dto };
     const catId =
-      Number((dto as any)?.hotel_category ?? (dto as any)?.hotel_category_id ?? (dto as any)?.categoryId ?? (dto as any)?.hotelCategoryId) || 0;
+      Number(
+        (dto as any)?.hotel_category ??
+          (dto as any)?.hotel_category_id ??
+          (dto as any)?.categoryId ??
+          (dto as any)?.hotelCategoryId,
+      ) || 0;
     if (catId > 0) payload.hotel_category = catId;
     return this.hotels.create(payload);
   }
@@ -180,7 +186,12 @@ mealTypes() {
 
     if (hasCat) {
       const catId =
-        Number((dto as any)?.hotel_category ?? (dto as any)?.hotel_category_id ?? (dto as any)?.categoryId ?? (dto as any)?.hotelCategoryId) || 0;
+        Number(
+          (dto as any)?.hotel_category ??
+            (dto as any)?.hotel_category_id ??
+            (dto as any)?.categoryId ??
+            (dto as any)?.hotelCategoryId,
+        ) || 0;
       if (catId > 0) payload.hotel_category = catId;
     }
     return this.hotels.update(id, payload);
@@ -200,6 +211,37 @@ mealTypes() {
     return this.hotels.listRooms(id);
   }
 
+  // NEW: bulk rooms endpoint used by React RoomsStep
+  // POST /api/v1/hotels/:id/rooms/bulk  with body: { items: [ { ...roomPayload } ] }
+  @Post(':id/rooms/bulk')
+  async saveRoomsBulk(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: any,
+  ) {
+    const items: any[] = Array.isArray(body?.items)
+      ? body.items
+      : Array.isArray(body)
+      ? body
+      : [];
+
+    if (!items.length) {
+      throw new BadRequestException('items array is required');
+    }
+
+    const results: any[] = [];
+    for (const raw of items) {
+      const payload = { ...(raw ?? {}), hotel_id: id };
+      const res = await this.hotels.saveRoom(payload as any);
+      results.push(res);
+    }
+
+    return {
+      success: true,
+      count: results.length,
+      items: results,
+    };
+  }
+
   @Post(':id/rooms')
   createRoom(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
     return this.hotels.addRoom({ ...(body ?? {}), hotel_id: id } as any);
@@ -212,7 +254,11 @@ mealTypes() {
     @Body() body: any,
   ) {
     const rid = Number(roomId);
-    return this.hotels.updateRoom({ ...(body ?? {}), hotel_id: id, room_ID: rid } as any);
+    return this.hotels.updateRoom({
+      ...(body ?? {}),
+      hotel_id: id,
+      room_ID: rid,
+    } as any);
   }
 
   @Delete(':id/rooms/:roomId')
@@ -221,6 +267,47 @@ mealTypes() {
     @Param('roomId') roomId: string,
   ) {
     return this.hotels.removeRoom(id, Number(roomId));
+  }
+
+  // === NEW: Room gallery upload (files saved & DB rows inserted in service) =====
+  // POST /api/v1/hotels/:id/rooms/:roomId/gallery
+  // - multipart/form-data
+  // - field name for files: room_gallery
+  // - body should contain roomRefCode or room_ref_code
+  @Post(':id/rooms/:roomId/gallery')
+  @UseInterceptors(
+    FilesInterceptor('room_gallery', 20, {
+      dest: 'uploads/tmp-room-gallery',
+    }),
+  )
+  async uploadRoomGallery(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    const roomRefCode: string = body?.roomRefCode ?? body?.room_ref_code;
+
+    if (!roomRefCode) {
+      throw new BadRequestException('roomRefCode (or room_ref_code) is required');
+    }
+
+    const userId =
+      Number(req?.user?.id) ||
+      Number(req?.user?.user_id) ||
+      Number(req?.userId) ||
+      0;
+
+    await this.hotels.saveRoomGallery({
+      hotelId: id,
+      roomId,
+      roomRefCode,
+      files: files || [],
+      createdBy: userId || 0,
+    });
+
+    return { success: true };
   }
 
   @Post('/rooms')
@@ -255,7 +342,11 @@ mealTypes() {
   /** Explicit bulk endpoint to match UI call: POST /api/v1/hotels/:id/amenities/bulk */
   @Post(':id/amenities/bulk')
   addAmenityBulk(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
-    const items = Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
+    const items = Array.isArray(body?.items)
+      ? body.items
+      : Array.isArray(body)
+      ? body
+      : [];
     return this.hotels.addAmenitiesBulk(id, items);
   }
 
@@ -289,7 +380,8 @@ mealTypes() {
     const rows = (await this.hotels.listAmenities(id)) as any[];
     const found = rows.find(
       (r) =>
-        Number(r.hotel_amenities_id ?? r.amenity_id ?? r.id) === Number(amenityId),
+        Number(r.hotel_amenities_id ?? r.amenity_id ?? r.id) ===
+        Number(amenityId),
     );
     if (!found) {
       throw new BadRequestException('Amenity not found for this hotel');
@@ -389,7 +481,12 @@ mealTypes() {
     @Req() req: any,
   ) {
     return this.hotels.addReviewUnified(
-      { hotel_id: id, rating: body.rating as any, description: body.description, status: body.status },
+      {
+        hotel_id: id,
+        rating: body.rating as any,
+        description: body.description,
+        status: body.status,
+      },
       Number(req?.user?.id) || 1,
     );
   }
@@ -402,20 +499,33 @@ mealTypes() {
     @Req() req: any,
   ) {
     return this.hotels.addReviewUnified(
-      { hotel_id: id, rating: body.rating as any, description: body.description, status: body.status },
+      {
+        hotel_id: id,
+        rating: body.rating as any,
+        description: body.description,
+        status: body.status,
+      },
       Number(req?.user?.id) || 1,
     );
   }
 
   /** Root POST for cases where UI sends { hotel_id, ... } to /api/v1/hotels/reviews */
   @Post('reviews')
-  addReviewRoot(@Body() body: ReviewDto & { hotel_id?: number }, @Req() req: any) {
+  addReviewRoot(
+    @Body() body: ReviewDto & { hotel_id?: number },
+    @Req() req: any,
+  ) {
     const hid = Number((body as any)?.hotel_id);
     if (!Number.isFinite(hid) || hid <= 0) {
       throw new BadRequestException('hotel_id is required');
     }
     return this.hotels.addReviewUnified(
-      { hotel_id: hid, rating: body.rating as any, description: body.description, status: body.status },
+      {
+        hotel_id: hid,
+        rating: body.rating as any,
+        description: body.description,
+        status: body.status,
+      },
       Number(req?.user?.id) || 1,
     );
   }
@@ -452,7 +562,10 @@ export class LocationsController {
   constructor(private readonly hotels: HotelsService) {}
 
   @Get('states')
-  async allStates(@Query('all') all?: string, @Query('countryId') countryId?: string) {
+  async allStates(
+    @Query('all') all?: string,
+    @Query('countryId') countryId?: string,
+  ) {
     if (String(all) === '1') {
       return this.hotels.states(Number(countryId ?? 0)) || [];
     }
@@ -460,7 +573,10 @@ export class LocationsController {
   }
 
   @Get('cities')
-  async allCities(@Query('all') all?: string, @Query('stateId') stateId?: string) {
+  async allCities(
+    @Query('all') all?: string,
+    @Query('stateId') stateId?: string,
+  ) {
     if (String(all) === '1') {
       return this.hotels.cities(Number(stateId ?? 0)) || [];
     }
@@ -471,8 +587,12 @@ export class LocationsController {
 @Controller('states')
 export class RootStatesController {
   constructor(private readonly hotels: HotelsService) {}
+
   @Get()
-  async rootStates(@Query('all') all?: string, @Query('countryId') countryId?: string) {
+  async rootStates(
+    @Query('all') all?: string,
+    @Query('countryId') countryId?: string,
+  ) {
     if (String(all) === '1') {
       return this.hotels.states(Number(countryId ?? 0)) || [];
     }
@@ -483,8 +603,12 @@ export class RootStatesController {
 @Controller('cities')
 export class RootCitiesController {
   constructor(private readonly hotels: HotelsService) {}
+
   @Get()
-  async rootCities(@Query('all') all?: string, @Query('stateId') stateId?: string) {
+  async rootCities(
+    @Query('all') all?: string,
+    @Query('stateId') stateId?: string,
+  ) {
     if (String(all) === '1') {
       return this.hotels.cities(Number(stateId ?? 0)) || [];
     }
@@ -497,7 +621,10 @@ export class DviGeoController {
   constructor(private readonly hotels: HotelsService) {}
 
   @Get('states')
-  async dviStates(@Query('all') all?: string, @Query('countryId') countryId?: string) {
+  async dviStates(
+    @Query('all') all?: string,
+    @Query('countryId') countryId?: string,
+  ) {
     if (String(all) === '1') {
       return this.hotels.states(Number(countryId ?? 0)) || [];
     }
@@ -505,7 +632,10 @@ export class DviGeoController {
   }
 
   @Get('cities')
-  async dviCities(@Query('all') all?: string, @Query('stateId') stateId?: string) {
+  async dviCities(
+    @Query('all') all?: string,
+    @Query('stateId') stateId?: string,
+  ) {
     if (String(all) === '1') {
       return this.hotels.cities(Number(stateId ?? 0)) || [];
     }
@@ -526,7 +656,9 @@ export class PreviewAliasesController {
   ) {
     const id = Number(hotelId);
     if (!Number.isFinite(id) || id <= 0) {
-      throw new BadRequestException('Validation failed (numeric string is expected)');
+      throw new BadRequestException(
+        'Validation failed (numeric string is expected)',
+      );
     }
     return this.hotels.listAmenities(id);
   }
@@ -554,7 +686,11 @@ export class PreviewAliasesController {
   @Post('hotel-amenities/bulk')
   addAmenityRootBulk(@Body() body: any) {
     const hotelId = Number(body?.hotel_id ?? body?.hotelId);
-    const items = Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
+    const items = Array.isArray(body?.items)
+      ? body.items
+      : Array.isArray(body)
+      ? body
+      : [];
     if (!Number.isFinite(hotelId) || hotelId <= 0) {
       throw new BadRequestException('hotel_id is required');
     }
@@ -569,7 +705,9 @@ export class PreviewAliasesController {
   ) {
     const id = Number(hotelId);
     if (!Number.isFinite(id) || id <= 0) {
-      throw new BadRequestException('Validation failed (numeric string is expected)');
+      throw new BadRequestException(
+        'Validation failed (numeric string is expected)',
+      );
     }
     return this.hotels.getPricebook(id);
   }
@@ -582,7 +720,9 @@ export class PreviewAliasesController {
   ) {
     const id = Number(hotelId);
     if (!Number.isFinite(id) || id <= 0) {
-      throw new BadRequestException('Validation failed (numeric string is expected)');
+      throw new BadRequestException(
+        'Validation failed (numeric string is expected)',
+      );
     }
     return this.hotels.upsertMealPricebook(id, dto);
   }
@@ -595,8 +735,15 @@ export class PreviewAliasesController {
   ) {
     const hid = Number(hotelId);
     const aid = Number(amenityId);
-    if (!Number.isFinite(hid) || hid <= 0 || !Number.isFinite(aid) || aid <= 0) {
-      throw new BadRequestException('Validation failed (numeric string is expected)');
+    if (
+      !Number.isFinite(hid) ||
+      hid <= 0 ||
+      !Number.isFinite(aid) ||
+      aid <= 0
+    ) {
+      throw new BadRequestException(
+        'Validation failed (numeric string is expected)',
+      );
     }
     return this.hotels.upsertAmenitiesPricebookRange(hid, {
       hotel_amenities_id: aid,

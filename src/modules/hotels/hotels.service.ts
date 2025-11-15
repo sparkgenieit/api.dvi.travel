@@ -9,6 +9,8 @@ import { UiRoomItemDto as CreateRoomDto } from './dto/create-room.dto';
 import { CreateAmenityDto } from './dto/create-amenity.dto';
 import { CreatePriceBookDto } from './dto/create-pricebook.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class HotelsService {
@@ -152,7 +154,7 @@ export class HotelsService {
     const limit = Math.max(1, Math.min(100, Number(q.limit ?? 10)));
     const skip = (page - 1) * limit;
 
-        const AND: Prisma.dvi_hotelWhereInput[] = [this.notDeletedBool as any];
+    const AND: Prisma.dvi_hotelWhereInput[] = [this.notDeletedBool as any];
 
     const rawStatus: any = (q as any).status;
     if (rawStatus !== undefined && rawStatus !== null && rawStatus !== '') {
@@ -302,7 +304,7 @@ export class HotelsService {
       .map((name) => ({ name }));
   }
   // -----------------------------------
- // Simple static meal types meta: 1 = Breakfast, 2 = Lunch, 3 = Dinner
+  // Simple static meal types meta: 1 = Breakfast, 2 = Lunch, 3 = Dinner
   mealTypes() {
     return [
       { id: 1, value: 1, code: 'B', name: 'Breakfast' },
@@ -310,6 +312,7 @@ export class HotelsService {
       { id: 3, value: 3, code: 'D', name: 'Dinner' },
     ];
   }
+
   getOne(hotel_id: number) {
     const id = Number(hotel_id);
     if (!Number.isFinite(id) || id <= 0) {
@@ -697,6 +700,110 @@ export class HotelsService {
     }
     const created = await this.addRoom(body as any);
     return { success: true, ...created };
+  }
+
+  // =====================================================================================
+  // NEW: Room Gallery (upload files & insert into dvi_hotel_room_gallery_details)
+  // =====================================================================================
+
+  /**
+   * Save room gallery:
+   * - Files already uploaded by Multer to uploads/tmp-room-gallery
+   * - Move each file into ../../uploads/room_gallery/ (relative to compiled __dirname)
+   * - New filename: room_ref_code + '_' + index + extension
+   * - Insert row into dvi_hotel_room_gallery_details with hotel_id, room_id, room_gallery_name
+   */
+  async saveRoomGallery(params: {
+    hotelId: number;
+    roomId: number;
+    roomRefCode: string;
+    files: Express.Multer.File[];
+    createdBy: number;
+  }) {
+    const hotelId = Number(params.hotelId);
+    const roomId = Number(params.roomId);
+    const roomRefCode = String(params.roomRefCode || '').trim();
+    const createdBy = Number(params.createdBy) || 1;
+    const files = params.files || [];
+
+    if (!Number.isFinite(hotelId) || hotelId <= 0) {
+      throw new Error('Invalid hotelId for room gallery');
+    }
+    if (!Number.isFinite(roomId) || roomId <= 0) {
+      throw new Error('Invalid roomId for room gallery');
+    }
+    if (!roomRefCode) {
+      throw new Error('roomRefCode is required for room gallery filenames');
+    }
+    if (!files.length) {
+      return { success: true, count: 0 };
+    }
+
+    // ../../uploads/room_gallery relative to dist/modules/hotels
+    const finalDir = path.resolve(__dirname, '../../uploads/room_gallery');
+
+    await fs.promises.mkdir(finalDir, { recursive: true });
+
+    const now = new Date();
+    const rows: {
+      hotel_id: number;
+      room_id: number;
+      room_gallery_name: string;
+      createdby: number;
+      createdon: Date;
+      updatedon: Date;
+      status: number;
+      deleted: number;
+    }[] = [];
+
+    const safeRef = roomRefCode.replace(/[^A-Za-z0-9_-]/g, '');
+
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (!f || !f.path) continue;
+
+      const ext =
+        path.extname(f.originalname || '') ||
+        path.extname((f as any).filename || '') ||
+        '.jpg';
+      const indexStr = String(i + 1);
+      const newName = `${safeRef}_${indexStr}${ext}`;
+      const targetPath = path.join(finalDir, newName);
+
+      // Handle relative vs absolute tmp path robustly
+      const tmpPath = path.isAbsolute(f.path)
+        ? f.path
+        : path.join(process.cwd(), f.path);
+
+      // Move file from tmp folder to final room_gallery folder
+      await fs.promises.rename(tmpPath, targetPath);
+
+      rows.push({
+        hotel_id: hotelId,
+        room_id: roomId,
+        room_gallery_name: newName,
+        createdby: createdBy,
+        createdon: now,
+        updatedon: now,
+        status: 1,
+        deleted: 0,
+      });
+    }
+
+    if (!rows.length) {
+      return { success: true, count: 0 };
+    }
+
+    await this.prisma.dvi_hotel_room_gallery_details.createMany({
+      data: rows as any,
+      skipDuplicates: false,
+    } as any);
+
+    return {
+      success: true,
+      count: rows.length,
+      files: rows.map((r) => r.room_gallery_name),
+    };
   }
 
   // =====================================================================================
