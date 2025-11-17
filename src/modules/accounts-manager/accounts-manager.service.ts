@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+// FILE: src/modules/accounts-manager/accounts-manager.service.ts
+
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma.service";
 import {
   AccountsManagerQueryDto,
@@ -9,11 +11,19 @@ import {
   AccountsManagerRowDto,
   AccountsManagerRowComponentType,
 } from "./dto/accounts-manager-row.dto";
+import {
+  AccountsManagerSummaryDto,
+  AccountsManagerQuoteDto,
+  AccountsManagerAgentDto,
+  AccountsManagerPaymentModeDto,
+  AccountsManagerPayDto,
+} from "./dto/accounts-manager-extra.dto";
 
 @Injectable()
 export class AccountsManagerService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // 🔹 EXISTING METHOD – LEFT UNCHANGED (except for headerId field)
   async list(query: AccountsManagerQueryDto): Promise<AccountsManagerRowDto[]> {
     const status: AccountsManagerStatus = query.status || "all";
     const componentType: AccountsManagerComponentType =
@@ -57,10 +67,7 @@ export class AccountsManagerService {
       return [];
     }
 
-    const headersById = new Map<
-      number,
-      (typeof headers)[number]
-    >();
+    const headersById = new Map<number, (typeof headers)[number]>();
     const headerIds: number[] = [];
 
     for (const h of headers) {
@@ -116,7 +123,7 @@ export class AccountsManagerService {
 
     // Shared helper to build base row from header
     const buildBaseRow = (
-      detailId: number,
+      detailHeaderId: number,
       vendorName: string,
       amount: number,
       paid: number,
@@ -125,7 +132,7 @@ export class AccountsManagerService {
     ): AccountsManagerRowDto | null => {
       if (!shouldIncludeByStatus(balance)) return null;
 
-      const header = headersById.get(detailId);
+      const header = headersById.get(detailHeaderId);
       if (!header) return null;
 
       const quoteId = header.itinerary_quote_ID || "";
@@ -145,7 +152,8 @@ export class AccountsManagerService {
       const rowStatus: "paid" | "due" = balance === 0 ? "paid" : "due";
 
       return {
-        id: detailId, // will be overwritten per component with detail row id
+        headerId: detailHeaderId, // ✅ expose header ID for frontend
+        id: detailHeaderId, // will be overwritten per component with detail row id
         quoteId,
         hotelName: vendorName,
         amount,
@@ -273,6 +281,7 @@ export class AccountsManagerService {
             accounts_itinerary_hotspot_details_ID: true,
             accounts_itinerary_details_ID: true,
             hotspot_ID: true,
+            hotspot_amount: true,
             total_payable: true,
             total_paid: true,
             total_balance: true,
@@ -299,10 +308,11 @@ export class AccountsManagerService {
 
       for (const hd of hotspotDetails) {
         const vendorName = hotspotMap.get(hd.hotspot_ID) || "Hotspot";
+        const amount = hd.hotspot_amount ?? hd.total_payable;
         const base = buildBaseRow(
           hd.accounts_itinerary_details_ID,
           vendorName,
-          hd.hotspot_amount ?? hd.total_payable, // if hotspot_amount exists, use it; else total_payable
+          amount,
           hd.total_paid,
           hd.total_balance,
           "hotspot",
@@ -334,9 +344,7 @@ export class AccountsManagerService {
 
       const activityIds = Array.from(
         new Set(
-          activityDetails
-            .map((a) => a.activity_ID)
-            .filter((x) => x && x > 0),
+          activityDetails.map((a) => a.activity_ID).filter((x) => x && x > 0),
         ),
       );
 
@@ -440,6 +448,580 @@ export class AccountsManagerService {
     });
 
     return rows;
+  }
+
+  /**
+   * 🔹 Internal helper used by summary/query endpoints.
+   * Rebuilds the same header filtering logic used in list(),
+   * but only returns the header IDs + normalized status/componentType.
+   */
+  private async getFilteredHeaderIds(
+    query: AccountsManagerQueryDto,
+  ): Promise<{
+    headerIds: number[];
+    status: AccountsManagerStatus;
+    componentType: AccountsManagerComponentType;
+  }> {
+    const status: AccountsManagerStatus = query.status || "all";
+    const componentType: AccountsManagerComponentType =
+      query.componentType || "all";
+
+    const fromDate = parseDDMMYYYY(query.fromDate);
+    const toDate = parseDDMMYYYY(query.toDate, true);
+
+    const where: any = {
+      deleted: 0,
+    };
+
+    if (query.quoteId) {
+      where.itinerary_quote_ID = {
+        contains: query.quoteId,
+      };
+    }
+
+    if (fromDate && toDate) {
+      where.trip_start_date_and_time = { gte: fromDate };
+      where.trip_end_date_and_time = { lte: toDate };
+    } else if (fromDate) {
+      where.trip_start_date_and_time = { gte: fromDate };
+    } else if (toDate) {
+      where.trip_end_date_and_time = { lte: toDate };
+    }
+
+    const headers = await this.prisma.dvi_accounts_itinerary_details.findMany({
+      where,
+      select: {
+        accounts_itinerary_details_ID: true,
+        agent_id: true,
+      },
+    });
+
+    if (!headers.length) {
+      return { headerIds: [], status, componentType };
+    }
+
+    const headerIds = headers.map(
+      (h) => h.accounts_itinerary_details_ID,
+    );
+
+    // Agent filter (same behaviour as list)
+    if (query.agent) {
+      const agentIds = Array.from(
+        new Set(headers.map((h) => h.agent_id).filter((x) => x && x > 0)),
+      );
+
+      const agents = agentIds.length
+        ? await this.prisma.dvi_agent.findMany({
+            where: {
+              agent_ID: { in: agentIds },
+            },
+            select: {
+              agent_ID: true,
+              agent_name: true,
+            },
+          })
+        : [];
+
+      const agentMap = new Map<number, string>();
+      for (const a of agents) {
+        agentMap.set(a.agent_ID, a.agent_name || "");
+      }
+
+      const needle = query.agent.toLowerCase();
+      const filtered = headers.filter((h) => {
+        const aName = (agentMap.get(h.agent_id) || "").toLowerCase();
+        return aName.includes(needle);
+      });
+
+      return {
+        headerIds: filtered.map(
+          (h) => h.accounts_itinerary_details_ID,
+        ),
+        status,
+        componentType,
+      };
+    }
+
+    return { headerIds, status, componentType };
+  }
+
+  /**
+   * 🔹 GET /accounts-manager/summary
+   * Aggregates total_payable / total_paid / total_balance across
+   * all visible component rows based on filters.
+   */
+  async getSummary(
+    query: AccountsManagerQueryDto,
+  ): Promise<AccountsManagerSummaryDto> {
+    const { headerIds, status, componentType } =
+      await this.getFilteredHeaderIds(query);
+
+    if (!headerIds.length) {
+      return {
+        totalPayable: 0,
+        totalPaid: 0,
+        totalBalance: 0,
+        rowCount: 0,
+      };
+    }
+
+    const includeTypes: AccountsManagerRowComponentType[] =
+      componentType === "all"
+        ? ["guide", "hotspot", "activity", "hotel", "vehicle"]
+        : [componentType as AccountsManagerRowComponentType];
+
+    const applyStatusFilter = <
+      T extends { total_balance: number | null | undefined },
+    >(
+      rows: T[],
+    ) => {
+      if (status === "all") return rows;
+      return rows.filter((r) => {
+        const bal = Number(r.total_balance ?? 0);
+        const isPaid = bal === 0;
+        return status === "paid" ? isPaid : !isPaid;
+      });
+    };
+
+    let totalPayable = 0;
+    let totalPaid = 0;
+    let totalBalance = 0;
+    let rowCount = 0;
+
+    // HOTEL
+    if (includeTypes.includes("hotel")) {
+      const rows =
+        await this.prisma.dvi_accounts_itinerary_hotel_details.findMany(
+          {
+            where: {
+              deleted: 0,
+              accounts_itinerary_details_ID: { in: headerIds },
+            },
+            select: {
+              total_payable: true,
+              total_paid: true,
+              total_balance: true,
+            },
+          },
+        );
+      const filtered = applyStatusFilter(rows);
+      for (const r of filtered) {
+        totalPayable += Number(r.total_payable ?? 0);
+        totalPaid += Number(r.total_paid ?? 0);
+        totalBalance += Number(r.total_balance ?? 0);
+      }
+      rowCount += filtered.length;
+    }
+
+    // VEHICLE
+    if (includeTypes.includes("vehicle")) {
+      const rows =
+        await this.prisma.dvi_accounts_itinerary_vehicle_details.findMany(
+          {
+            where: {
+              deleted: 0,
+              accounts_itinerary_details_ID: { in: headerIds },
+            },
+            select: {
+              total_payable: true,
+              total_paid: true,
+              total_balance: true,
+            },
+          },
+        );
+      const filtered = applyStatusFilter(rows);
+      for (const r of filtered) {
+        totalPayable += Number(r.total_payable ?? 0);
+        totalPaid += Number(r.total_paid ?? 0);
+        totalBalance += Number(r.total_balance ?? 0);
+      }
+      rowCount += filtered.length;
+    }
+
+    // GUIDE
+    if (includeTypes.includes("guide")) {
+      const rows =
+        await this.prisma.dvi_accounts_itinerary_guide_details.findMany(
+          {
+            where: {
+              deleted: 0,
+              accounts_itinerary_details_ID: { in: headerIds },
+            },
+            select: {
+              total_payable: true,
+              total_paid: true,
+              total_balance: true,
+            },
+          },
+        );
+      const filtered = applyStatusFilter(rows);
+      for (const r of filtered) {
+        totalPayable += Number(r.total_payable ?? 0);
+        totalPaid += Number(r.total_paid ?? 0);
+        totalBalance += Number(r.total_balance ?? 0);
+      }
+      rowCount += filtered.length;
+    }
+
+    // HOTSPOT
+    if (includeTypes.includes("hotspot")) {
+      const rows =
+        await this.prisma.dvi_accounts_itinerary_hotspot_details.findMany(
+          {
+            where: {
+              deleted: 0,
+              accounts_itinerary_details_ID: { in: headerIds },
+            },
+            select: {
+              total_payable: true,
+              total_paid: true,
+              total_balance: true,
+            },
+          },
+        );
+      const filtered = applyStatusFilter(rows);
+      for (const r of filtered) {
+        totalPayable += Number(r.total_payable ?? 0);
+        totalPaid += Number(r.total_paid ?? 0);
+        totalBalance += Number(r.total_balance ?? 0);
+      }
+      rowCount += filtered.length;
+    }
+
+    // ACTIVITY
+    if (includeTypes.includes("activity")) {
+      const rows =
+        await this.prisma.dvi_accounts_itinerary_activity_details.findMany(
+          {
+            where: {
+              deleted: 0,
+              accounts_itinerary_details_ID: { in: headerIds },
+            },
+            select: {
+              total_payable: true,
+              total_paid: true,
+              total_balance: true,
+            },
+          },
+        );
+      const filtered = applyStatusFilter(rows);
+      for (const r of filtered) {
+        totalPayable += Number(r.total_payable ?? 0);
+        totalPaid += Number(r.total_paid ?? 0);
+        totalBalance += Number(r.total_balance ?? 0);
+      }
+      rowCount += filtered.length;
+    }
+
+    return {
+      totalPayable,
+      totalPaid,
+      totalBalance,
+      rowCount,
+    };
+  }
+
+  /**
+   * 🔹 GET /accounts-manager/quotes?q=...
+   * Quote autocomplete – distinct itinerary_quote_ID values.
+   */
+  async searchQuotes(
+    phrase: string,
+  ): Promise<AccountsManagerQuoteDto[]> {
+    const where: any = {};
+
+    if (phrase) {
+      where.itinerary_quote_ID = {
+        contains: phrase,
+      };
+    }
+
+    const rows =
+      await this.prisma.dvi_accounts_itinerary_details.findMany({
+        where,
+        distinct: ["itinerary_quote_ID"],
+        select: {
+          itinerary_quote_ID: true,
+        },
+        orderBy: {
+          accounts_itinerary_details_ID: "desc",
+        },
+        take: 20,
+      });
+
+    return rows
+      .map((r) => (r.itinerary_quote_ID || "").trim())
+      .filter((q) => !!q)
+      .map((q) => ({ quoteId: q }));
+  }
+
+  /**
+   * 🔹 GET /accounts-manager/agents
+   * Agent dropdown – simple list of all agents.
+   */
+  async listAgents(): Promise<AccountsManagerAgentDto[]> {
+    const agents = await this.prisma.dvi_agent.findMany({
+      select: {
+        agent_ID: true,
+        agent_name: true,
+      },
+      orderBy: {
+        agent_name: "asc",
+      },
+    });
+
+    return agents.map((a) => ({
+      id: a.agent_ID,
+      name: a.agent_name || "",
+    }));
+  }
+
+  /**
+   * 🔹 GET /accounts-manager/payment-modes
+   * Returns static payment modes (aligned with PHP: 1=Cash, 2=UPI, 3=Net Banking).
+   */
+  async listPaymentModes(): Promise<AccountsManagerPaymentModeDto[]> {
+    return [
+      { id: 1, label: "Cash" },
+      { id: 2, label: "UPI" },
+      { id: 3, label: "Net Banking" },
+    ];
+  }
+
+  /**
+   * 🔹 POST /accounts-manager/pay
+   * Updates total_paid & total_balance for a single component row
+   * AND inserts a row into the corresponding *_transaction_history table.
+   */
+  async recordPayment(body: AccountsManagerPayDto): Promise<void> {
+    const {
+      componentType,
+      componentDetailId,
+      // accountsItineraryDetailsId, // ignored for now to avoid strict mismatch
+      amount,
+    } = body;
+
+    if (amount <= 0) {
+      throw new BadRequestException("Amount must be greater than zero");
+    }
+
+    let detail: any;
+    let updateFn: (data: any) => Promise<any>;
+
+    switch (componentType) {
+      case "hotel": {
+        const model = this.prisma.dvi_accounts_itinerary_hotel_details;
+        detail = await model.findUnique({
+          where: {
+            accounts_itinerary_hotel_details_ID: componentDetailId,
+          },
+        });
+        updateFn = (data) =>
+          model.update({
+            where: {
+              accounts_itinerary_hotel_details_ID: componentDetailId,
+            },
+            data,
+          });
+        break;
+      }
+      case "vehicle": {
+        const model = this.prisma.dvi_accounts_itinerary_vehicle_details;
+        detail = await model.findUnique({
+          where: {
+            accounts_itinerary_vehicle_details_ID: componentDetailId,
+          },
+        });
+        updateFn = (data) =>
+          model.update({
+            where: {
+              accounts_itinerary_vehicle_details_ID: componentDetailId,
+            },
+            data,
+          });
+        break;
+      }
+      case "guide": {
+        const model = this.prisma.dvi_accounts_itinerary_guide_details;
+        detail = await model.findUnique({
+          where: {
+            accounts_itinerary_guide_details_ID: componentDetailId,
+          },
+        });
+        updateFn = (data) =>
+          model.update({
+            where: {
+              accounts_itinerary_guide_details_ID: componentDetailId,
+            },
+            data,
+          });
+        break;
+      }
+      case "hotspot": {
+        const model = this.prisma.dvi_accounts_itinerary_hotspot_details;
+        detail = await model.findUnique({
+          where: {
+            accounts_itinerary_hotspot_details_ID: componentDetailId,
+          },
+        });
+        updateFn = (data) =>
+          model.update({
+            where: {
+              accounts_itinerary_hotspot_details_ID: componentDetailId,
+            },
+            data,
+          });
+        break;
+      }
+      case "activity": {
+        const model = this.prisma.dvi_accounts_itinerary_activity_details;
+        detail = await model.findUnique({
+          where: {
+            accounts_itinerary_activity_details_ID: componentDetailId,
+          },
+        });
+        updateFn = (data) =>
+          model.update({
+            where: {
+              accounts_itinerary_activity_details_ID: componentDetailId,
+            },
+            data,
+          });
+        break;
+      }
+      default:
+        throw new BadRequestException(
+          `Unsupported componentType: ${componentType}`,
+        );
+    }
+
+    if (!detail || detail.deleted === 1) {
+      throw new BadRequestException("Component row not found or deleted");
+    }
+
+    // Use the header ID from detail row to avoid strict mismatch errors
+    const headerId = Number(detail.accounts_itinerary_details_ID);
+
+    const currentPaid = Number(detail.total_paid ?? 0);
+    const currentBalance = Number(detail.total_balance ?? 0);
+
+    if (amount > currentBalance) {
+      throw new BadRequestException(
+        "Amount cannot be greater than current balance",
+      );
+    }
+
+    const newPaid = currentPaid + amount;
+    const newBalance = currentBalance - amount;
+
+    // 1️⃣ Update running totals on the *_details row
+    await updateFn({
+      total_paid: newPaid,
+      total_balance: newBalance,
+    });
+
+    // 2️⃣ Insert into the appropriate *_transaction_history table
+    await this.createTransactionHistory(body, amount, headerId);
+  }
+
+  /**
+   * Inserts a row into the legacy transaction history tables:
+   * - dvi_accounts_itinerary_hotel_transaction_history
+   * - dvi_accounts_itinerary_vehicle_transaction_history
+   * - dvi_accounts_itinerary_hotspot_transaction_history
+   * - dvi_accounts_itinerary_activity_transaction_history
+   * - dvi_accounts_itinerary_guide_transaction_history
+   */
+  private async createTransactionHistory(
+    body: AccountsManagerPayDto,
+    amount: number,
+    headerId: number,
+  ): Promise<void> {
+    const {
+      componentType,
+      componentDetailId,
+      modeOfPaymentId,
+      utrNumber,
+      processedBy,
+      routeDate,
+    } = body;
+
+    const transactionDate =
+      routeDate ? parseDDMMYYYY(routeDate) ?? new Date() : new Date();
+
+    // `any` avoids Prisma union type mismatch between different *_transaction_history tables
+    const common: any = {
+      accounts_itinerary_details_ID: headerId,
+      transaction_amount: amount,
+      transaction_date: transactionDate,
+      transaction_done_by: processedBy ?? null,
+      mode_of_pay: modeOfPaymentId ?? null, // 1: Cash, 2: UPI, 3: Net Banking
+      transaction_utr_no: utrNumber ?? null,
+      transaction_attachment: "", // screenshot upload not wired yet
+      deleted: 0,
+    };
+
+    switch (componentType) {
+      case "hotel":
+        await this.prisma.dvi_accounts_itinerary_hotel_transaction_history.create(
+          {
+            data: {
+              ...common,
+              accounts_itinerary_hotel_details_ID: componentDetailId,
+            } as any,
+          },
+        );
+        break;
+
+      case "vehicle":
+        await this.prisma.dvi_accounts_itinerary_vehicle_transaction_history.create(
+          {
+            data: {
+              ...common,
+              accounts_itinerary_vehicle_details_ID: componentDetailId,
+            } as any,
+          },
+        );
+        break;
+
+      case "hotspot":
+        await this.prisma.dvi_accounts_itinerary_hotspot_transaction_history.create(
+          {
+            data: {
+              ...common,
+              accounts_itinerary_hotspot_details_ID: componentDetailId,
+            } as any,
+          },
+        );
+        break;
+
+      case "activity":
+        await this.prisma.dvi_accounts_itinerary_activity_transaction_history.create(
+          {
+            data: {
+              ...common,
+              accounts_itinerary_activity_details_ID: componentDetailId,
+            } as any,
+          },
+        );
+        break;
+
+      case "guide":
+        await this.prisma.dvi_accounts_itinerary_guide_transaction_history.create(
+          {
+            data: {
+              ...common,
+              accounts_itinerary_guide_details_ID: componentDetailId,
+            } as any,
+          },
+        );
+        break;
+
+      default:
+        throw new BadRequestException(
+          `Unsupported componentType for history: ${componentType}`,
+        );
+    }
   }
 }
 
