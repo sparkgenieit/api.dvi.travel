@@ -16,6 +16,7 @@ import {
   UploadedFiles,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { Express } from 'express';
 import { HotelsService } from './hotels.service';
 import { PaginationQueryDto } from './dto/pagination.dto';
 import { CreateHotelDto } from './dto/create-hotel.dto';

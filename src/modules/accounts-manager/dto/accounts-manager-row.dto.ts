@@ -1,4 +1,4 @@
-// FILE: dto/accounts-manager-row.dto.ts
+// FILE: src/modules/accounts-manager/dto/accounts-manager-row.dto.ts
 
 export type AccountsManagerRowStatus = "paid" | "due";
 
@@ -15,11 +15,21 @@ export type AccountsManagerRowComponentType =
  * (see AccountRow type in AccountsManager.tsx).
  */
 export class AccountsManagerRowDto {
-  /** Primary key of the underlying *_details row */
-  id: number;
+  /**
+   * Primary key of the underlying *_details row
+   * (e.g. accounts_itinerary_hotel_details_ID).
+   */
+  id!: number;
+
+  /**
+   * Header primary key: accounts_itinerary_details_ID
+   * from dvi_accounts_itinerary_details.
+   * Used by Pay Now to validate / link header-detail relationship.
+   */
+  headerId!: number;
 
   /** itinerary_quote_ID from dvi_accounts_itinerary_details */
-  quoteId: string;
+  quoteId!: string;
 
   /**
    * Generic "name" column used by the UI.
@@ -29,22 +39,22 @@ export class AccountsManagerRowDto {
    * - For hotspots: dvi_hotspot_place.hotspot_name
    * - For activities: dvi_activity.activity_name
    */
-  hotelName: string;
+  hotelName!: string;
 
   /** Component-level payable amount (total_payable from *_details) */
-  amount: number;
+  amount!: number;
 
   /** Component-level payout (total_paid from *_details) */
-  payout: number;
+  payout!: number;
 
   /** Component-level balance (total_balance from *_details) */
-  payable: number;
+  payable!: number;
 
   /** Derived from payable: "paid" (balance <= 0) or "due" (balance > 0) */
-  status: AccountsManagerRowStatus;
+  status!: AccountsManagerRowStatus;
 
   /** Component type: hotel / vehicle / guide / hotspot / activity */
-  componentType?: AccountsManagerRowComponentType;
+  componentType!: AccountsManagerRowComponentType;
 
   /** Agent name (dvi_agent.agent_name) */
   agent?: string;
