@@ -19,18 +19,62 @@ jobs:
           host: ${{ secrets.DO_HOST }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
-
-          # <<< IMPORTANT: fail the job if any command fails
           script_stop: true
-
           script: |
-            set -e  # exit immediately on any error
+            set -e  # fail on any unhandled error
 
-            cd /var/node-projects/api.dvi.travel
+            APP_DIR="/var/node-projects/api.dvi.travel"
+            DEPLOY_STATE_FILE="/var/node-projects/api.dvi.travel.last_deploy_sha"
+
+            cd "$APP_DIR"
+
+            echo "Reading last deployed SHA (if any)..."
+            if [ -f "$DEPLOY_STATE_FILE" ]; then
+              PREV_SHA=$(cat "$DEPLOY_STATE_FILE")
+              echo "Previous deployed commit: $PREV_SHA"
+            else
+              PREV_SHA=""
+              echo "No previous deploy SHA found (first deploy or manual setup)."
+            fi
 
             echo "Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
+
+            NEW_SHA=$(git rev-parse HEAD)
+            echo "New commit after pull: $NEW_SHA"
+
+            # -------------------------------------------------------
+            # 1. Detect Prisma schema change between PREV_SHA and NEW_SHA
+            # -------------------------------------------------------
+            RUN_PRISMA_PUSH=false
+            if [ -n "$PREV_SHA" ]; then
+              echo "Checking for Prisma schema changes..."
+              if git diff --name-only "$PREV_SHA" "$NEW_SHA" | grep -q "prisma/schema.prisma"; then
+                echo "✅ Detected change in prisma/schema.prisma – will run 'npx prisma db push'."
+                RUN_PRISMA_PUSH=true
+              else
+                echo "ℹ️ No changes in prisma/schema.prisma – skipping 'prisma db push'."
+              fi
+            else
+              echo "ℹ️ No previous SHA recorded – skipping automatic 'prisma db push' for safety."
+            fi
+
+            if [ "$RUN_PRISMA_PUSH" = true ]; then
+              echo "Running Prisma DB push (will auto-answer 'no' to destructive prompts)..."
+              # Temporarily disable 'set -e' so we can capture exit code
+              set +e
+              printf 'n\n' | npx prisma db push
+              PRISMA_EXIT=$?
+              set -e
+
+              if [ $PRISMA_EXIT -ne 0 ]; then
+                echo "❌ Prisma db push failed or was aborted (answered 'no'). Failing deployment."
+                exit 1
+              fi
+
+              echo "✅ Prisma db push completed successfully."
+            fi
 
             echo "Installing dependencies..."
             npm install
@@ -41,4 +85,7 @@ jobs:
             echo "Restarting PM2..."
             pm2 restart api.dvi.travel || pm2 start dist/src/main.js --name api.dvi.travel
 
-            echo "Deployment completed successfully."
+            echo "Saving deployed SHA..."
+            echo "$NEW_SHA" > "$DEPLOY_STATE_FILE"
+
+            echo "🎉 Deployment completed successfully."
