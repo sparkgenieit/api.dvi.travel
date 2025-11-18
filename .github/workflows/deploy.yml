@@ -1,91 +1,79 @@
-name: Deploy API to DigitalOcean
+set -e  # keep global safety
 
-on:
-  pull_request:
-    types: [closed]
-    branches: [main]
-  push:
-    branches: [main]
+APP_DIR="/var/node-projects/api.dvi.travel"
+DEPLOY_STATE_FILE="/var/node-projects/api.dvi.travel.last_deploy_sha"
 
-jobs:
-  deploy:
-    if: github.event_name == 'push' || github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
+cd "$APP_DIR"
 
-    steps:
-      - name: SSH & deploy on Droplet
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          script_stop: true
-          script: |
-            set -e  # fail on any unhandled error
+echo "Reading last deployed SHA (if any)..."
+if [ -f "$DEPLOY_STATE_FILE" ]; then
+  PREV_SHA=$(cat "$DEPLOY_STATE_FILE")
+  echo "Previous deployed commit: $PREV_SHA"
+else
+  PREV_SHA=""
+  echo "No previous deploy SHA found (first deploy or manual setup)."
+fi
 
-            APP_DIR="/var/node-projects/api.dvi.travel"
-            DEPLOY_STATE_FILE="/var/node-projects/api.dvi.travel.last_deploy_sha"
+echo "Pulling latest code..."
+git fetch origin main
+git reset --hard origin/main
 
-            cd "$APP_DIR"
+NEW_SHA=$(git rev-parse HEAD)
+echo "New commit after pull: $NEW_SHA"
 
-            echo "Reading last deployed SHA (if any)..."
-            if [ -f "$DEPLOY_STATE_FILE" ]; then
-              PREV_SHA=$(cat "$DEPLOY_STATE_FILE")
-              echo "Previous deployed commit: $PREV_SHA"
-            else
-              PREV_SHA=""
-              echo "No previous deploy SHA found (first deploy or manual setup)."
-            fi
+# -------------------------------------------------------
+# Detect Prisma schema change
+# -------------------------------------------------------
+RUN_PRISMA_PUSH=false
+if [ -n "$PREV_SHA" ]; then
+  echo "Checking for Prisma schema changes between $PREV_SHA and $NEW_SHA ..."
 
-            echo "Pulling latest code..."
-            git fetch origin main
-            git reset --hard origin/main
+  # Temporarily disable 'set -e' so a 'no match' doesn't kill the script
+  set +e
+  CHANGED_FILES=$(git diff --name-only "$PREV_SHA" "$NEW_SHA")
+  DIFF_EXIT=$?
+  set -e
 
-            NEW_SHA=$(git rev-parse HEAD)
-            echo "New commit after pull: $NEW_SHA"
+  if [ $DIFF_EXIT -ne 0 ]; then
+    echo "git diff failed (maybe history rewritten). Skipping prisma db push for safety."
+  else
+    if echo "$CHANGED_FILES" | grep -q "^prisma/schema.prisma$"; then
+      echo "✅ Detected change in prisma/schema.prisma – will run 'npx prisma db push'."
+      RUN_PRISMA_PUSH=true
+    else
+      echo "ℹ️ No changes in prisma/schema.prisma – skipping 'prisma db push'."
+    fi
+  fi
+else
+  echo "ℹ️ No previous SHA recorded – skipping automatic 'prisma db push' for safety."
+fi
 
-            # -------------------------------------------------------
-            # 1. Detect Prisma schema change between PREV_SHA and NEW_SHA
-            # -------------------------------------------------------
-            RUN_PRISMA_PUSH=false
-            if [ -n "$PREV_SHA" ]; then
-              echo "Checking for Prisma schema changes..."
-              if git diff --name-only "$PREV_SHA" "$NEW_SHA" | grep -q "prisma/schema.prisma"; then
-                echo "✅ Detected change in prisma/schema.prisma – will run 'npx prisma db push'."
-                RUN_PRISMA_PUSH=true
-              else
-                echo "ℹ️ No changes in prisma/schema.prisma – skipping 'prisma db push'."
-              fi
-            else
-              echo "ℹ️ No previous SHA recorded – skipping automatic 'prisma db push' for safety."
-            fi
+if [ "$RUN_PRISMA_PUSH" = true ]; then
+  echo "Running Prisma DB push (will fail deployment on any error)..."
 
-            if [ "$RUN_PRISMA_PUSH" = true ]; then
-              echo "Running Prisma DB push (will auto-answer 'no' to destructive prompts)..."
-              # Temporarily disable 'set -e' so we can capture exit code
-              set +e
-              printf 'n\n' | npx prisma db push
-              PRISMA_EXIT=$?
-              set -e
+  set +e
+  npx prisma db push
+  PRISMA_EXIT=$?
+  set -e
 
-              if [ $PRISMA_EXIT -ne 0 ]; then
-                echo "❌ Prisma db push failed or was aborted (answered 'no'). Failing deployment."
-                exit 1
-              fi
+  if [ $PRISMA_EXIT -ne 0 ]; then
+    echo "❌ Prisma db push failed (data-loss warning or error). Failing deployment."
+    exit 1
+  fi
 
-              echo "✅ Prisma db push completed successfully."
-            fi
+  echo "✅ Prisma db push completed successfully."
+fi
 
-            echo "Installing dependencies..."
-            npm install
+echo "Installing dependencies..."
+npm install
 
-            echo "Building app..."
-            NODE_OPTIONS="--max-old-space-size=4096" npm run build
+echo "Building app..."
+NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
-            echo "Restarting PM2..."
-            pm2 restart api.dvi.travel || pm2 start dist/src/main.js --name api.dvi.travel
+echo "Restarting PM2..."
+pm2 restart api.dvi.travel || pm2 start dist/src/main.js --name api.dvi.travel
 
-            echo "Saving deployed SHA..."
-            echo "$NEW_SHA" > "$DEPLOY_STATE_FILE"
+echo "Saving deployed SHA..."
+echo "$NEW_SHA" > "$DEPLOY_STATE_FILE"
 
-            echo "🎉 Deployment completed successfully."
+echo "🎉 Deployment completed successfully."
