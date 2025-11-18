@@ -47,7 +47,7 @@ async function bootstrap() {
   const prisma = app.get(PrismaService);
   await prisma.enableShutdownHooks(app);
 
-  const port = Number(process.env.PORT) || 4000;
+  const port = Number(process.env.PORT) || 4006;
   await app.listen(port);
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger docs at http://localhost:${port}/docs`);
