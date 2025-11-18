@@ -2989,7 +2989,7 @@ model dvi_guide_review_details {
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model dvi_hotel {
+model dvi_hotels {
   hotel_id                                              Int       @id @default(autoincrement())
   hotel_name                                            String?   @db.VarChar(100)
   hotel_code                                            String?   @db.VarChar(200)
@@ -5474,7 +5474,7 @@ model dvi_vendor_vehicle_types {
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model old_dvi_stored_locationss {
+model old_dvi_stored_locations {
   location_ID                    BigInt    @id @default(autoincrement())
   source_location                String    @db.LongText
   source_location_lattitude      String    @db.LongText
