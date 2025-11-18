@@ -4931,7 +4931,7 @@ model dvi_time_limit {
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model dvi_users {
+model dvi_userss {
   userID           BigInt    @id @default(autoincrement())
   guide_id         Int       @default(0)
   vendor_id        BigInt    @default(0)
