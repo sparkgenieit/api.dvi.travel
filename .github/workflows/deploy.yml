@@ -19,7 +19,13 @@ jobs:
           host: ${{ secrets.DO_HOST }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
+
+          # <<< IMPORTANT: fail the job if any command fails
+          script_stop: true
+
           script: |
+            set -e  # exit immediately on any error
+
             cd /var/node-projects/api.dvi.travel
 
             echo "Pulling latest code..."
@@ -34,3 +40,5 @@ jobs:
 
             echo "Restarting PM2..."
             pm2 restart api.dvi.travel || pm2 start dist/src/main.js --name api.dvi.travel
+
+            echo "Deployment completed successfully."
