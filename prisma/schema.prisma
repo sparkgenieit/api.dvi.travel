@@ -2992,7 +2992,7 @@ model dvi_guide_review_details {
 model dvi_hotel {
   hotel_id                                              Int       @id @default(autoincrement())
   hotel_name                                            String?   @db.VarChar(100)
-  hotel_namesss                                            String?   @db.VarChar(100)
+  hotel_namesss                                            String   @db.VarChar(100)
 
   hotel_code                                            String?   @db.VarChar(200)
   hotel_mobile                                          String?   @db.VarChar(200)
