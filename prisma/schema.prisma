@@ -5522,7 +5522,7 @@ model old_dvi_stored_locations {
   @@index([source_location(length: 768)], map: "source_location_2")
 }
 
-model User {
+model Users {
   id        String   @id @db.VarChar(191)
   email     String   @unique @db.VarChar(191)
   password  String   @db.VarChar(191)
