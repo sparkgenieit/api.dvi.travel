@@ -1225,6 +1225,19 @@ model dvi_confirmed_itinerary_customer_feedback {
   @@index([updatedon], map: "idx_cnf_iti_cstmr_fd_updatedon")
 }
 
+model dvi_confirmed_itinerary_guide_feedback {
+  guide_feedback_ID  Int       @id @default(autoincrement())
+  itinerary_plan_ID  Int       @default(0)
+  itinerary_route_ID Int       @default(0)
+  guide_rating       String?   @db.VarChar(10)
+  guide_description  String?   @db.Text
+  createdby          Int       @default(0)
+  createdon          DateTime? @db.DateTime(0)
+  updatedon          DateTime? @db.DateTime(0)
+  status             Int       @default(0) @db.TinyInt
+  deleted            Int       @default(0) @db.TinyInt
+}
+
 model dvi_confirmed_itinerary_dailymoment_charge {
   driver_charge_ID   Int       @id @default(autoincrement())
   itinerary_plan_ID  Int       @default(0)
