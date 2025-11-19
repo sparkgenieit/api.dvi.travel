@@ -23,7 +23,7 @@ import {
 export class AccountsManagerService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // 🔹 EXISTING METHOD – LEFT UNCHANGED (except for headerId field)
+  // 🔹 MAIN LIST – now also exposes headerId, routeDate, vendorId, vehicleId
   async list(query: AccountsManagerQueryDto): Promise<AccountsManagerRowDto[]> {
     const status: AccountsManagerStatus = query.status || "all";
     const componentType: AccountsManagerComponentType =
@@ -121,7 +121,7 @@ export class AccountsManagerService {
 
     const rows: AccountsManagerRowDto[] = [];
 
-    // Shared helper to build base row from header
+    // 🔹 Shared helper to build base row from header
     const buildBaseRow = (
       detailHeaderId: number,
       vendorName: string,
@@ -151,8 +151,13 @@ export class AccountsManagerService {
 
       const rowStatus: "paid" | "due" = balance === 0 ? "paid" : "due";
 
+      const startDate = formatToDDMMYYYY(header.trip_start_date_and_time);
+      const endDate = formatToDDMMYYYY(header.trip_end_date_and_time);
+      // In PHP this is itinerary_route_date; here we default to trip start date
+      const routeDate = startDate;
+
       return {
-        headerId: detailHeaderId, // ✅ expose header ID for frontend
+        headerId: detailHeaderId, // header row ID (accounts_itinerary_details_ID)
         id: detailHeaderId, // will be overwritten per component with detail row id
         quoteId,
         hotelName: vendorName,
@@ -162,8 +167,12 @@ export class AccountsManagerService {
         status: rowStatus,
         componentType: component,
         agent: agentName,
-        startDate: formatToDDMMYYYY(header.trip_start_date_and_time),
-        endDate: formatToDDMMYYYY(header.trip_end_date_and_time),
+        startDate,
+        endDate,
+        routeDate,
+        // per-component enrichments will fill these:
+        vendorId: undefined,
+        vehicleId: undefined,
       };
     };
 
@@ -213,6 +222,8 @@ export class AccountsManagerService {
         );
         if (!base) continue;
         base.id = hd.accounts_itinerary_hotel_details_ID;
+        // 🔹 match PHP: hotel_id as vendorId
+        base.vendorId = hd.hotel_id || undefined;
         rows.push(base);
       }
     }
@@ -265,6 +276,8 @@ export class AccountsManagerService {
         );
         if (!base) continue;
         base.id = gd.accounts_itinerary_guide_details_ID;
+        // 🔹 PHP semantics: guide_id as vendorId
+        base.vendorId = gd.guide_id || undefined;
         rows.push(base);
       }
     }
@@ -319,6 +332,8 @@ export class AccountsManagerService {
         );
         if (!base) continue;
         base.id = hd.accounts_itinerary_hotspot_details_ID;
+        // 🔹 PHP semantics: hotspot_ID as vendorId
+        base.vendorId = hd.hotspot_ID || undefined;
         rows.push(base);
       }
     }
@@ -373,6 +388,8 @@ export class AccountsManagerService {
         );
         if (!base) continue;
         base.id = ad.accounts_itinerary_activity_details_ID;
+        // 🔹 PHP semantics: activity_ID as vendorId
+        base.vendorId = ad.activity_ID || undefined;
         rows.push(base);
       }
     }
@@ -412,6 +429,7 @@ export class AccountsManagerService {
           })
         : [];
 
+// (continue)
       const vehicleMap = new Map<number, string>();
       for (const v of vehicles) {
         const label =
@@ -433,6 +451,10 @@ export class AccountsManagerService {
         );
         if (!base) continue;
         base.id = vd.accounts_itinerary_vehicle_details_ID;
+        // 🔹 expose both vehicleId (for detail popup) and vendorId if needed
+        base.vehicleId = vd.vehicle_id || undefined;
+        // vendorId can also point to the same, like PHP often uses vendor/vehicle lookup
+        base.vendorId = vd.vehicle_id || undefined;
         rows.push(base);
       }
     }

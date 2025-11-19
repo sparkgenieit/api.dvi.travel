@@ -6,9 +6,10 @@ import { UsersModule } from './modules/users/users.module';
 import { HotelsModule } from './modules/hotels/hotels.module';
 import { AuthModule } from './modules/auth/auth.module';
 import {AccountsManagerModule} from './modules/accounts-manager/accounts-manager.module';
+import { AccountsLedgerModule } from './modules/accounts-ledger/accounts-ledger.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, HotelsModule, AccountsManagerModule],
+  imports: [AuthModule, UsersModule, HotelsModule, AccountsManagerModule, AccountsLedgerModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
