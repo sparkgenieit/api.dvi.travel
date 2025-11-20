@@ -9,6 +9,7 @@ import {
   GuideRatingRowDto,
   ListDailyMomentQueryDto,
   UpsertDailyMomentChargeDto,
+  DailyMomentHotspotRowDto,
 } from './dto/daily-moment-tracker.dto';
 
 @Injectable()
@@ -829,6 +830,108 @@ export class DailyMomentTrackerService {
     return rows;
   }
 
+  /**
+   * Day-wise hotspot cards for a given plan + route.
+   * Powers the pink cards with place name, time and Visited / Not-Visited buttons.
+   *
+   * Tables used:
+   * - dvi_confirmed_itinerary_route_hotspot_details  (per-stop details, statuses, times)
+   * - dvi_hotspot_place                               (master hotspot name/location)
+   */
+  async listRouteHotspots(
+    itineraryPlanId: number,
+    itineraryRouteId: number,
+  ): Promise<DailyMomentHotspotRowDto[]> {
+    if (!itineraryPlanId || !itineraryRouteId) {
+      throw new BadRequestException(
+        'itineraryPlanId and itineraryRouteId are required',
+      );
+    }
+
+    // 1) All hotspots for this plan + route
+    const hotspotRows =
+      await this.prisma.dvi_confirmed_itinerary_route_hotspot_details.findMany(
+        {
+          where: {
+            itinerary_plan_ID: itineraryPlanId,
+            itinerary_route_ID: itineraryRouteId,
+            deleted: 0,
+            status: 1,
+          },
+          orderBy: {
+            hotspot_order: 'asc',
+          },
+        },
+      );
+
+    if (!hotspotRows.length) {
+      return [];
+    }
+
+    // 2) Load hotspot master records (name / location)
+    const hotspotIds = Array.from(
+      new Set(
+        hotspotRows
+          .map((h) => h.hotspot_ID)
+          .filter((id) => typeof id === 'number' && id > 0),
+      ),
+    );
+
+    const hotspotMasters = hotspotIds.length
+      ? await this.prisma.dvi_hotspot_place.findMany({
+          where: {
+            hotspot_ID: { in: hotspotIds },
+            deleted: 0,
+            status: 1,
+          },
+        })
+      : [];
+
+    const hotspotMasterById = new Map<
+      number,
+      (typeof hotspotMasters)[number]
+    >();
+    hotspotMasters.forEach((h) => hotspotMasterById.set(h.hotspot_ID, h));
+
+    // 3) Build DTO rows
+    const rows: DailyMomentHotspotRowDto[] = [];
+
+    hotspotRows.forEach((row, index) => {
+      const master = hotspotMasterById.get(row.hotspot_ID);
+
+      const startTime = row.hotspot_start_time ?? null;
+      const endTime = row.hotspot_end_time ?? null;
+      const { minutes: durationMinutes, label: durationLabel } =
+        this.calcDurationLabel(startTime, endTime);
+
+      rows.push({
+        serial_no: row.hotspot_order || index + 1,
+        confirmed_route_hotspot_ID: row.confirmed_route_hotspot_ID,
+        route_hotspot_ID: row.route_hotspot_ID,
+        itinerary_plan_ID: row.itinerary_plan_ID,
+        itinerary_route_ID: row.itinerary_route_ID,
+        hotspot_ID: row.hotspot_ID,
+
+        hotspot_name: (master?.hotspot_name ?? '').trim() || 'N/A',
+        hotspot_location: (master?.hotspot_location ?? '').trim() || 'N/A',
+
+        start_time: this.formatTimeHHMM(startTime),
+        end_time: this.formatTimeHHMM(endTime),
+        duration_minutes: durationMinutes,
+        duration_label: durationLabel,
+
+        driver_hotspot_status: row.driver_hotspot_status ?? 0,
+        driver_not_visited_description:
+          row.driver_not_visited_description ?? null,
+        guide_hotspot_status: row.guide_hotspot_status ?? 0,
+        guide_not_visited_description:
+          row.guide_not_visited_description ?? null,
+      });
+    });
+
+    return rows;
+  }
+
   // ========= HELPER METHODS =========
 
   private parseDate(input: string): Date {
@@ -852,6 +955,51 @@ export class DailyMomentTrackerService {
 
   private mkPlanRouteKey(planId: number, routeId: number): string {
     return `${planId}:${routeId}`;
+  }
+
+  private formatTimeHHMM(date?: Date | null): string {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '--';
+
+    let hours = d.getHours();
+    const minutes = d.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    return `${hh}:${mm} ${ampm}`;
+  }
+
+  private calcDurationLabel(
+    start?: Date | null,
+    end?: Date | null,
+  ): { minutes: number; label: string } {
+    if (!start || !end) {
+      return { minutes: 0, label: '0 Min' };
+    }
+    const s = new Date(start).getTime();
+    const e = new Date(end).getTime();
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) {
+      return { minutes: 0, label: '0 Min' };
+    }
+
+    const minutes = Math.round((e - s) / 60000);
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    const parts: string[] = [];
+    if (hours > 0) {
+      parts.push(`${hours} Hour${hours > 1 ? 's' : ''}`);
+    }
+    if (mins > 0) {
+      parts.push(`${mins} Min`);
+    }
+
+    const label = parts.length ? parts.join(' ') : '0 Min';
+    return { minutes, label };
   }
 
   private formatDateYYYYMMDD(date: Date | null): string {

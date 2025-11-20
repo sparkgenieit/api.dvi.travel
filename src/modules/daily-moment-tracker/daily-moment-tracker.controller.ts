@@ -13,6 +13,7 @@ import { DailyMomentTrackerService } from './daily-moment-tracker.service';
 import {
   ListDailyMomentQueryDto,
   UpsertDailyMomentChargeDto,
+  DailyMomentHotspotRowDto,
 } from './dto/daily-moment-tracker.dto';
 
 @Controller('daily-moment-tracker')
@@ -28,8 +29,10 @@ export class DailyMomentTrackerController {
   // Extra charges list for one day (car icon)
   @Get('charges')
   async getCharges(
-    @Query('itineraryPlanId', new DefaultValuePipe(0), ParseIntPipe) itineraryPlanId: number,
-    @Query('itineraryRouteId', new DefaultValuePipe(0), ParseIntPipe) itineraryRouteId: number,
+    @Query('itineraryPlanId', new DefaultValuePipe(0), ParseIntPipe)
+    itineraryPlanId: number,
+    @Query('itineraryRouteId', new DefaultValuePipe(0), ParseIntPipe)
+    itineraryRouteId: number,
   ) {
     return this.service.listCharges(itineraryPlanId, itineraryRouteId);
   }
@@ -43,7 +46,8 @@ export class DailyMomentTrackerController {
   // Driver rating list
   @Get('driver-ratings')
   async getDriverRatings(
-    @Query('itineraryPlanId', new DefaultValuePipe(0), ParseIntPipe) itineraryPlanId: number,
+    @Query('itineraryPlanId', new DefaultValuePipe(0), ParseIntPipe)
+    itineraryPlanId: number,
   ) {
     return this.service.listDriverRatings(itineraryPlanId);
   }
@@ -51,8 +55,20 @@ export class DailyMomentTrackerController {
   // Guide rating list
   @Get('guide-ratings')
   async getGuideRatings(
-    @Query('itineraryPlanId', new DefaultValuePipe(0), ParseIntPipe) itineraryPlanId: number,
+    @Query('itineraryPlanId', new DefaultValuePipe(0), ParseIntPipe)
+    itineraryPlanId: number,
   ) {
     return this.service.listGuideRatings(itineraryPlanId);
+  }
+
+  // Day-wise hotspot cards (Visited / Not Visited)
+  @Get('route-hotspots')
+  async getRouteHotspots(
+    @Query('itineraryPlanId', new DefaultValuePipe(0), ParseIntPipe)
+    itineraryPlanId: number,
+    @Query('itineraryRouteId', new DefaultValuePipe(0), ParseIntPipe)
+    itineraryRouteId: number,
+  ): Promise<DailyMomentHotspotRowDto[]> {
+    return this.service.listRouteHotspots(itineraryPlanId, itineraryRouteId);
   }
 }

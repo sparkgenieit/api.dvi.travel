@@ -111,3 +111,34 @@ export class GuideRatingRowDto {
   guide_rating!: string | null;
   guide_description!: string | null;
 }
+
+/**
+ * Route Hotspot DTO (for the pink cards with Visited / Not-Visited buttons)
+ */
+export class DailyMomentHotspotRowDto {
+  // ordering inside the day (1,2,3,...)
+  serial_no!: number;
+
+  // identifiers
+  confirmed_route_hotspot_ID!: number;
+  route_hotspot_ID!: number;
+  itinerary_plan_ID!: number;
+  itinerary_route_ID!: number;
+  hotspot_ID!: number;
+
+  // display info
+  hotspot_name!: string;
+  hotspot_location!: string;
+
+  // timing & duration
+  start_time!: string;        // e.g. "01:56 PM"
+  end_time!: string;          // e.g. "03:26 PM"
+  duration_minutes!: number;  // total minutes
+  duration_label!: string;    // e.g. "1 Hour 30 Min"
+
+  // visit status (for buttons)
+  driver_hotspot_status!: number;               // 0 = Not-Visited, 1 = Visited
+  driver_not_visited_description!: string | null;
+  guide_hotspot_status!: number;
+  guide_not_visited_description!: string | null;
+}
