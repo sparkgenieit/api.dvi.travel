@@ -1,3 +1,4 @@
+// FILE: src/main.ts
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 dotenv.config(); // loads .env if present
@@ -35,11 +36,17 @@ async function bootstrap() {
 
   // Swagger
   const config = new DocumentBuilder()
-    .setTitle('DVI Backend APIs')
-    .setDescription('Hotels & Itineraries APIs with RBAC (admin/agent/vendor)')
-    .setVersion('1.0.0')
-    .addBearerAuth()
-    .build();
+  .setTitle('DVI Backend APIs')
+  .setDescription('Hotels & Itineraries APIs with RBAC (admin/agent/vendor)')
+  .setVersion('1.0.0')
+  .addBearerAuth({
+    type: 'http',
+    scheme: 'bearer',
+    bearerFormat: 'JWT',
+    description:
+      'Paste the JWT access token from /api/v1/auth/login here (without "Bearer " prefix).',
+  }) // <-- default name = 'bearer'
+  .build();
   const doc = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, doc);
 

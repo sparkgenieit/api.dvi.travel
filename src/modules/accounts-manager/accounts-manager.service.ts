@@ -792,6 +792,8 @@ export class AccountsManagerService {
       },
     });
 
+    console.log("Fetched agents:", agents.length);
+
     return agents.map((a) => ({
       id: a.agent_ID,
       name: a.agent_name || "",

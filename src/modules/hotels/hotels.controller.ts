@@ -16,6 +16,8 @@ import {
   UploadedFiles,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+
 import { Express } from 'express';
 import { HotelsService } from './hotels.service';
 import { PaginationQueryDto } from './dto/pagination.dto';
@@ -59,7 +61,8 @@ class ReviewDto {
   description?: string;
   status?: number;
 }
-
+@ApiTags('hotels')
+@ApiBearerAuth()          // <-- uses default 'bearer'
 @Controller('hotels')
 export class HotelsController {
   constructor(private readonly hotels: HotelsService) {}
