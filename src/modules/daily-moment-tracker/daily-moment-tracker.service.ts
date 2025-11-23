@@ -364,6 +364,8 @@ export class DailyMomentTrackerService {
           select: {
             staff_id: true,
             staff_name: true,
+            staff_mobile: true,
+            staff_email: true,
           },
         })
       : [];
@@ -394,6 +396,11 @@ export class DailyMomentTrackerService {
       // Guest + flights
       const customer = primaryCustomerByPlan.get(itinerary_plan_ID);
       const guest_name = customer?.customer_name ?? '';
+
+      const guest_mobile =
+        (customer?.primary_contact_no ?? '') ||
+        (customer?.altenative_contact_no ?? '');
+      const guest_email = customer?.email_id ?? '';
 
       const arrival_flight_details = customer?.arrival_flight_details ?? '';
       const departure_flight_details =
@@ -494,6 +501,8 @@ export class DailyMomentTrackerService {
       // Agent + travel expert
       let agent_name = '';
       let travel_expert_name = '';
+      let travel_expert_mobile = '';
+      let travel_expert_email = '';
 
       if (plan.agent_id && agentById.has(plan.agent_id)) {
         const agent = agentById.get(plan.agent_id)!;
@@ -505,6 +514,8 @@ export class DailyMomentTrackerService {
         ) {
           const te = travelExpertById.get(agent.travel_expert_id)!;
           travel_expert_name = te.staff_name ?? '';
+          travel_expert_mobile = te.staff_mobile ?? '';
+          travel_expert_email = te.staff_email ?? '';
         }
       }
 
@@ -534,8 +545,11 @@ export class DailyMomentTrackerService {
       const row: DailyMomentRowDto = {
         count: counter,
         guest_name: this.fieldOrDash(guest_name),
+        guest_mobile: this.fieldOrDash(guest_mobile),
+        guest_email: this.fieldOrDash(guest_email),
         quote_id: plan.itinerary_quote_ID ?? null,
         itinerary_plan_ID,
+        itinerary_route_ID,
         route_date,
         trip_type,
         location_name: this.fieldOrDash(location_name),
@@ -554,6 +568,8 @@ export class DailyMomentTrackerService {
         driver_mobile: this.fieldOrDash(driver_mobile),
         special_remarks: this.fieldOrDash(special_remarks_final),
         travel_expert_name: this.fieldOrDash(travel_expert_name),
+        travel_expert_mobile: this.fieldOrDash(travel_expert_mobile),
+        travel_expert_email: this.fieldOrDash(travel_expert_email),
         agent_name: this.fieldOrDash(agent_name),
       };
 
