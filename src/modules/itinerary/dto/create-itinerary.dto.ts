@@ -47,31 +47,44 @@ export class ItineraryHotspotDto {
   hotspot_end_time!: string;
 }
 
+export class ItineraryVehicleDto {
+  @ApiProperty()
+  vehicle_type_id!: number;
+
+  @ApiProperty()
+  vehicle_count!: number;
+}
+
 export class CreateItineraryDto {
+  // core IDs
   @ApiProperty()
   agent_id!: number;
 
   @ApiProperty()
   staff_id!: number;
 
+  // locations
   @ApiProperty()
   arrival_location!: string;
 
   @ApiProperty()
   departure_location!: string;
 
+  // trip window (ISO strings from frontend)
   @ApiProperty()
   trip_start_date_and_time!: string;
 
   @ApiProperty()
   trip_end_date_and_time!: string;
 
+  // budget / type
   @ApiProperty()
   expecting_budget!: number;
 
   @ApiProperty()
   itinerary_type!: number;
 
+  // totals
   @ApiProperty()
   total_adult!: number;
 
@@ -81,6 +94,7 @@ export class CreateItineraryDto {
   @ApiProperty()
   total_infants!: number;
 
+  // meal plan
   @ApiProperty()
   meal_plan_breakfast!: number;
 
@@ -90,9 +104,48 @@ export class CreateItineraryDto {
   @ApiProperty()
   meal_plan_dinner!: number;
 
+  // ---------- EXTRA FIELDS TO MATCH PHP LOGIC ----------
+
+  @ApiProperty({ required: false, description: '1=Hotel, 2=Vehicle, 3=Both' })
+  itinerary_preference?: number;
+
+  @ApiProperty({ required: false })
+  arrival_type?: number;
+
+  @ApiProperty({ required: false })
+  departure_type?: number;
+
+  @ApiProperty({ required: false })
+  no_of_days?: number;
+
+  @ApiProperty({ required: false })
+  no_of_nights?: number;
+
+  @ApiProperty({ required: false })
+  entry_ticket_required?: number;
+
+  @ApiProperty({ required: false })
+  guide_for_itinerary?: number;
+
+  @ApiProperty({ required: false })
+  nationality?: number;
+
+  @ApiProperty({ required: false, description: '1=Veg, 2=Non-veg, 3=Egg' })
+  food_type?: number;
+
+  @ApiProperty({ required: false, description: 'ISO string or date-time text' })
+  pick_up_date_and_time?: string;
+
+  @ApiProperty({ required: false })
+  special_instructions?: string;
+
+  // collections
   @ApiProperty({ type: [ItineraryRouteDto] })
   routes!: ItineraryRouteDto[];
 
   @ApiProperty({ type: [ItineraryHotspotDto] })
   hotspots!: ItineraryHotspotDto[];
+
+  @ApiProperty({ type: [ItineraryVehicleDto], required: false })
+  vehicles?: ItineraryVehicleDto[];
 }

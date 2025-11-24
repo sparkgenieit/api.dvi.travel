@@ -10,9 +10,11 @@ import { AccountsLedgerModule } from './modules/accounts-ledger/accounts-ledger.
 import { ItineraryModule } from './modules/itinerary/itinerary.module';
 import {ItineraryDropdownsModule  } from './modules/itinerary-dropdowns/itinerary-dropdowns.module';
 import { DailyMomentTrackerModule } from './modules/daily-moment-tracker/daily-moment-tracker.module';
+import { AgentsModule } from './modules/agents/agents.module';
+import {ItineraryViaRoutesModule} from './modules/itinerary-via-routes/itinerary-via-routes.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItineraryModule,AccountsManagerModule, AccountsLedgerModule],
+  imports: [AuthModule, UsersModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItineraryModule,AccountsManagerModule, AccountsLedgerModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

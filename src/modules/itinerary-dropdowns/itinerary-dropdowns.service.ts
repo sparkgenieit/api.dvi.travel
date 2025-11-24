@@ -1,3 +1,5 @@
+// FILE: src/modules/itinerary-dropdowns/itinerary-dropdowns.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 
@@ -7,31 +9,61 @@ export type SimpleOption = {
 };
 
 export type LocationOption = {
-  id: number;
+  id: string; // same as PHP: <option value="LOCATION_NAME">
   name: string;
 };
+
+type LocationType = 'source' | 'destination';
 
 @Injectable()
 export class ItineraryDropdownsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getLocations(): Promise<LocationOption[]> {
-    const rows = await this.prisma.dvi_cities.findMany({
+  // ---------------------------------------------------------------------------
+  // LOCATIONS (source / destination) from dvi_stored_locations like old PHP
+  // ---------------------------------------------------------------------------
+  async getLocations(
+    type: LocationType = 'source',
+    sourceLocation?: string,
+  ): Promise<LocationOption[]> {
+    if (type === 'destination') {
+      const rows = await this.prisma.dvi_stored_locations.findMany({
+        where: {
+          deleted: 0,
+          status: 1,
+          ...(sourceLocation ? { source_location: sourceLocation } : {}),
+        } as any,
+        select: {
+          destination_location: true,
+        },
+        distinct: ['destination_location'],
+      } as any);
+
+      return rows
+        .filter((r) => !!r.destination_location)
+        .map((r) => ({
+          id: r.destination_location as string,
+          name: r.destination_location as string,
+        }));
+    }
+
+    const rows = await this.prisma.dvi_stored_locations.findMany({
       where: {
         deleted: 0,
         status: 1,
       } as any,
       select: {
-        id: true,
-        name: true,
+        source_location: true,
       },
-      orderBy: [{ name: 'asc' }],
+      distinct: ['source_location'],
     } as any);
 
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-    }));
+    return rows
+      .filter((r) => !!r.source_location)
+      .map((r) => ({
+        id: r.source_location as string,
+        name: r.source_location as string,
+      }));
   }
 
   async getItineraryTypes(): Promise<SimpleOption[]> {
@@ -130,5 +162,87 @@ export class ItineraryDropdownsService {
       { id: 'spa', label: 'Spa' },
       { id: 'restaurant', label: 'In-house Restaurant' },
     ];
+  }
+
+  // ---------------------------------------------------------------------------
+  // VIA ROUTES – match old PHP behaviour (use DB: dvi_stored_locations +
+  // dvi_stored_location_via_routes)
+  // ---------------------------------------------------------------------------
+  async getViaRoutes(
+    source?: string,
+    destination?: string,
+    q?: string, // optional typed text from frontend
+  ): Promise<SimpleOption[]> {
+    const src = (source || '').trim();
+    const dest = (destination || '').trim();
+
+    if (!src || !dest) {
+      console.warn(
+        '[ViaRoutes] Missing source or destination',
+        'source=',
+        src,
+        'destination=',
+        dest,
+      );
+      return [];
+    }
+
+    // 1) Find location_ID from dvi_stored_locations (same as PHP)
+    const location = await this.prisma.dvi_stored_locations.findFirst({
+      where: {
+        deleted: 0,
+        status: 1,
+        source_location: src,
+        destination_location: dest,
+      } as any,
+      select: {
+        location_ID: true,
+      },
+    } as any);
+
+    if (!location) {
+      console.warn(
+        '[ViaRoutes] No location_ID found for source/destination',
+        'source=',
+        src,
+        'destination=',
+        dest,
+      );
+      return [];
+    }
+
+    // 2) Fetch via routes for that location_id
+    const viaRoutes = await this.prisma.dvi_stored_location_via_routes.findMany({
+      where: {
+        deleted: 0,
+        status: 1,
+        location_id: location.location_ID,
+        ...(q && q.trim()
+          ? {
+              via_route_location: {
+                contains: q.trim(),
+                mode: 'insensitive',
+              } as any,
+            }
+          : {}),
+      } as any,
+      select: {
+        via_route_location_ID: true,
+        via_route_location: true,
+      },
+      orderBy: {
+        via_route_location: 'asc',
+      },
+    } as any);
+
+    if (!viaRoutes.length) {
+      return [];
+    }
+
+    // 3) Map to SimpleOption[] (id = via_route_location_ID, label = name)
+    return viaRoutes.map((r) => ({
+      id: String(r.via_route_location_ID),
+      label: r.via_route_location ?? '',
+    }));
   }
 }
