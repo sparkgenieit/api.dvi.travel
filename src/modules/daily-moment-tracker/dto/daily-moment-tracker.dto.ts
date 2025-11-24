@@ -1,7 +1,15 @@
 // FILE: src/modules/daily-moment-tracker/dto/daily-moment-tracker.dto.ts
 
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class ListDailyMomentQueryDto {
   @IsNotEmpty()
@@ -27,9 +35,15 @@ export class ListDailyMomentQueryDto {
 
 export class DailyMomentRowDto {
   count!: number;
+
+  // Guest details
   guest_name!: string;
+  guest_mobile!: string; // NEW
+  guest_email!: string;  // NEW
+
   quote_id!: string | null;
   itinerary_plan_ID!: number;
+  itinerary_route_ID!: number;
   route_date!: string; // dd-mm-YYYY (formatted like PHP)
   trip_type!: 'Arrival' | 'Departure' | 'Ongoing';
   location_name!: string | null;
@@ -41,10 +55,17 @@ export class DailyMomentRowDto {
   vendor_name!: string;
   meal_plan!: string; // e.g. "B L D"
   vehicle_no!: string;
+
   driver_name!: string;
   driver_mobile!: string;
+
   special_remarks!: string;
+
+  // Travel expert details
   travel_expert_name!: string;
+  travel_expert_mobile!: string; // NEW
+  travel_expert_email!: string;  // NEW
+
   agent_name!: string;
 }
 
@@ -131,13 +152,13 @@ export class DailyMomentHotspotRowDto {
   hotspot_location!: string;
 
   // timing & duration
-  start_time!: string;        // e.g. "01:56 PM"
-  end_time!: string;          // e.g. "03:26 PM"
-  duration_minutes!: number;  // total minutes
-  duration_label!: string;    // e.g. "1 Hour 30 Min"
+  start_time!: string; // e.g. "01:56 PM"
+  end_time!: string; // e.g. "03:26 PM"
+  duration_minutes!: number; // total minutes
+  duration_label!: string; // e.g. "1 Hour 30 Min"
 
   // visit status (for buttons)
-  driver_hotspot_status!: number;               // 0 = Not-Visited, 1 = Visited
+  driver_hotspot_status!: number; // 0 = Not-Visited, 1 = Visited
   driver_not_visited_description!: string | null;
   guide_hotspot_status!: number;
   guide_not_visited_description!: string | null;
