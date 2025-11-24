@@ -55,96 +55,113 @@ export class ItineraryVehicleDto {
   vehicle_count!: number;
 }
 
-export class CreateItineraryDto {
-  // core IDs
+/**
+ * Shape of "plan" in your frontend payload:
+ * {
+ *   plan: {
+ *     agent_id,
+ *     arrival_point,
+ *     departure_point,
+ *     itinerary_preference,
+ *     itinerary_type,
+ *     trip_start_date,
+ *     trip_end_date,
+ *     arrival_type,
+ *     departure_type,
+ *     no_of_nights,
+ *     no_of_days,
+ *     budget,
+ *     entry_ticket_required,
+ *     guide_for_itinerary,
+ *     nationality,
+ *     food_type,
+ *     adult_count,
+ *     child_count,
+ *     infant_count,
+ *     pick_up_date_and_time?,
+ *     special_instructions?
+ *   },
+ *   routes: [...],
+ *   vehicles: [...]
+ * }
+ */
+export class ItineraryPlanDto {
   @ApiProperty()
   agent_id!: number;
 
-  @ApiProperty()
-  staff_id!: number;
-
-  // locations
-  @ApiProperty()
-  arrival_location!: string;
+  @ApiProperty({ required: false })
+  staff_id?: number;
 
   @ApiProperty()
-  departure_location!: string;
-
-  // trip window (ISO strings from frontend)
-  @ApiProperty()
-  trip_start_date_and_time!: string;
+  arrival_point!: string;
 
   @ApiProperty()
-  trip_end_date_and_time!: string;
+  departure_point!: string;
 
-  // budget / type
   @ApiProperty()
-  expecting_budget!: number;
+  itinerary_preference!: number;
 
   @ApiProperty()
   itinerary_type!: number;
 
-  // totals
   @ApiProperty()
-  total_adult!: number;
-
-  @ApiProperty()
-  total_children!: number;
+  trip_start_date!: string;
 
   @ApiProperty()
-  total_infants!: number;
-
-  // meal plan
-  @ApiProperty()
-  meal_plan_breakfast!: number;
+  trip_end_date!: string;
 
   @ApiProperty()
-  meal_plan_lunch!: number;
+  arrival_type!: number;
 
   @ApiProperty()
-  meal_plan_dinner!: number;
+  departure_type!: number;
 
-  // ---------- EXTRA FIELDS TO MATCH PHP LOGIC ----------
+  @ApiProperty()
+  no_of_nights!: number;
 
-  @ApiProperty({ required: false, description: '1=Hotel, 2=Vehicle, 3=Both' })
-  itinerary_preference?: number;
+  @ApiProperty()
+  no_of_days!: number;
+
+  @ApiProperty()
+  budget!: number;
+
+  @ApiProperty()
+  entry_ticket_required!: number;
+
+  @ApiProperty()
+  guide_for_itinerary!: number;
+
+  @ApiProperty()
+  nationality!: number;
+
+  @ApiProperty()
+  food_type!: number;
+
+  @ApiProperty()
+  adult_count!: number;
+
+  @ApiProperty()
+  child_count!: number;
+
+  @ApiProperty()
+  infant_count!: number;
 
   @ApiProperty({ required: false })
-  arrival_type?: number;
-
-  @ApiProperty({ required: false })
-  departure_type?: number;
-
-  @ApiProperty({ required: false })
-  no_of_days?: number;
-
-  @ApiProperty({ required: false })
-  no_of_nights?: number;
-
-  @ApiProperty({ required: false })
-  entry_ticket_required?: number;
-
-  @ApiProperty({ required: false })
-  guide_for_itinerary?: number;
-
-  @ApiProperty({ required: false })
-  nationality?: number;
-
-  @ApiProperty({ required: false, description: '1=Veg, 2=Non-veg, 3=Egg' })
-  food_type?: number;
-
-  @ApiProperty({ required: false, description: 'ISO string or date-time text' })
   pick_up_date_and_time?: string;
 
   @ApiProperty({ required: false })
   special_instructions?: string;
+}
 
-  // collections
+export class CreateItineraryDto {
+  @ApiProperty({ type: ItineraryPlanDto })
+  plan!: ItineraryPlanDto;
+
   @ApiProperty({ type: [ItineraryRouteDto] })
   routes!: ItineraryRouteDto[];
 
-  @ApiProperty({ type: [ItineraryHotspotDto] })
-  hotspots!: ItineraryHotspotDto[];
+  @ApiProperty({ type: [ItineraryHotspotDto], required: false })
+  hotspots?: ItineraryHotspotDto[];
 
   @ApiProperty({ type: [ItineraryVehicleDto], required: false })
   vehicles?: ItineraryVehicleDto[];
