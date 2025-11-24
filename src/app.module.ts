@@ -8,9 +8,10 @@ import { AuthModule } from './modules/auth/auth.module';
 import {AccountsManagerModule} from './modules/accounts-manager/accounts-manager.module';
 import { AccountsLedgerModule } from './modules/accounts-ledger/accounts-ledger.module';
 import { DailyMomentTrackerModule } from './modules/daily-moment-tracker/daily-moment-tracker.module';
+import { VendorsModule } from './modules/vendors/vendors.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, HotelsModule, AccountsManagerModule, AccountsLedgerModule, DailyMomentTrackerModule],
+  imports: [AuthModule, UsersModule, HotelsModule, AccountsManagerModule, AccountsLedgerModule, DailyMomentTrackerModule, VendorsModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
