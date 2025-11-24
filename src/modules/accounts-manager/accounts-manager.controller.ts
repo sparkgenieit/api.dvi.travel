@@ -11,7 +11,6 @@ import {
   AccountsManagerPaymentModeDto,
   AccountsManagerPayDto,
 } from "./dto/accounts-manager-extra.dto";
-import { Public } from "../../auth/public.decorator";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -21,6 +20,7 @@ import {
 } from "@nestjs/swagger";
 
 @ApiTags("accounts-manager")
+@ApiBearerAuth() // uses default bearer auth from main.ts
 @Controller("accounts-manager")
 export class AccountsManagerController {
   constructor(
@@ -28,14 +28,9 @@ export class AccountsManagerController {
   ) {}
 
   /**
-   * Main list endpoint – unchanged.
+   * Main list endpoint.
    * GET /accounts-manager
-   *
-   * Marked as @Public() so React can load the page without JWT
-   * while you are wiring the UI. Remove @Public() later if you
-   * want this behind auth.
    */
-  @Public()
   @Get()
   @ApiOperation({
     summary: "List account manager rows",
@@ -53,10 +48,7 @@ export class AccountsManagerController {
    * Summary cards (payable / paid / balance) based on same filters
    * as the list endpoint.
    * GET /accounts-manager/summary
-   *
-   * Also made @Public() for now so the top cards work without JWT.
    */
-  @Public()
   @Get("summary")
   @ApiOperation({
     summary: "Get summary totals for current filter",
@@ -72,12 +64,8 @@ export class AccountsManagerController {
 
   /**
    * Quote ID autocomplete – distinct itinerary_quote_ID values.
-   * Frontend can call: GET /accounts-manager/quotes?q=ABC
-   *
-   * This is a read-only lookup, so it's safe to expose as @Public()
-   * during development.
+   * GET /accounts-manager/quotes?q=ABC
    */
-  @Public()
   @Get("quotes")
   @ApiOperation({
     summary: "Search quote IDs",
@@ -94,10 +82,7 @@ export class AccountsManagerController {
   /**
    * Agent dropdown for the filter.
    * GET /accounts-manager/agents
-   *
-   * Lookup only, made @Public() to avoid 401 while wiring filters.
    */
-  @Public()
   @Get("agents")
   @ApiOperation({
     summary: "List agents for filter dropdown",
@@ -110,10 +95,7 @@ export class AccountsManagerController {
   /**
    * Mode of payment list for Pay Now modal.
    * GET /accounts-manager/payment-modes
-   *
-   * Lookup only, also @Public().
    */
-  @Public()
   @Get("payment-modes")
   @ApiOperation({
     summary: "List modes of payment",
@@ -128,19 +110,14 @@ export class AccountsManagerController {
   /**
    * Pay Now – updates total_paid and total_balance for a component row.
    * POST /accounts-manager/pay
-   *
-   * ⚠️ Temporarily marked @Public() so you can test from React
-   * without wiring JWT. Once you’re done wiring, remove @Public()
-   * to secure it again and keep @ApiBearerAuth() for Swagger.
    */
-  @Public()
   @Post("pay")
-  @ApiBearerAuth()
   @ApiOperation({
     summary: "Record a payment against a component row",
     description:
       "Updates the per-component totals (total_paid and total_balance) for the specified hotel/vehicle/guide/hotspot/activity row.",
   })
+  @ApiBearerAuth() // optional (redundant but explicit for this route)
   @ApiBody({ type: AccountsManagerPayDto })
   @ApiOkResponse({ description: "Payment recorded" })
   async pay(

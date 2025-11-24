@@ -1,7 +1,7 @@
 // FILE: src/modules/accounts-ledger/accounts-ledger.controller.ts
 
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AccountsLedgerService } from './accounts-ledger.service';
 import {
   AccountsLedgerComponentType,
@@ -10,6 +10,7 @@ import {
 import { AccountsLedgerOptionsDto } from './dto/accounts-ledger-options.dto';
 
 @ApiTags('Accounts Ledger')
+@ApiBearerAuth() // uses default bearer auth from main.ts
 @Controller('accounts-ledger')
 export class AccountsLedgerController {
   constructor(private readonly service: AccountsLedgerService) {}

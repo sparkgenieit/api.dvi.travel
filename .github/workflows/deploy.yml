@@ -1,0 +1,61 @@
+name: Deploy API to DigitalOcean
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    # Run on direct pushes to main OR merged PRs into main
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH & deploy on Droplet
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          # port: 22            # uncomment / change if you use a non-default SSH port
+          script: |
+            # Stop on first error in this script
+            set -e
+
+            APP_DIR="/var/node-projects/api.dvi.travel"
+
+            echo "🔐 Connecting to server and switching to app directory..."
+            cd "$APP_DIR"
+
+            echo "📥 Pulling latest code from main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "🗄  Running Prisma DB push (deployment will fail on any error)..."
+            # Temporarily disable 'set -e' so we can capture Prisma's exit code
+            set +e
+            npx prisma db push
+            PRISMA_EXIT=$?
+            set -e
+
+            if [ $PRISMA_EXIT -ne 0 ]; then
+              echo "❌ Prisma db push failed (destructive migration or other error)."
+              echo "   Deployment aborted. Fix schema / DB or run prisma manually, then redeploy."
+              exit 1
+            fi
+
+            echo "✅ Prisma db push completed successfully."
+
+            echo "📦 Installing dependencies..."
+            npm install
+
+            echo "🏗  Building app..."
+            NODE_OPTIONS="--max-old-space-size=4096" npm run build
+
+            echo "🚀 Restarting PM2 process 'api.dvi.travel'..."
+            pm2 restart api.dvi.travel || pm2 start dist/src/main.js --name api.dvi.travel
+
+            echo "🎉 Deployment completed successfully."
