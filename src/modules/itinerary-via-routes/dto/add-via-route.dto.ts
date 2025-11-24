@@ -10,16 +10,16 @@ export class AddViaRouteDto {
    * Selected via route IDs (from dvi_stored_location_via_routes.via_route_location_ID)
    */
   @IsArray()
-  via_route_location: (number | string)[];
+  via_route_location!: (number | string)[];
 
   @IsString()
-  hidden_route_date: string; // dd/mm/yyyy
+  hidden_route_date!: string; // dd/mm/yyyy
 
   @IsString()
-  hidden_source_location: string;
+  hidden_source_location!: string;
 
   @IsString()
-  hidden_destination_location: string;
+  hidden_destination_location!: string;
 
   /**
    * Existing itinerary_via_route_IDs when editing (index-aligned with via_route_location).

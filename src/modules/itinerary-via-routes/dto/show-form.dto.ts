@@ -8,14 +8,14 @@ export class ShowViaRouteFormDto {
   DAY_NO?: string;
 
   @IsString()
-  selected_source_location: string;
+  selected_source_location!: string;
 
   @IsString()
-  selected_next_visiting_location: string;
+  selected_next_visiting_location!: string;
 
   // dd/mm/yyyy
   @IsString()
-  itinerary_route_date: string;
+  itinerary_route_date!: string;
 
   @IsOptional()
   @IsString()

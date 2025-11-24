@@ -4,22 +4,22 @@ import { ApiProperty } from "@nestjs/swagger";
 
 export class AgentListItemDto {
   @ApiProperty()
-  id: number;
+  id!: number;
 
   @ApiProperty()
-  name: string;
+  name!: string;
 }
 
 export class AgentWithCompanyDto {
   @ApiProperty()
-  id: number;
+  id!: number;
 
   @ApiProperty({ description: "Agent name" })
-  name: string;
+  name!: string;
 
   @ApiProperty({ description: "Company name (or 'NA')" })
-  companyName: string;
+  companyName!: string;
 
   @ApiProperty({ description: "Label 'Agent Name - Company'" })
-  label: string;
+  label!: string;
 }
