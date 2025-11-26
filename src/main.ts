@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaService } from './prisma.service';
 import { BigIntSerializerInterceptor } from './common/interceptors/bigint-serializer.interceptor';
+import { ValidationPipe } from '@nestjs/common';
 
 // ---- Safe JSON patches (do NOT change other app behavior) ----
 (BigInt.prototype as any).toJSON = function () {
@@ -31,22 +32,33 @@ async function bootstrap() {
   // All routes start with /api/v1
   app.setGlobalPrefix('api/v1');
 
+  // ✅ Enable DTO validation + numeric transform for query/params/body
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
+
   // Serialize BigInt & Decimal in ALL responses
   app.useGlobalInterceptors(new BigIntSerializerInterceptor());
 
   // Swagger
   const config = new DocumentBuilder()
-  .setTitle('DVI Backend APIs')
-  .setDescription('Hotels & Itineraries APIs with RBAC (admin/agent/vendor)')
-  .setVersion('1.0.0')
-  .addBearerAuth({
-    type: 'http',
-    scheme: 'bearer',
-    bearerFormat: 'JWT',
-    description:
-      'Paste the JWT access token from /api/v1/auth/login here (without "Bearer " prefix).',
-  }) // <-- default name = 'bearer'
-  .build();
+    .setTitle('DVI Backend APIs')
+    .setDescription('Hotels & Itineraries APIs with RBAC (admin/agent/vendor)')
+    .setVersion('1.0.0')
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      description:
+        'Paste the JWT access token from /api/v1/auth/login here (without "Bearer " prefix).',
+    }) // <-- default name = 'bearer'
+    .build();
+
   const doc = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, doc);
 

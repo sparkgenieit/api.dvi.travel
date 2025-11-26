@@ -13,10 +13,11 @@ import { DailyMomentTrackerModule } from './modules/daily-moment-tracker/daily-m
 import { AgentsModule } from './modules/agents/agents.module';
 import {ItineraryViaRoutesModule} from './modules/itinerary-via-routes/itinerary-via-routes.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
-
+import { DriversModule } from './modules/drivers/drivers.module';
+import { VehicleAvailabilityModule } from './modules/vehicle-availability/vehicle-availability.module';
 
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItineraryModule,AccountsManagerModule, AccountsLedgerModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItineraryModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
