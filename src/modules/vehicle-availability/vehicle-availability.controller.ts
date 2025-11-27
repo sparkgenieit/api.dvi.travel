@@ -1,6 +1,6 @@
 // REPLACE-WHOLE-FILE: src/modules/vehicle-availability/vehicle-availability.controller.ts
 
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { VehicleAvailabilityService } from './vehicle-availability.service';
 import { VehicleAvailabilityQueryDto } from './dto/vehicle-availability-query.dto';
@@ -35,5 +35,23 @@ export class VehicleAvailabilityController {
   @Get('agents')
   async agents() {
     return this.service.listAgents();
+  }
+
+  // ✅ dynamic locations dropdown (derived from confirmed itinerary route data)
+  @Get('locations')
+  async locations(@Query('q') q?: string) {
+    return this.service.listLocations(q);
+  }
+
+  // ✅ Add New Vehicle modal → inserts into dvi_vehicle (and returns created id)
+  @Post('vehicles')
+  async createVehicle(@Body() dto: any) {
+    return this.service.createVehicle(dto);
+  }
+
+  // ✅ Add New Driver modal → inserts into driver table (model differs across DBs)
+  @Post('drivers')
+  async createDriver(@Body() dto: any) {
+    return this.service.createDriver(dto);
   }
 }
