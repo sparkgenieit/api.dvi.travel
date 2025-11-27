@@ -1,6 +1,6 @@
-// FILE: src/modules/vehicle-availability/vehicle-availability.service.ts
+// REPLACE-WHOLE-FILE: src/modules/vehicle-availability/vehicle-availability.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { VehicleAvailabilityQueryDto } from './dto/vehicle-availability-query.dto';
 import {
@@ -80,10 +80,7 @@ export class VehicleAvailabilityService {
     })();
 
     const dates = this.buildDatesArray(dateFrom, dateTo);
-    const { from: rangeFrom, to: rangeTo } = this.toDateRange(
-      dateFrom,
-      dateTo,
-    );
+    const { from: rangeFrom, to: rangeTo } = this.toDateRange(dateFrom, dateTo);
     const todayYmd = this.toYmd(new Date());
 
     // 2) BASE VEHICLES (VEHICLE in PHP)
@@ -402,7 +399,9 @@ export class VehicleAvailabilityService {
             assignmentKey,
           );
           const hasDriver = !!driverAssignment;
-          const driverId = hasDriver ? (driverAssignment.driver_id as number) : null;
+          const driverId = hasDriver
+            ? (driverAssignment.driver_id as number)
+            : null;
 
           cell = {
             date: day,
@@ -536,5 +535,196 @@ export class VehicleAvailabilityService {
       id: a.agent_ID,
       label: a.agent_name ?? '',
     }));
+  }
+
+  // -------------------------------------------------------------------------
+  // NEW: MODAL SUPPORT (Add Vehicle / Add Driver) + Locations dropdown
+  // -------------------------------------------------------------------------
+
+  /**
+   * Locations dropdown (NOT from dvi_location tables).
+   * We derive from confirmed itinerary route rows:
+   * - location_name
+   * - next_visiting_location
+   */
+  async listLocations(q?: string): Promise<Array<{ id: number; label: string }>> {
+    const needle = (q ?? '').trim().toLowerCase();
+
+    // bounded scan
+    const rows = await this.prisma.dvi_confirmed_itinerary_route_details.findMany(
+      {
+        where: { status: 1, deleted: 0 },
+        select: { location_name: true, next_visiting_location: true },
+        take: 20000,
+      },
+    );
+
+    const set = new Set<string>();
+    for (const r of rows as any[]) {
+      const a = this.safeLabel(r.location_name);
+      const b = this.safeLabel(r.next_visiting_location);
+
+      if (a && (!needle || a.toLowerCase().includes(needle))) set.add(a);
+      if (b && (!needle || b.toLowerCase().includes(needle))) set.add(b);
+    }
+
+    const labels = Array.from(set).sort((x, y) => x.localeCompare(y));
+    return labels.map((label, idx) => ({ id: idx + 1, label }));
+  }
+
+  /**
+   * Add New Vehicle modal → inserts into dvi_vehicle (same table used in chart)
+   * Minimal required fields:
+   * - vendor_id, vehicle_type_id, registration_number
+   */
+  async createVehicle(dto: any) {
+    const vendor_id = this.toInt(dto.vendor_id ?? dto.vendorId);
+    const vehicle_type_id = this.toInt(dto.vehicle_type_id ?? dto.vehicleTypeId);
+
+    const registration_number_raw =
+      dto.registration_number ??
+      dto.registrationNumber ??
+      dto.registration_no ??
+      dto.registrationNo ??
+      '';
+
+    const registration_number =
+      this.normalizeRegistrationNumber(registration_number_raw);
+
+    if (!vendor_id) throw new BadRequestException('vendor_id is required');
+    if (!vehicle_type_id)
+      throw new BadRequestException('vehicle_type_id is required');
+    if (!registration_number)
+      throw new BadRequestException('registration_number is required');
+
+    const existing = await this.prisma.dvi_vehicle.findFirst({
+      where: { registration_number, deleted: 0 },
+      select: { vehicle_id: true, registration_number: true },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        `Vehicle already exists: ${existing.registration_number}`,
+      );
+    }
+
+    // remove camelCase duplicates so Prisma doesn't see unknown args
+    const {
+      vendorId,
+      vehicleTypeId,
+      registrationNumber,
+      registrationNo,
+      ...rest
+    } = dto ?? {};
+
+    const data = this.cleanUndefined({
+      ...rest,
+      vendor_id,
+      vehicle_type_id,
+      registration_number,
+      status: dto.status ?? 1,
+      deleted: dto.deleted ?? 0,
+    });
+
+    const created = await this.prisma.dvi_vehicle.create({
+      data,
+      select: { vehicle_id: true, registration_number: true },
+    });
+
+    return {
+      message: 'OK',
+      vehicle_id: created.vehicle_id,
+      registration_number: created.registration_number,
+    };
+  }
+
+  /**
+   * Add New Driver modal → inserts into your driver master table.
+   *
+   * Your Prisma model name for drivers can differ across DBs.
+   * So we pick the first available model at runtime.
+   *
+   * Expected common columns:
+   * - driver_name
+   * - driver_mobile_number
+   * Optional:
+   * - vendor_id
+   */
+  async createDriver(dto: any) {
+    const prismaAny = this.prisma as any;
+
+    const driverClient =
+      prismaAny.dvi_vendor_driver_details ??
+      prismaAny.dvi_driver_details ??
+      prismaAny.dvi_driver ??
+      prismaAny.dvi_vendor_driver_list_details ??
+      prismaAny.dvi_driver_list_details;
+
+    if (!driverClient?.create) {
+      throw new BadRequestException(
+        'Driver Prisma model not found. Add your model here (dvi_vendor_driver_details / dvi_driver_details / ...).',
+      );
+    }
+
+    const driver_name = this.safeLabel(dto.driver_name ?? dto.driverName);
+    const driver_mobile_number = this.safeLabel(
+      dto.driver_mobile_number ??
+        dto.driverMobileNumber ??
+        dto.mobile_number ??
+        dto.mobileNumber,
+    );
+
+    if (!driver_name) throw new BadRequestException('driver_name is required');
+    if (!driver_mobile_number)
+      throw new BadRequestException('driver_mobile_number is required');
+
+    const vendor_id = this.toInt(dto.vendor_id ?? dto.vendorId);
+
+    // remove camelCase duplicates so Prisma doesn't see unknown args
+    const { driverName, driverMobileNumber, mobileNumber, vendorId, ...rest } =
+      dto ?? {};
+
+    const data = this.cleanUndefined({
+      ...rest,
+      ...(vendor_id ? { vendor_id } : {}),
+      driver_name,
+      driver_mobile_number,
+      status: dto.status ?? 1,
+      deleted: dto.deleted ?? 0,
+    });
+
+    const created = await driverClient.create({ data });
+
+    const driver_id =
+      created?.driver_id ?? created?.id ?? created?.DriverId ?? null;
+
+    return { message: 'OK', driver_id };
+  }
+
+  // -------------------------------------------------------------------------
+  // SMALL SAFE HELPERS (local-only, no behavior change)
+  // -------------------------------------------------------------------------
+
+  private safeLabel(v: any): string {
+    const s = (v ?? '').toString().trim();
+    return s.length ? s : '';
+  }
+
+  private normalizeRegistrationNumber(v: any): string {
+    return this.safeLabel(v).replace(/\s+/g, ' ').trim().toUpperCase();
+  }
+
+  private toInt(v: any): number | null {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+  }
+
+  private cleanUndefined<T extends Record<string, any>>(obj: T): T {
+    const out: any = {};
+    for (const k of Object.keys(obj ?? {})) {
+      const val = (obj as any)[k];
+      if (val !== undefined) out[k] = val;
+    }
+    return out;
   }
 }

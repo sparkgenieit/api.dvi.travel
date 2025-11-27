@@ -13,21 +13,21 @@ import {
 export class CreateDriverBasicDto {
   @ApiProperty()
   @IsNumber()
-  vendorId: number;
+  vendorId!: number;
 
   @ApiProperty()
   @IsNumber()
-  vehicleTypeId: number;
+  vehicleTypeId!: number;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  driverName: string;
+  driverName!: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  primaryMobileNumber: string;
+  primaryMobileNumber!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -47,7 +47,7 @@ export class CreateDriverBasicDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  licenseNumber: string;
+  licenseNumber!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -98,19 +98,19 @@ export class CreateDriverBasicDto {
 export class DriverCostDto {
   @ApiProperty()
   @IsNumber()
-  driverSalary: number;
+  driverSalary!: number;
 
   @ApiProperty()
   @IsNumber()
-  foodCost: number;
+  foodCost!: number;
 
   @ApiProperty()
   @IsNumber()
-  accommodationCost: number;
+  accommodationCost!: number;
 
   @ApiProperty()
   @IsNumber()
-  bhattaCost: number;
+  bhattaCost!: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -125,7 +125,7 @@ export class DriverCostDto {
 
 export class CreateDriverDto {
   @ApiProperty({ type: CreateDriverBasicDto })
-  basic: CreateDriverBasicDto;
+  basic!: CreateDriverBasicDto;
 
   @ApiProperty({ type: DriverCostDto, required: false })
   @IsOptional()
