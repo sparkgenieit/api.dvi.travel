@@ -3,20 +3,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { Public } from '../../auth/public.decorator';
-
-class LoginDto {
-  @ApiProperty({
-    example: 'admin@dvi.co.in',
-    description: 'Registered user email',
-  })
-  email!: string;
-
-  @ApiProperty({
-    example: 'Keerthi@2404ias',
-    description: 'User password',
-  })
-  password!: string;
-}
+import { LoginDto } from './dto/login.dto';
 
 @ApiTags('auth')
 @Controller('auth')
