@@ -1,7 +1,8 @@
-// REPLACE-WHOLE-FILE: src/modules/vehicle-availability/vehicle-availability.controller.ts
+// REPLACE-WHOLE-FILE
+// src/modules/vehicle-availability/vehicle-availability.controller.ts
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { VehicleAvailabilityService } from './vehicle-availability.service';
 import { VehicleAvailabilityQueryDto } from './dto/vehicle-availability-query.dto';
 import { VehicleAvailabilityResponseDto } from './dto/vehicle-availability-response.dto';
@@ -12,46 +13,120 @@ import { VehicleAvailabilityResponseDto } from './dto/vehicle-availability-respo
 export class VehicleAvailabilityController {
   constructor(private readonly service: VehicleAvailabilityService) {}
 
+  // ---------------------------------------------------------------------------
+  // CHART
+  // ---------------------------------------------------------------------------
   @Get()
-  async getChart(
-    @Query() query: VehicleAvailabilityQueryDto,
-  ): Promise<VehicleAvailabilityResponseDto> {
+  @ApiOperation({ summary: 'Vehicle availability chart (date range + vendor/type filters)' })
+  async getChart(@Query() query: VehicleAvailabilityQueryDto): Promise<VehicleAvailabilityResponseDto> {
     return this.service.getVehicleAvailabilityChart(query);
   }
 
-  // ✅ for filters / dropdowns
+  // ---------------------------------------------------------------------------
+  // DROPDOWNS (filters & modals) — mirrors PHP selectize/autocomplete behavior
+  // ---------------------------------------------------------------------------
+
   @Get('vendors')
+  @ApiOperation({ summary: 'Vendors dropdown' })
   async vendors() {
     return this.service.listVendors();
   }
 
-  // ✅ for filters / dropdowns
+  @Get('vendor-branches')
+  @ApiOperation({ summary: 'Vendor branches dropdown (GET ?vendorId=...)' })
+  async vendorBranchesGet(@Query('vendorId') vendorId?: string) {
+    return this.service.listVendorBranches(vendorId ? Number(vendorId) : null);
+  }
+
   @Get('vehicle-types')
+  @ApiOperation({ summary: 'Vehicle types master (for filters)' })
   async vehicleTypes() {
     return this.service.listVehicleTypes();
   }
 
-  // optional if you want agents dropdown too
   @Get('agents')
+  @ApiOperation({ summary: 'Agents dropdown (optional)' })
   async agents() {
     return this.service.listAgents();
   }
 
-  // ✅ dynamic locations dropdown (derived from confirmed itinerary route data)
   @Get('locations')
+  @ApiOperation({ summary: 'Location suggestions for Vehicle Origin (GET ?q=...)' })
   async locations(@Query('q') q?: string) {
     return this.service.listLocations(q);
   }
 
-  // ✅ Add New Vehicle modal → inserts into dvi_vehicle (and returns created id)
+  @Get('location-meta')
+  @ApiOperation({ summary: 'Resolve label → {location_id, city_id, state_id, country_id}' })
+  async locationMeta(@Query('label') label?: string) {
+    return this.service.getLocationMeta(label ?? '');
+  }
+
+  // Vendor-specific vehicle types (Selectize in PHP: __ajax_get_vendor_vehicle_types.php)
+  @Get('vendor-vehicle-types')
+  @ApiOperation({ summary: 'Vendor-specific vehicle types (GET ?vendorId=...)' })
+  async vendorVehicleTypes(@Query('vendorId') vendorId?: string) {
+    return this.service.listVendorVehicleTypes(vendorId ? Number(vendorId) : null);
+  }
+
+  // Vehicles by vendor + vendor_vehicle_type (Assign modal vehicle dropdown)
+  @Get('vehicles-for-assign')
+  @ApiOperation({ summary: 'Vehicles for Assign modal (GET ?vendorId=&vendorVehicleTypeId=...)' })
+  async vehiclesForAssign(
+    @Query('vendorId') vendorId?: string,
+    @Query('vendorVehicleTypeId') vendorVehicleTypeId?: string,
+  ) {
+    return this.service.listVehiclesForAssign(
+      vendorId ? Number(vendorId) : null,
+      vendorVehicleTypeId ? Number(vendorVehicleTypeId) : null,
+    );
+  }
+
+  // Drivers by vendor (+ optional vendor_vehicle_type) for Assign modal
+  @Get('drivers-for-assign')
+  @ApiOperation({ summary: 'Drivers for Assign modal (GET ?vendorId=&vendorVehicleTypeId=...)' })
+  async driversForAssign(
+    @Query('vendorId') vendorId?: string,
+    @Query('vendorVehicleTypeId') vendorVehicleTypeId?: string,
+  ) {
+    return this.service.listDriversForAssign(
+      vendorId ? Number(vendorId) : null,
+      vendorVehicleTypeId ? Number(vendorVehicleTypeId) : null,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // MODAL ACTIONS (mirror PHP handlers)
+  // ---------------------------------------------------------------------------
+
+  // Add New Vehicle modal → inserts into dvi_vehicle
   @Post('vehicles')
+  @ApiOperation({ summary: 'Create vehicle (PHP: ?type=add_vehicle)' })
   async createVehicle(@Body() dto: any) {
     return this.service.createVehicle(dto);
   }
 
-  // ✅ Add New Driver modal → inserts into driver table (model differs across DBs)
+  // Add New Driver modal → inserts into driver master
   @Post('drivers')
+  @ApiOperation({ summary: 'Create driver (PHP: ?type=add_driver)' })
   async createDriver(@Body() dto: any) {
     return this.service.createDriver(dto);
+  }
+
+  // Assign Vehicle (and optionally driver) to itinerary
+  @Post('assign-vehicle')
+  @ApiOperation({
+    summary:
+      'Assign vehicle (and optional driver) to itinerary. Expects itineraryPlanId, vendor_id, vehicle_type_id (vendor_vehicle_type_ID), vehicle_id, driver_id?',
+  })
+  async assignVehicle(@Body() dto: { itineraryPlanId: number; vendor_id: number; vehicle_type_id: number; vehicle_id: number; driver_id?: number; createdby?: number }) {
+    return this.service.assignVehicle(dto);
+  }
+
+  // Reassign Driver on an itinerary/vendor (update latest active assignment)
+  @Post('reassign-driver')
+  @ApiOperation({ summary: 'Reassign driver (PHP: ?type=reassign_driver). Expects itineraryPlanId, vendor_id, driver_id, vehicle_id?' })
+  async reassignDriver(@Body() dto: { itineraryPlanId: number; vendor_id: number; driver_id: number; vehicle_id?: number; createdby?: number }) {
+    return this.service.reassignDriver(dto);
   }
 }
