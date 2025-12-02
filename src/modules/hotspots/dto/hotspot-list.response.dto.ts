@@ -1,30 +1,16 @@
 // FILE: src/modules/hotspots/dto/hotspot-list.response.dto.ts
 
-export interface HotspotDto {
-  id: number;
-  name: string;
-  /** Optional textual address if available in DB, otherwise null */
-  address: string | null;
-
-  /** Location FKs (nullable because not all rows have them) */
-  cityId: number | null;
-  stateId: number | null;
-  countryId: number | null;
-
-  /** Geo (nullable when not stored) */
-  latitude: number | null;
-  longitude: number | null;
-
-  /** Row status flag if present on table (nullable) */
-  status: number | null;
-
-  /** First image URL resolved from hotspot gallery tables (nullable) */
-  photoUrl: string | null;
+export interface HotspotListRow {
+  counter: number;
+  modify: number | string; // hotspot_ID
+  hotspot_photo_url: string; // <img> HTML string (to mirror PHP) OR URL string
+  hotspot_name: string;
+  hotspot_priority: number | string;
+  hotspot_locations: string; // HTML with <br>
+  local_members: string;     // HTML with <br>
+  foreign_members: string;   // HTML with <br>
 }
 
 export interface HotspotListResponseDto {
-  total: number;
-  page: number;
-  size: number;
-  items: HotspotDto[];
+  data: HotspotListRow[];
 }

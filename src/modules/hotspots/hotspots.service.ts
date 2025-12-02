@@ -1,373 +1,826 @@
 // FILE: src/modules/hotspots/hotspots.service.ts
 
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, dvi_hotspot_place } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { HotspotListQueryDto } from './dto/hotspot-list.query.dto';
-import { HotspotDto, HotspotListResponseDto } from './dto/hotspot-list.response.dto';
+import { HotspotListResponseDto, HotspotListRow } from './dto/hotspot-list.response.dto';
 
-type AnyRec = Record<string, any>;
+import { HotspotCreateDto } from './dto/hotspot-create.dto';
+import { HotspotUpdateDto } from './dto/hotspot-update.dto';
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_SIZE = 5000;
+
+// ----------------------------- helpers --------------------------------
+function currencySymbol(): string {
+  return process.env.CURRENCY_SYMBOL || '₹';
+}
+function baseUrl(): string | undefined {
+  return process.env.BASE_URL || undefined;
+}
+function buildImageUrl(name?: string | null): string {
+  if (!name) return '';
+  const relative = `/uploads/hotspot_gallery/${name}`;
+  const base = baseUrl();
+  return base ? `${base.replace(/\/$/, '')}${relative}` : relative;
+}
+function htmlImg(url: string, alt?: string | null): string {
+  if (!url) return '';
+  const safeAlt = (alt ?? '').toString();
+  return `<img src="${url}" alt="${safeAlt}" style="height:60px;width:auto;border-radius:6px;object-fit:cover;" />`;
+}
+function toNumber(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(String(v ?? '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+function toBig(v: unknown): bigint {
+  try {
+    return BigInt((v as any) ?? 0);
+  } catch {
+    return BigInt(0);
+  }
+}
+function fmtMoney(n?: number | null): string {
+  if (n == null) return '0';
+  const num = toNumber(n);
+  return num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+function locationsHtml(loc?: string | null): string {
+  if (!loc) return '';
+  return String(loc)
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join('<br>');
+}
+function membersHtml(
+  _prefix: string,
+  adult?: number | null,
+  child?: number | null,
+  infant?: number | null,
+): string {
+  const sym = currencySymbol();
+  const lines: string[] = [];
+  lines.push(`Adult-${sym}${fmtMoney(adult)}`);
+  lines.push(`Children-${sym}${fmtMoney(child)}`);
+  lines.push(`Infants-${sym}${fmtMoney(infant)}`);
+  return lines.join('<br>');
+}
+function normalizeLocationArrayToPipe(arr?: string[] | null): string {
+  if (!arr || !Array.isArray(arr)) return '';
+  return arr.map((s) => String(s ?? '').trim()).filter(Boolean).join('|');
+}
+function splitPipeToArray(pipe?: string | null): string[] {
+  if (!pipe) return [];
+  return String(pipe)
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// ---------- Time & weekday helpers (DB: 0=Mon … 6=Sun) ----------
+const DAY_NAME_TO_INT: Record<string, number> = {
+  monday: 0,
+  tuesday: 1,
+  wednesday: 2,
+  thursday: 3,
+  friday: 4,
+  saturday: 5,
+  sunday: 6,
+};
+const INT_TO_DAY_NAME: Record<number, string> = {
+  0: 'monday',
+  1: 'tuesday',
+  2: 'wednesday',
+  3: 'thursday',
+  4: 'friday',
+  5: 'saturday',
+  6: 'sunday',
+};
+
+function pad2(n: number) {
+  return n.toString().padStart(2, '0');
+}
+// Prisma returns @db.Time as Date normalized to UTC. Use UTC getters to avoid TZ shift.
+function timeToHHmmUTC(d?: Date | null): string {
+  if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+// When saving, create a UTC date so DB gets the exact time with no offset bleed.
+function hhmmToUTCDate(hhmm?: string | null): Date | null {
+  if (!hhmm) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
+  return new Date(Date.UTC(1970, 0, 1, h, mi, 0, 0));
+}
+
+// Weekday ordering (Mon..Sun)
+const WEEKDAY_ORDER = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+function getDayStringLoose(row: any): string {
+  return (
+    row?.day_key ??
+    row?.day_of_week ??
+    row?.day ??
+    row?.dayname ??
+    row?.weekday ??
+    row?.day_name ??
+    ''
+  )
+    .toString()
+    .toLowerCase();
+}
+
+// ----------------------------- local shapes ----------------------------
+export type HotspotOperatingSlotDto = { id?: number | bigint; start: string; end: string };
+export type HotspotOperatingDayDto = { open24hrs?: boolean; closed24hrs?: boolean; slots: HotspotOperatingSlotDto[] };
+export type HotspotParkingChargeDto = { id?: number | bigint; vehicleTypeId: number; charge: number };
+export type HotspotGalleryItemDto = { id?: number | bigint; name: string; delete?: boolean };
+
+// accept either create or update payload
+export type HotspotFormSaveDto = HotspotCreateDto | HotspotUpdateDto;
+
+// ------------------------------- service --------------------------------
 @Injectable()
 export class HotspotsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ---------------------------------------------------------
-  // Public API
-  // ---------------------------------------------------------
+  // --------------------------- List ------------------------------
   async list(q: HotspotListQueryDto): Promise<HotspotListResponseDto> {
-    const page = q.page ?? 1;
-    const size = q.size ?? 50;
+    const page = q.page ?? DEFAULT_PAGE;
+    const size = q.size ?? DEFAULT_SIZE;
     const skip = (page - 1) * size;
     const take = size;
 
-    const hotspotClient = this.getHotspotClient();
-    const galleryClient = this.getGalleryClient();
+    const where: Prisma.dvi_hotspot_placeWhereInput = {
+      deleted: 0,
+      status: 1,
+    };
 
-    const where = this.buildWhere(q, hotspotClient);
-    const [total, rows] = await Promise.all([
-      hotspotClient.count({ where }),
-      hotspotClient.findMany({
-        where,
-        orderBy: this.buildOrderBy(q, hotspotClient),
-        skip,
-        take,
-        select: this.hotspotSelect(hotspotClient),
+    if (q.q && q.q.trim()) {
+      const text = q.q.trim();
+      where.OR = [
+        { hotspot_name: { contains: text } as any },
+        { hotspot_address: { contains: text } as any },
+        { hotspot_landmark: { contains: text } as any },
+        { hotspot_location: { contains: text } as any },
+      ];
+    }
+
+    const rows = await this.prisma.dvi_hotspot_place.findMany({
+      where,
+      orderBy: [{ hotspot_priority: 'asc' }, { hotspot_name: 'asc' }],
+      skip,
+      take,
+      select: {
+        hotspot_ID: true,
+        hotspot_name: true,
+        hotspot_priority: true,
+        hotspot_location: true,
+        hotspot_adult_entry_cost: true,
+        hotspot_child_entry_cost: true,
+        hotspot_infant_entry_cost: true,
+        hotspot_foreign_adult_entry_cost: true,
+        hotspot_foreign_child_entry_cost: true,
+        hotspot_foreign_infant_entry_cost: true,
+      },
+    });
+
+    const ids = rows.map((r) => r.hotspot_ID);
+    const galleries = ids.length
+      ? await this.prisma.dvi_hotspot_gallery_details.findMany({
+          where: { hotspot_ID: { in: ids } as any, deleted: 0 as any, status: 1 as any },
+          orderBy: [{ hotspot_gallery_details_id: 'asc' }],
+          select: {
+            hotspot_gallery_details_id: true,
+            hotspot_gallery_name: true,
+            hotspot_ID: true,
+          },
+        })
+      : [];
+
+    const firstImageByHotspot = new Map<number, string>();
+    for (const g of galleries) {
+      if (!firstImageByHotspot.has(g.hotspot_ID as unknown as number)) {
+        firstImageByHotspot.set(g.hotspot_ID as unknown as number, g.hotspot_gallery_name ?? '');
+      }
+    }
+
+    const data: HotspotListRow[] = rows.map((r, idx) => {
+      const imgName = firstImageByHotspot.get(r.hotspot_ID as unknown as number) || '';
+      const url = buildImageUrl(imgName);
+      const name = r.hotspot_name ?? '';
+      return {
+        counter: skip + idx + 1,
+        modify: r.hotspot_ID,
+        hotspot_photo_url: htmlImg(url, name),
+        hotspot_name: name,
+        hotspot_priority: r.hotspot_priority ?? 0,
+        hotspot_locations: locationsHtml(r.hotspot_location ?? ''),
+        local_members: membersHtml(
+          'Local',
+          toNumber(r.hotspot_adult_entry_cost),
+          toNumber(r.hotspot_child_entry_cost),
+          toNumber(r.hotspot_infant_entry_cost),
+        ),
+        foreign_members: membersHtml(
+          'Foreign',
+          toNumber(r.hotspot_foreign_adult_entry_cost),
+          toNumber(r.hotspot_foreign_child_entry_cost),
+          toNumber(r.hotspot_foreign_infant_entry_cost),
+        ),
+      };
+    });
+
+    return { data };
+  }
+
+  // --------------------- Dynamic dropdowns / options ------------------------
+  async formOptions() {
+    const [typesRaw, locationsRaw, vehicleTypesRaw] = await Promise.all([
+      this.prisma.dvi_hotspot_place.findMany({
+        where: { deleted: 0 },
+        select: { hotspot_type: true },
+        distinct: ['hotspot_type'],
+        orderBy: { hotspot_type: 'asc' },
+      }),
+      this.prisma.dvi_hotspot_place.findMany({
+        where: { deleted: 0, hotspot_location: { not: null } },
+        select: { hotspot_location: true },
+      }),
+      this.prisma.dvi_vehicle_type.findMany({
+        where: { deleted: 0, status: 1 },
+        orderBy: { vehicle_type_id: 'asc' },
+        select: { vehicle_type_id: true, vehicle_type_title: true },
       }),
     ]);
 
-    const items = rows.map((r: AnyRec) => this.mapHotspotRow(r, hotspotClient));
+    const hotspotTypes = Array.from(
+      new Set(
+        typesRaw
+          .map((r) => (r.hotspot_type ?? '').toString().trim())
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
 
-    if (q.includeImages === 'true' && items.length && galleryClient) {
-      const idField = this.primaryKeyField(hotspotClient);
-      const ids: number[] = items
-        .map((i: HotspotDto) => i.id)
-        .filter((id: number | undefined | null): id is number => typeof id === "number");
-      const photos = await galleryClient.findMany({
-        where: {
-          OR: [
-            { hotspot_id: { in: ids } },
-            { hotspot_ID: { in: ids } },
-            { place_id: { in: ids } }, // common alternate
-          ],
-          ...(this.hasField(galleryClient, 'deleted') ? { deleted: { in: [0, 1] } } : {}),
-        },
-        orderBy: this.hasField(galleryClient, 'createdon')
-          ? { createdon: 'asc' as const }
-          : this.hasField(galleryClient, 'created_at')
-          ? { created_at: 'asc' as const }
-          : undefined,
-        select: this.gallerySelect(galleryClient),
+    const locSet = new Set<string>();
+    for (const r of locationsRaw) {
+      splitPipeToArray(r.hotspot_location).forEach((x) => {
+        const s = (x ?? '').toString().trim();
+        if (s) locSet.add(s);
       });
+    }
+    const locations = Array.from(locSet).sort((a, b) => a.localeCompare(b));
 
-      // pick first photo per hotspot
-      const firstByHotspot = new Map<number, string>();
-      for (const p of photos as AnyRec[]) {
-        const hid = p.hotspot_id ?? p.hotspot_ID ?? p.place_id ?? null;
-        if (!hid) continue;
-        if (!firstByHotspot.has(hid)) {
-          const path = p.image_path ?? p.photo_path ?? p.image_url ?? p.gallery_url ?? null;
-          firstByHotspot.set(hid, this.toPublicUrl(path));
+    const vehicleTypes = vehicleTypesRaw.map((v) => ({
+      id: Number(v.vehicle_type_id),
+      name: v.vehicle_type_title ?? '',
+    }));
+
+    return { hotspotTypes, locations, vehicleTypes };
+  }
+
+  // --------------------------- Form: Get (edit) -----------------------------
+  async getForm(id: number) {
+    const hotspot = await this.prisma.dvi_hotspot_place.findUnique({
+      where: { hotspot_ID: id },
+    });
+    if (!hotspot || hotspot.deleted === 1) {
+      throw new NotFoundException('Hotspot not found');
+    }
+
+    const [gallery, timingsRaw, parking, options] = await Promise.all([
+      this.prisma.dvi_hotspot_gallery_details.findMany({
+        where: { hotspot_ID: id as any, status: 1 as any, deleted: 0 as any },
+        orderBy: { hotspot_gallery_details_id: 'asc' },
+      }),
+      this.prisma.dvi_hotspot_timing.findMany({
+        where: {
+          AND: [
+            { hotspot_ID: id as any },
+            { status: 1 as any },
+            { deleted: 0 as any },
+          ] as any,
+        },
+        orderBy: [
+          { hotspot_timing_day: 'asc' },
+          { hotspot_start_time: 'asc' },
+          { hotspot_timing_ID: 'asc' },
+        ],
+      }),
+      this.prisma.dvi_hotspot_vehicle_parking_charges.findMany({
+        where: {
+          AND: [
+            { hotspot_id: id as any }, // snake_case in parking table
+            { status: 1 as any },
+            { deleted: 0 as any },
+          ] as any,
+        },
+        orderBy: { vehicle_parking_charge_ID: 'asc' },
+      }),
+      this.formOptions(),
+    ]);
+
+    // Build operatingHours map: day-name keys with slots (UTC-safe times)
+    const operatingHours: Record<string, HotspotOperatingDayDto> = {};
+    for (const t of timingsRaw as any[]) {
+      const dayInt: number = Number(t.hotspot_timing_day ?? -1);
+      const dayKey = INT_TO_DAY_NAME[dayInt] ?? '';
+      if (!dayKey) continue;
+
+      if (!operatingHours[dayKey]) {
+        operatingHours[dayKey] = {
+          open24hrs: Number(t.hotspot_open_all_time ?? 0) === 1,
+          closed24hrs: Number(t.hotspot_closed ?? 0) === 1,
+          slots: [],
+        };
+      }
+
+      const start = timeToHHmmUTC(t.hotspot_start_time);
+      const end = timeToHHmmUTC(t.hotspot_end_time);
+      if (start && end) {
+        operatingHours[dayKey].slots.push({
+          id: t.hotspot_timing_ID,
+          start,
+          end,
+        });
+      }
+
+      operatingHours[dayKey].open24hrs =
+        operatingHours[dayKey].open24hrs || Number(t.hotspot_open_all_time ?? 0) === 1;
+      operatingHours[dayKey].closed24hrs =
+        operatingHours[dayKey].closed24hrs || Number(t.hotspot_closed ?? 0) === 1;
+    }
+
+    const payload = {
+      id: hotspot.hotspot_ID,
+      hotspot_name: hotspot.hotspot_name ?? '',
+      hotspot_type: (hotspot as any).hotspot_type ?? null,
+      hotspot_rating: (hotspot as any).hotspot_rating ?? null,
+      hotspot_priority: hotspot.hotspot_priority ?? null,
+      hotspot_latitude: (hotspot as any).hotspot_latitude ?? null,
+      hotspot_longitude: (hotspot as any).hotspot_longitude ?? null,
+      hotspot_address: (hotspot as any).hotspot_address ?? null,
+      hotspot_landmark: (hotspot as any).hotspot_landmark ?? null,
+      hotspot_description: (hotspot as any).hotspot_description ?? null,
+      hotspot_video_url: (hotspot as any).hotspot_video_url ?? null,
+      status: hotspot.status ?? 1,
+      deleted: hotspot.deleted ?? 0,
+
+      hotspot_adult_entry_cost: (hotspot as any).hotspot_adult_entry_cost ?? null,
+      hotspot_child_entry_cost: (hotspot as any).hotspot_child_entry_cost ?? null,
+      hotspot_infant_entry_cost: (hotspot as any).hotspot_infant_entry_cost ?? null,
+      hotspot_foreign_adult_entry_cost: (hotspot as any).hotspot_foreign_adult_entry_cost ?? null,
+      hotspot_foreign_child_entry_cost: (hotspot as any).hotspot_foreign_child_entry_cost ?? null,
+      hotspot_foreign_infant_entry_cost: (hotspot as any).hotspot_foreign_infant_entry_cost ?? null,
+
+      hotspot_location_list: splitPipeToArray(hotspot.hotspot_location),
+
+      parkingCharges: (parking as any[]).map((p) => ({
+        id: p.vehicle_parking_charge_ID,
+        vehicleTypeId: p.vehicle_type_id ?? p.vehicleTypeId ?? p.vehicle_type_ID,
+        charge: Number(p.parking_charge ?? p.charge ?? 0),
+      })),
+
+      operatingHours,
+
+      gallery: (gallery as any[]).map((g) => ({
+        id: g.hotspot_gallery_details_id,
+        name: g.hotspot_gallery_name,
+      })),
+    };
+
+    return { payload, options };
+  }
+
+  // -------------------------- Form: Save (add/update) -----------------------
+  async saveForm(input: HotspotFormSaveDto) {
+    if (!input.hotspot_name?.trim()) {
+      throw new BadRequestException('hotspot_name is required');
+    }
+
+    const masterData: Prisma.dvi_hotspot_placeUncheckedCreateInput = {
+      hotspot_name: input.hotspot_name.trim(),
+      hotspot_type: input.hotspot_type ?? null,
+      hotspot_rating: (input as any).hotspot_rating ?? null,
+      hotspot_priority: (input as any).hotspot_priority ?? 0,
+      hotspot_latitude: (input as any).hotspot_latitude ?? null,
+      hotspot_longitude: (input as any).hotspot_longitude ?? null,
+      hotspot_address: (input as any).hotspot_address ?? null,
+      hotspot_landmark: (input as any).hotspot_landmark ?? null,
+      hotspot_description: (input as any).hotspot_description ?? null,
+      hotspot_video_url: (input as any).hotspot_video_url ?? null,
+
+      hotspot_location: normalizeLocationArrayToPipe((input as any).hotspot_location_list),
+
+      hotspot_adult_entry_cost: (input as any).hotspot_adult_entry_cost ?? null,
+      hotspot_child_entry_cost: (input as any).hotspot_child_entry_cost ?? null,
+      hotspot_infant_entry_cost: (input as any).hotspot_infant_entry_cost ?? null,
+      hotspot_foreign_adult_entry_cost: (input as any).hotspot_foreign_adult_entry_cost ?? null,
+      hotspot_foreign_child_entry_cost: (input as any).hotspot_foreign_child_entry_cost ?? null,
+      hotspot_foreign_infant_entry_cost: (input as any).hotspot_foreign_infant_entry_cost ?? null,
+
+      status: (input as any).status ?? 1,
+      deleted: (input as any).deleted ?? 0,
+    } as any;
+
+    const createdOrUpdated = await this.prisma.$transaction(async (tx) => {
+      let hotspot: dvi_hotspot_place;
+
+      if ((input as any).id && (input as any).id > 0) {
+        hotspot = await tx.dvi_hotspot_place.update({
+          where: { hotspot_ID: (input as any).id },
+          data: masterData as any,
+        });
+      } else {
+        hotspot = await tx.dvi_hotspot_place.create({
+          data: masterData as any,
+        });
+      }
+
+      const hotspotIdNumber = hotspot.hotspot_ID as unknown as number;
+      const hotspotIdBig = toBig(hotspotIdNumber);
+
+      // --------------------- Parking Charges upsert ----------------------
+      const incomingParking = ((input as any).parkingCharges ?? []) as HotspotParkingChargeDto[];
+      const keptParkingIds = new Set<bigint>();
+
+      for (const row of incomingParking) {
+        const vehicleTypeId = Number(row.vehicleTypeId);
+        const charge = toNumber(row.charge);
+        if (!vehicleTypeId || charge < 0) continue;
+
+        if (row.id != null) {
+          await tx.dvi_hotspot_vehicle_parking_charges.update({
+            where: { vehicle_parking_charge_ID: toBig(row.id) },
+            data: {
+              hotspot_id: hotspotIdBig as any,
+              vehicle_type_id: vehicleTypeId as any,
+              parking_charge: charge as any,
+            } as any,
+          });
+          keptParkingIds.add(toBig(row.id));
+        } else {
+          const created = await tx.dvi_hotspot_vehicle_parking_charges.create({
+            data: {
+              hotspot_id: hotspotIdBig as any,
+              vehicle_type_id: vehicleTypeId as any,
+              parking_charge: charge as any,
+              status: 1 as any,
+              deleted: 0 as any,
+            } as any,
+          });
+          keptParkingIds.add(created.vehicle_parking_charge_ID as unknown as bigint);
         }
       }
 
-      for (const it of items) {
-        it.photoUrl = firstByHotspot.get(it.id) ?? null;
-      }
-    }
-
-    return { total, page, size, items };
-  }
-
-  async getOne(id: number, includeImages = false): Promise<HotspotDto | null> {
-    const hotspotClient = this.getHotspotClient();
-    const galleryClient = this.getGalleryClient();
-
-    const row = await hotspotClient.findFirst({
-      where: this.mergeWhereKey({}, hotspotClient, id),
-      select: this.hotspotSelect(hotspotClient),
-    });
-    if (!row) return null;
-
-    const dto = this.mapHotspotRow(row, hotspotClient);
-
-    if (includeImages && galleryClient) {
-      const pics = await galleryClient.findMany({
-        where: this.mergeWhereKey({}, galleryClient, dto.id, ['hotspot_id', 'hotspot_ID', 'place_id']),
-        orderBy: this.hasField(galleryClient, 'createdon')
-          ? { createdon: 'asc' as const }
-          : this.hasField(galleryClient, 'created_at')
-          ? { created_at: 'asc' as const }
-          : undefined,
-        select: this.gallerySelect(galleryClient),
-        take: 1,
+      const allExistingParking = await tx.dvi_hotspot_vehicle_parking_charges.findMany({
+        where: { hotspot_id: hotspotIdBig as any },
+        select: { vehicle_parking_charge_ID: true },
       });
-
-      const first = pics[0];
-      dto.photoUrl = first ? this.toPublicUrl(first.image_path ?? first.photo_path ?? first.image_url ?? first.gallery_url ?? null) : null;
-    }
-
-    return dto;
-  }
-
-  // ---------------------------------------------------------
-  // Model discovery & safe accessors
-  // ---------------------------------------------------------
-  private get prismaAny(): AnyRec {
-    return this.prisma as any;
-  }
-
-  /** Try common model names. Primary is dvi_hotspot_place (matches your PHP). */
-  private getHotspotClient(): AnyRec {
-    const p = this.prismaAny;
-    const candidates = [
-      p.dvi_hotspot_place,
-      p.dvi_hotspot_places,
-      p.dvi_hotspots,
-      p.hotspot_place,
-      p.hotspots,
-    ].filter(Boolean);
-    if (!candidates.length) {
-      throw new BadRequestException(
-        'Prisma model for hotspots not found. Expected one of: dvi_hotspot_place / dvi_hotspot_places / dvi_hotspots',
-      );
-    }
-    return candidates[0];
-  }
-
-  /** Gallery table for first photo (as used in PHP). */
-  private getGalleryClient(): AnyRec | null {
-    const p = this.prismaAny;
-    const candidates = [
-      p.dvi_hotspot_gallery_details,
-      p.dvi_hotspot_gallery,
-      p.hotspot_gallery_details,
-      p.hotspot_gallery,
-    ].filter(Boolean);
-    return candidates[0] ?? null;
-  }
-
-  private hasField(client: AnyRec, field: string): boolean {
-    try {
-      // inspect DMMF delegate args by calling findMany with bogus select will throw; instead, check a known record shape using $queryRaw is overkill
-      // heuristic: rely on field names we will use later guarded by try/catch in queries.
-      return true; // we guard in select/where builders anyway
-    } catch {
-      return false;
-    }
-  }
-
-  private primaryKeyField(client: AnyRec): 'hotspot_ID' | 'hotspot_id' | 'place_id' | 'id' {
-    if (this.trySelect(client, { hotspot_ID: true })) return 'hotspot_ID';
-    if (this.trySelect(client, { hotspot_id: true })) return 'hotspot_id';
-    if (this.trySelect(client, { place_id: true })) return 'place_id';
-    return 'id';
-  }
-
-  private trySelect(client: AnyRec, select: AnyRec): boolean {
-    try {
-      // call with take:0 to validate fields without scanning
-      // not all clients allow take:0; ignore errors
-      client.findMany({ take: 0, select });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  // ---------------------------------------------------------
-  // WHERE / ORDER BY / SELECT builders
-  // ---------------------------------------------------------
-  private buildWhere(q: HotspotListQueryDto, client: AnyRec): AnyRec {
-    const where: AnyRec = {};
-
-    // soft delete + status if exist
-    if (this.tryWhere(client, { deleted: { in: [0, 1] } })) {
-      where.deleted = { in: [0, 1] };
-    }
-    if (typeof q.status === 'number' && this.tryWhere(client, { status: q.status })) {
-      where.status = q.status;
-    }
-
-    // text search on name/address
-    const search = (q.q ?? '').trim();
-    if (search) {
-      const ors: AnyRec[] = [];
-      if (this.tryWhere(client, { hotspot_name: { contains: search } })) {
-        ors.push({ hotspot_name: { contains: search } });
+      for (const p of allExistingParking) {
+        const pid = p.vehicle_parking_charge_ID as unknown as bigint;
+        if (!keptParkingIds.has(pid)) {
+          await tx.dvi_hotspot_vehicle_parking_charges.delete({
+            where: { vehicle_parking_charge_ID: pid },
+          });
+        }
       }
-      if (this.tryWhere(client, { name: { contains: search } })) {
-        ors.push({ name: { contains: search } });
+
+      // --------------------- Operating Hours upsert ----------------------
+      const incomingOH = ((input as any).operatingHours ?? {}) as Record<string, HotspotOperatingDayDto>;
+      const keepTimingIds = new Set<number | bigint>();
+
+      for (const [dayKeyRaw, def] of Object.entries(incomingOH)) {
+        const dayKey = dayKeyRaw.toLowerCase().trim();
+        const dayInt = DAY_NAME_TO_INT[dayKey] ?? -1;
+        if (dayInt < 0) continue;
+
+        const open24 = !!def.open24hrs;
+        const closed = !!def.closed24hrs;
+        const slots = Array.isArray(def.slots) ? def.slots : [];
+
+        for (const s of slots) {
+          const start = hhmmToUTCDate(s.start);
+          const end = hhmmToUTCDate(s.end);
+          if (!start || !end) continue;
+
+          if (s.id != null) {
+            await tx.dvi_hotspot_timing.update({
+              where: { hotspot_timing_ID: s.id as any },
+              data: {
+                hotspot_ID: hotspotIdNumber as any,
+                hotspot_timing_day: dayInt as any,
+                hotspot_start_time: start as any,
+                hotspot_end_time: end as any,
+                hotspot_open_all_time: (open24 ? 1 : 0) as any,
+                hotspot_closed: (closed ? 1 : 0) as any,
+              } as any,
+            });
+            keepTimingIds.add(s.id as any);
+          } else {
+            const created = await tx.dvi_hotspot_timing.create({
+              data: {
+                hotspot_ID: hotspotIdNumber as any,
+                hotspot_timing_day: dayInt as any,
+                hotspot_start_time: start as any,
+                hotspot_end_time: end as any,
+                hotspot_open_all_time: (open24 ? 1 : 0) as any,
+                hotspot_closed: (closed ? 1 : 0) as any,
+                status: 1 as any,
+                deleted: 0 as any,
+              } as any,
+            });
+            keepTimingIds.add((created as any).hotspot_timing_ID);
+          }
+        }
       }
-      if (this.tryWhere(client, { hotspot_address: { contains: search } })) {
-        ors.push({ hotspot_address: { contains: search } });
+
+      const existingTimings = await tx.dvi_hotspot_timing.findMany({
+        where: { hotspot_ID: hotspotIdNumber as any },
+        select: { hotspot_timing_ID: true },
+      });
+      for (const t of existingTimings) {
+        const tid = (t as any).hotspot_timing_ID as number | bigint;
+        if (!keepTimingIds.has(tid)) {
+          await tx.dvi_hotspot_timing.delete({
+            where: { hotspot_timing_ID: tid as any },
+          });
+        }
       }
-      if (this.tryWhere(client, { address: { contains: search } })) {
-        ors.push({ address: { contains: search } });
+
+      // --------------------- Gallery upsert (by filenames) ---------------
+      const incomingGallery = ((input as any).gallery ?? []) as HotspotGalleryItemDto[];
+      const keepGalleryIds = new Set<number | bigint>();
+
+      for (const g of incomingGallery) {
+        if (g.id != null && g.delete) {
+          await tx.dvi_hotspot_gallery_details.delete({
+            where: { hotspot_gallery_details_id: g.id as any },
+          });
+          continue;
+        }
+        if (g.id != null) {
+          await tx.dvi_hotspot_gallery_details.update({
+            where: { hotspot_gallery_details_id: g.id as any },
+            data: {
+              hotspot_ID: hotspotIdNumber as any,
+              hotspot_gallery_name: g.name,
+            } as any,
+          });
+          keepGalleryIds.add(g.id as any);
+        } else {
+          const created = await tx.dvi_hotspot_gallery_details.create({
+            data: {
+              hotspot_ID: hotspotIdNumber as any,
+              hotspot_gallery_name: g.name,
+              status: 1 as any,
+              deleted: 0 as any,
+            } as any,
+          });
+          keepGalleryIds.add((created as any).hotspot_gallery_details_id);
+        }
       }
-      if (ors.length) where.OR = ors;
+
+      const existingGallery = await tx.dvi_hotspot_gallery_details.findMany({
+        where: { hotspot_ID: hotspotIdNumber as any },
+        select: { hotspot_gallery_details_id: true },
+      });
+      for (const g of existingGallery) {
+        const gid = (g as any).hotspot_gallery_details_id as number | bigint;
+        if (!keepGalleryIds.has(gid)) {
+          await tx.dvi_hotspot_gallery_details.delete({
+            where: { hotspot_gallery_details_id: gid as any },
+          });
+        }
+      }
+
+      return hotspot;
+    });
+
+    return { id: createdOrUpdated.hotspot_ID };
+  }
+
+  // ---------------------- Create gallery row (upload helper) ----------------
+  async createGalleryRow(hotspotId: number, filename: string) {
+    const hp = await this.prisma.dvi_hotspot_place.findUnique({
+      where: { hotspot_ID: hotspotId },
+      select: { hotspot_ID: true },
+    });
+    if (!hp) throw new NotFoundException('Hotspot not found');
+
+    return this.prisma.dvi_hotspot_gallery_details.create({
+      data: {
+        hotspot_ID: hotspotId as any,
+        hotspot_gallery_name: filename,
+        status: 1 as any,
+        deleted: 0 as any,
+      } as any,
+    });
+  }
+
+  // --------------------------- Inline priority ------------------------------
+  async updatePriority(id: number, priority: number): Promise<{ ok: true }> {
+    if (!Number.isFinite(id) || id <= 0) {
+      throw new BadRequestException('Invalid hotspot id');
+    }
+    if (!Number.isFinite(priority) || priority < 0) {
+      throw new BadRequestException('Invalid priority');
     }
 
-    // location filters
-    if (q.cityId && this.tryWhere(client, { city_id: q.cityId })) where.city_id = q.cityId;
-    if (q.stateId && this.tryWhere(client, { state_id: q.stateId })) where.state_id = q.stateId;
-    if (q.countryId && this.tryWhere(client, { country_id: q.countryId })) where.country_id = q.countryId;
+    const exists = await this.prisma.dvi_hotspot_place.findUnique({
+      where: { hotspot_ID: id },
+      select: { hotspot_ID: true },
+    });
+    if (!exists) throw new NotFoundException('Hotspot not found');
 
-    return where;
+    await this.prisma.dvi_hotspot_place.update({
+      where: { hotspot_ID: id },
+      data: { hotspot_priority: priority },
+    });
+
+    return { ok: true };
   }
 
-  private tryWhere(client: AnyRec, where: AnyRec): boolean {
-    try {
-      client.findMany({ take: 0, where });
-      return true;
-    } catch {
-      return false;
+  // --------------------------- Soft delete ----------------------------------
+  async softDelete(id: number): Promise<{ ok: true }> {
+    const exists = await this.prisma.dvi_hotspot_place.findUnique({
+      where: { hotspot_ID: id },
+      select: { hotspot_ID: true },
+    });
+    if (!exists) throw new NotFoundException('Hotspot not found');
+
+    await this.prisma.dvi_hotspot_place.update({
+      where: { hotspot_ID: id },
+      data: { deleted: 1 },
+    });
+
+    return { ok: true };
+  }
+
+  // --------------------------- Basic getOne ---------------------------------
+  async getOne(id: number) {
+    const row = await this.prisma.dvi_hotspot_place.findUnique({
+      where: { hotspot_ID: id },
+    });
+    if (!row || row.deleted === 1) throw new NotFoundException('Hotspot not found');
+    return row;
+  }
+
+  // ==========================================================================
+  // NEW: Availability helper — find hotspots open at a given day/time/location
+  // ==========================================================================
+  /**
+   * Find hotspots that are OPEN at a specific time and (optionally) location.
+   *
+   * @param params.location  Optional location keyword; matches inside hotspot_location pipe list
+   * @param params.datetime  ISO string like "2025-06-30T14:00:00+05:30" (preferred)
+   * @param params.day       Optional: 0..6 (Mon..Sun) or "monday".."sunday"
+   * @param params.time      Optional: "HH:mm" (24h). If datetime is given, time is derived from it.
+   * @param params.limit     Optional: max results (default 100)
+   * @param params.includeGallery Optional: include first gallery image url
+   */
+  async findOpenAt(params: {
+    location?: string;
+    datetime?: string;
+    day?: number | string;
+    time?: string;
+    limit?: number;
+    includeGallery?: boolean;
+  }) {
+    const limit = Math.max(1, Math.min(500, params.limit ?? 100));
+
+    // Resolve day/time
+    let dayInt: number | null = null;
+    let hhmm: string | null = null;
+
+    if (params.datetime) {
+      const dt = new Date(params.datetime);
+      if (!Number.isFinite(dt.getTime())) {
+        throw new BadRequestException('Invalid datetime');
+      }
+      // JS: 0=Sun..6=Sat -> DB: 0=Mon..6=Sun
+      const js = dt.getDay(); // 0..6
+      dayInt = js === 0 ? 6 : js - 1;
+      hhmm = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
     }
-  }
 
-  private buildOrderBy(q: HotspotListQueryDto, client: AnyRec): AnyRec | undefined {
-    const sort = (q.sort ?? '').toLowerCase();
-    if (sort === 'name:asc' || sort === 'name:desc') {
-      const dir = sort.endsWith('desc') ? 'desc' : 'asc';
-      if (this.tryOrderBy(client, { hotspot_name: dir })) return { hotspot_name: dir };
-      if (this.tryOrderBy(client, { name: dir })) return { name: dir };
+    if (params.day != null) {
+      if (typeof params.day === 'number') {
+        if (params.day < 0 || params.day > 6) throw new BadRequestException('day must be 0..6 (Mon..Sun)');
+        dayInt = params.day;
+      } else {
+        const d = DAY_NAME_TO_INT[String(params.day).toLowerCase().trim()];
+        if (d == null) throw new BadRequestException('day must be 0..6 or weekday name');
+        dayInt = d;
+      }
     }
 
-    // default by created/updated if present, else by PK
-    if (this.tryOrderBy(client, { createdon: 'desc' })) return { createdon: 'desc' };
-    if (this.tryOrderBy(client, { created_at: 'desc' })) return { created_at: 'desc' };
-    const pk = this.primaryKeyField(client);
-    return { [pk]: 'desc' };
-  }
-
-  private tryOrderBy(client: AnyRec, orderBy: AnyRec): boolean {
-    try {
-      client.findMany({ take: 0, orderBy });
-      return true;
-    } catch {
-      return false;
+    if (params.time) {
+      if (!/^\d{1,2}:\d{2}$/.test(params.time)) throw new BadRequestException('time must be HH:mm');
+      hhmm = params.time;
     }
-  }
 
-  private hotspotSelect(client: AnyRec): AnyRec {
-    const sel: AnyRec = {};
+    if (dayInt == null || !hhmm) {
+      throw new BadRequestException('Provide either a valid datetime OR both day and time');
+    }
 
-    // id variants
-    if (this.trySelect(client, { hotspot_ID: true })) sel.hotspot_ID = true;
-    if (this.trySelect(client, { hotspot_id: true })) sel.hotspot_id = true;
-    if (this.trySelect(client, { place_id: true })) sel.place_id = true;
-    if (this.trySelect(client, { id: true })) sel.id = true;
+    const tAsUtc = hhmmToUTCDate(hhmm);
+    if (!tAsUtc) throw new BadRequestException('Invalid HH:mm');
 
-    // name variants
-    if (this.trySelect(client, { hotspot_name: true })) sel.hotspot_name = true;
-    if (this.trySelect(client, { name: true })) sel.name = true;
-    if (this.trySelect(client, { title: true })) sel.title = true;
+    // Step 1: find timing rows matching "open at this time" for that day
+    const timingRows = await this.prisma.dvi_hotspot_timing.findMany({
+      where: {
+        hotspot_timing_day: dayInt as any,
+        status: 1 as any,
+        deleted: 0 as any,
+        OR: [
+          { hotspot_open_all_time: 1 as any },
+          {
+            AND: [
+              { hotspot_closed: 0 as any },
+              { hotspot_start_time: { lte: tAsUtc as any } as any },
+              { hotspot_end_time: { gte: tAsUtc as any } as any },
+            ] as any,
+          },
+        ],
+      },
+      select: {
+        hotspot_ID: true,
+      },
+    });
 
-    // address variants
-    if (this.trySelect(client, { hotspot_address: true })) sel.hotspot_address = true;
-    if (this.trySelect(client, { address: true })) sel.address = true;
+    const ids = Array.from(new Set((timingRows as any[]).map((r) => Number(r.hotspot_ID)).filter(Boolean)));
+    if (ids.length === 0) return { data: [] };
 
-    // location fks
-    if (this.trySelect(client, { city_id: true })) sel.city_id = true;
-    if (this.trySelect(client, { state_id: true })) sel.state_id = true;
-    if (this.trySelect(client, { country_id: true })) sel.country_id = true;
-
-    // geo
-    if (this.trySelect(client, { latitude: true })) sel.latitude = true;
-    if (this.trySelect(client, { longitude: true })) sel.longitude = true;
-
-    // flags
-    if (this.trySelect(client, { status: true })) sel.status = true;
-    if (this.trySelect(client, { deleted: true })) sel.deleted = true;
-
-    // fallback: select all if nothing matched (rare)
-    return Object.keys(sel).length ? sel : undefined;
-  }
-
-  private gallerySelect(client: AnyRec): AnyRec {
-    const sel: AnyRec = {};
-    if (this.trySelect(client, { hotspot_id: true })) sel.hotspot_id = true;
-    if (this.trySelect(client, { hotspot_ID: true })) sel.hotspot_ID = true;
-    if (this.trySelect(client, { place_id: true })) sel.place_id = true;
-
-    if (this.trySelect(client, { image_path: true })) sel.image_path = true;
-    if (this.trySelect(client, { photo_path: true })) sel.photo_path = true;
-    if (this.trySelect(client, { image_url: true })) sel.image_url = true;
-    if (this.trySelect(client, { gallery_url: true })) sel.gallery_url = true;
-
-    if (this.trySelect(client, { createdon: true })) sel.createdon = true;
-    if (this.trySelect(client, { created_at: true })) sel.created_at = true;
-
-    if (this.trySelect(client, { deleted: true })) sel.deleted = true;
-
-    return Object.keys(sel).length ? sel : undefined;
-  }
-
-  private mapHotspotRow(r: AnyRec, client: AnyRec): HotspotDto {
-    const id =
-      r.hotspot_ID ?? r.hotspot_id ?? r.place_id ?? r.id ?? null;
-
-    const name =
-      this.firstNonEmpty([r.hotspot_name, r.name, r.title]) ?? `Hotspot #${id ?? ''}`;
-
-    const address =
-      this.firstNonEmpty([r.hotspot_address, r.address]) ?? null;
-
-    const dto: HotspotDto = {
-      id: Number(id),
-      name: String(name),
-      address,
-      cityId: r.city_id ?? null,
-      stateId: r.state_id ?? null,
-      countryId: r.country_id ?? null,
-      latitude: this.toNumOrNull(r.latitude),
-      longitude: this.toNumOrNull(r.longitude),
-      status: this.toNumOrNull(r.status),
-      photoUrl: null,
+    // Step 2: optional location filter (pipe-separated field contains token)
+    const locationToken = (params.location ?? '').trim();
+    const placeWhere: Prisma.dvi_hotspot_placeWhereInput = {
+      hotspot_ID: { in: ids } as any,
+      status: 1,
+      deleted: 0,
     };
-    return dto;
-  }
+    if (locationToken) {
+      // Keep it simple: contains() over the pipe field.
+      placeWhere.hotspot_location = { contains: locationToken } as any;
+    }
 
-  private mergeWhereKey(base: AnyRec, client: AnyRec, id: number, keys: string[] = []): AnyRec {
-    const where: AnyRec = { ...base };
-    const candidates = keys.length
-      ? keys
-      : ['hotspot_ID', 'hotspot_id', 'place_id', 'id'];
+    const places = await this.prisma.dvi_hotspot_place.findMany({
+      where: placeWhere,
+      orderBy: [{ hotspot_priority: 'asc' }, { hotspot_name: 'asc' }],
+      take: limit,
+      select: {
+        hotspot_ID: true,
+        hotspot_name: true,
+        hotspot_priority: true,
+        hotspot_location: true,
+        hotspot_address: true,
+        hotspot_landmark: true,
+        hotspot_latitude: true,
+        hotspot_longitude: true,
+      },
+    });
 
-    for (const k of candidates) {
-      try {
-        client.findMany({ take: 0, where: { [k]: id } });
-        where[k] = id;
-        return where;
-      } catch {
-        // ignore
+    if (places.length === 0) return { data: [] };
+
+    // Optional: include first gallery image URL
+    let firstImgById: Record<number, string> = {};
+    if (params.includeGallery) {
+      const g = await this.prisma.dvi_hotspot_gallery_details.findMany({
+        where: { hotspot_ID: { in: places.map((p) => p.hotspot_ID) } as any, status: 1 as any, deleted: 0 as any },
+        orderBy: [{ hotspot_gallery_details_id: 'asc' }],
+        select: { hotspot_ID: true, hotspot_gallery_name: true },
+      });
+      firstImgById = {};
+      for (const row of g) {
+        const id = row.hotspot_ID as unknown as number;
+        if (!firstImgById[id]) firstImgById[id] = buildImageUrl(row.hotspot_gallery_name ?? '');
       }
     }
-    // last resort
-    where.id = id;
-    return where;
-  }
 
-  // ---------------------------------------------------------
-  // Small helpers
-  // ---------------------------------------------------------
-  private firstNonEmpty(arr: any[]): string | null {
-    for (const v of arr) {
-      const s = (v ?? '').toString().trim();
-      if (s) return s;
-    }
-    return null;
-  }
+    const data = places.map((p) => ({
+      id: p.hotspot_ID,
+      name: p.hotspot_name ?? '',
+      priority: p.hotspot_priority ?? 0,
+      locations: splitPipeToArray(p.hotspot_location ?? ''),
+      address: (p as any).hotspot_address ?? null,
+      landmark: (p as any).hotspot_landmark ?? null,
+      lat: (p as any).hotspot_latitude ?? null,
+      lng: (p as any).hotspot_longitude ?? null,
+      photo_url: firstImgById[p.hotspot_ID as unknown as number] ?? '',
+    }));
 
-  private toNumOrNull(v: any): number | null {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
+    return { data, at: { day: dayInt, time: hhmm } };
   }
-
-  private toPublicUrl(path: string | null | undefined): string | null {
-    if (!path) return null;
-    const base = process.env.ASSET_BASE_URL ?? '';
-    if (!base) return path;
-    // avoid double slash
-    return `${base.replace(/\/+$/, '')}/${String(path).replace(/^\/+/, '')}`;
-    }
 }

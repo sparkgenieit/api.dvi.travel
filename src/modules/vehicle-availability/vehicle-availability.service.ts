@@ -487,7 +487,7 @@ export class VehicleAvailabilityService {
 
   async listAgents() {
     const agents = await this.prisma.dvi_agent.findMany({
-      where: { deleted: { in: [0, 1] } },
+      where: { deleted: { in: [0] } },
       select: { agent_ID: true, agent_name: true },
       orderBy: { agent_name: 'asc' },
     });
