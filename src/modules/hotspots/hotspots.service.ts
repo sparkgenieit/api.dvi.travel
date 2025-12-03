@@ -9,6 +9,10 @@ import { HotspotListResponseDto, HotspotListRow } from './dto/hotspot-list.respo
 import { HotspotCreateDto } from './dto/hotspot-create.dto';
 import { HotspotUpdateDto } from './dto/hotspot-update.dto';
 
+import * as fs from 'fs';
+import * as readline from 'readline';
+import * as crypto from 'crypto';
+
 const DEFAULT_PAGE = 1;
 const DEFAULT_SIZE = 5000;
 
@@ -78,6 +82,9 @@ function splitPipeToArray(pipe?: string | null): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
+function trimStr(v: any) {
+  return (v ?? '').toString().trim();
+}
 
 // ---------- Time & weekday helpers (DB: 0=Mon … 6=Sun) ----------
 const DAY_NAME_TO_INT: Record<string, number> = {
@@ -140,6 +147,45 @@ function getDayStringLoose(row: any): string {
   )
     .toString()
     .toLowerCase();
+}
+
+// ---------------- CSV helpers (robust quoted parsing) ----------------
+function csvUnquote(s: string): string {
+  if (s.startsWith('"') && s.endsWith('"')) {
+    s = s.slice(1, -1).replace(/""/g, '"');
+  }
+  return s.trim();
+}
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQ = false;
+        }
+      } else {
+        cur += ch;
+      }
+    } else {
+      if (ch === ',') {
+        out.push(cur);
+        cur = '';
+      } else if (ch === '"') {
+        inQ = true;
+      } else {
+        cur += ch;
+      }
+    }
+  }
+  out.push(cur);
+  return out;
 }
 
 // ----------------------------- local shapes ----------------------------
@@ -322,7 +368,7 @@ export class HotspotsService {
       this.prisma.dvi_hotspot_vehicle_parking_charges.findMany({
         where: {
           AND: [
-            { hotspot_id: id as any }, // snake_case in parking table
+            { hotspot_id: id as any },
             { status: 1 as any },
             { deleted: 0 as any },
           ] as any,
@@ -678,9 +724,241 @@ export class HotspotsService {
     return row;
   }
 
-  // ==========================================================================
+  // ======================================================================
+  // ============ NEW: Parking Charge CSV Import Flow (PHP parity) =========
+  // ======================================================================
+
+  /**
+   * Step 1: Parse CSV and stage rows into dvi_tempcsv with csvtype=4, status=1.
+   * CSV Columns (two supported layouts):
+   *   A) hotspot_name, hotspot_location, vehicle_type_title, parking_charge
+   *   B) S.NO, hotspot_name, hotspot_location, vehicle_type_title, parking_charge  ← (your React export)
+   * Returns a sessionId to reference in subsequent steps.
+   *
+   * IMPORTANT: dvi_tempcsv.field1..field4 are STRINGS in DB. We must insert strings.
+   */
+  async importParkingCsv(csvFilePath: string) {
+    const sessionId = crypto.randomBytes(8).toString('hex');
+
+    // Keep values as strings (field4 numeric value stored as string)
+    const rows: Array<{
+      hotspot_name: string;
+      hotspot_location: string;
+      vehicle_type_title: string;
+      parking_charge: string;
+    }> = [];
+
+    const rl = readline.createInterface({
+      input: fs.createReadStream(csvFilePath),
+      crlfDelay: Infinity,
+    });
+
+    let lineNo = 0;
+    for await (const rawLine of rl) {
+      let line = (rawLine ?? '').trim();
+      if (!line) continue;
+      if (line.charCodeAt(0) === 0xfeff) line = line.slice(1); // strip BOM
+      lineNo++;
+
+      const cols = parseCsvLine(line).map(csvUnquote);
+
+      // --- header guards (handles both 4-col and 5-col with S.NO header) ---
+      const colsLower = cols.map((c) => c.toLowerCase());
+      if (
+        lineNo === 1 &&
+        (
+          colsLower.includes('hotspot name') ||
+          colsLower.includes('s.no') ||
+          (colsLower[0]?.includes('hotspot') && colsLower[1]?.includes('hotspot'))
+        )
+      ) {
+        continue; // skip header
+      }
+
+      if (cols.length < 4) continue;
+
+      // ---- Detect layout: with S.NO as the first column in data rows ----
+      // If first column is purely numeric (1,2,3,...) and we have >=5 cols,
+      // treat it as S.NO and shift indices by +1 so field1..field4 map correctly.
+      let idxName = 0, idxLoc = 1, idxType = 2, idxCharge = 3;
+      const looksSerial = /^\d+$/.test(cols[0]);
+      if (looksSerial && cols.length >= 5) {
+        idxName = 1; idxLoc = 2; idxType = 3; idxCharge = 4;
+      }
+
+      const hotspot_name = (cols[idxName] ?? '').trim();
+      const hotspot_location = (cols[idxLoc] ?? '').trim();
+      const vehicle_type_title = (cols[idxType] ?? '').trim();
+      const parking_charge = (cols[idxCharge] ?? '').trim();
+
+      if (!hotspot_name || !vehicle_type_title) continue;
+
+      rows.push({
+        hotspot_name,
+        hotspot_location,
+        vehicle_type_title,
+        parking_charge,
+      });
+    }
+
+    for (const r of rows) {
+      await this.prisma.dvi_tempcsv.create({
+        data: {
+          csvtype: 4 as any,                     // parking charge import
+          sessionID: sessionId as any,
+          field1: String(r.hotspot_name),        // TEXT → Hotspot Name
+          field2: String(r.hotspot_location),    // TEXT → Hotspot Location
+          field3: String(r.vehicle_type_title),  // TEXT → Vehicle Type
+          field4: String(r.parking_charge),      // TEXT → Parking Charge
+          status: 1 as any,                      // staged
+        } as Prisma.dvi_tempcsvCreateInput,
+      });
+    }
+
+    try { fs.unlinkSync(csvFilePath); } catch {}
+
+    return { sessionId, stagedCount: rows.length };
+  }
+
+  /**
+   * Step 2: Read staged rows for preview (status=1, csvtype=4, by sessionId)
+   */
+  async getParkingTemplist(sessionId: string) {
+    const data = await this.prisma.dvi_tempcsv.findMany({
+      where: { csvtype: 4 as any, sessionID: sessionId as any, status: 1 as any },
+      orderBy: { temp_id: 'asc' },
+      select: {
+        temp_id: true,
+        field1: true, // hotspot_name
+        field2: true, // hotspot_location
+        field3: true, // vehicle_type_title
+        field4: true, // parking_charge (stored as STRING)
+      },
+    });
+
+    return {
+      sessionId,
+      rows: data.map((r) => ({
+        id: Number(r.temp_id),
+        hotspot_name: r.field1 ?? '',
+        hotspot_location: r.field2 ?? '',
+        vehicle_type_title: r.field3 ?? '',
+        parking_charge: Number(r.field4 ?? 0), // convert to number for UI
+      })),
+    };
+  }
+
+  /**
+   * Step 3: Confirm import
+   * - Resolve hotspot (by name + optional location token) and vehicle_type (by title)
+   * - Upsert into dvi_hotspot_vehicle_parking_charges (update if exists, else insert)
+   * - Mark dvi_tempcsv.status = 2 for imported rows
+   */
+  async confirmParkingImport(sessionId: string, onlyTempIds?: number[]) {
+    const whereTemp: Prisma.dvi_tempcsvWhereInput = {
+      csvtype: 4 as any,
+      sessionID: sessionId as any,
+      status: 1 as any,
+    };
+    if (onlyTempIds && onlyTempIds.length) {
+      whereTemp.temp_id = { in: onlyTempIds as any };
+    }
+
+    const temps = await this.prisma.dvi_tempcsv.findMany({
+      where: whereTemp,
+      orderBy: { temp_id: 'asc' },
+    });
+
+    let imported = 0;
+    let failed = 0;
+
+    for (const t of temps) {
+      const hotspotName = trimStr((t as any).field1);
+      const hotspotLocToken = trimStr((t as any).field2);
+      const vehTypeTitle = trimStr((t as any).field3);
+      const charge = toNumber((t as any).field4); // from STRING
+
+      try {
+        // Resolve hotspot
+        const hotspot = await this.prisma.dvi_hotspot_place.findFirst({
+          where: {
+            AND: [
+              { hotspot_name: { equals: hotspotName } as any },
+              ...(hotspotLocToken
+                ? [{ hotspot_location: { contains: hotspotLocToken } as any }]
+                : []),
+              { status: 1 as any },
+              { deleted: 0 as any },
+            ] as any,
+          },
+          select: { hotspot_ID: true },
+        });
+        if (!hotspot) { failed++; continue; }
+
+        // Resolve vehicle type
+        const vtype = await this.prisma.dvi_vehicle_type.findFirst({
+          where: {
+            vehicle_type_title: { equals: vehTypeTitle } as any,
+            status: 1 as any,
+            deleted: 0 as any,
+          },
+          select: { vehicle_type_id: true },
+        });
+        if (!vtype) { failed++; continue; }
+
+        // If a record exists for (hotspot_id, vehicle_type_id) -> UPDATE else INSERT
+        const existing = await this.prisma.dvi_hotspot_vehicle_parking_charges.findFirst({
+          where: {
+            AND: [
+              { hotspot_id: hotspot.hotspot_ID as any },
+              { vehicle_type_id: vtype.vehicle_type_id as any },
+              { status: 1 as any },
+              { deleted: 0 as any },
+            ] as any,
+          },
+          select: { vehicle_parking_charge_ID: true },
+        });
+
+        if (existing) {
+          await this.prisma.dvi_hotspot_vehicle_parking_charges.update({
+            where: { vehicle_parking_charge_ID: existing.vehicle_parking_charge_ID as any },
+            data: {
+              hotspot_id: hotspot.hotspot_ID as any,
+              vehicle_type_id: vtype.vehicle_type_id as any,
+              parking_charge: charge as any,
+            } as any,
+          });
+        } else {
+          await this.prisma.dvi_hotspot_vehicle_parking_charges.create({
+            data: {
+              hotspot_id: hotspot.hotspot_ID as any,
+              vehicle_type_id: vtype.vehicle_type_id as any,
+              parking_charge: charge as any,
+              status: 1 as any,
+              deleted: 0 as any,
+            } as any,
+          });
+        }
+
+        // Mark temp row as imported (status=2)
+        await this.prisma.dvi_tempcsv.update({
+          where: { temp_id: (t as any).temp_id as any },
+          data: { status: 2 as any },
+        });
+
+        imported++;
+      } catch {
+        failed++;
+      }
+    }
+
+    const total = temps.length;
+    return { sessionId, total, imported, failed };
+  }
+
+  // ======================================================================
   // NEW: Availability helper — find hotspots open at a given day/time/location
-  // ==========================================================================
+  // ======================================================================
   /**
    * Find hotspots that are OPEN at a specific time and (optionally) location.
    *
