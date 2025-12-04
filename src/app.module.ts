@@ -16,8 +16,9 @@ import { VendorsModule } from './modules/vendors/vendors.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { VehicleAvailabilityModule } from './modules/vehicle-availability/vehicle-availability.module';
 import { HotspotsModule } from './modules/hotspots/hotspots.module';
+import { ActivitiesModule } from './modules/activities/activities.module';
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItineraryModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItineraryModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
