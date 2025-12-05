@@ -1,3 +1,4 @@
+// FILE: src/modules/activities/activities.controller.ts
 import {
   Body,
   Controller,
@@ -9,6 +10,8 @@ import {
   Post,
   Put,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
@@ -18,16 +21,29 @@ import { SavePriceBookDto } from './dto/save-pricebook.dto';
 import { SaveReviewDto } from './dto/save-review.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
 
+// ⬇️ NEW: Multer imports (non-breaking)
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { randomBytes } from 'crypto';
+
+// Helper for uploads dir (configurable via env)
+const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
+
+// Helper to generate unique file names
+function randomName(original: string) {
+  const id = randomBytes(8).toString('hex');
+  const ext = extname(original || '');
+  return `${Date.now()}-${id}${ext}`;
+}
+
 @Controller('activities')
 export class ActivitiesController {
   constructor(private readonly service: ActivitiesService) {}
 
   // === LIST (DataTables style shape, but clean JSON) ===
   @Get()
-  async list(
-    @Query('q') q?: string,
-    @Query('status') status?: '0' | '1',
-  ) {
+  async list(@Query('q') q?: string, @Query('status') status?: '0' | '1') {
     return this.service.list({ q, status: status as any });
   }
 
@@ -45,19 +61,13 @@ export class ActivitiesController {
 
   // === BASIC INFO (Update) ===
   @Put(':id')
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateActivityDto,
-  ) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateActivityDto) {
     return this.service.updateActivity(id, dto);
   }
 
   // === STATUS TOGGLE ===
   @Patch(':id/status')
-  async toggleStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: ToggleStatusDto,
-  ) {
+  async toggleStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: ToggleStatusDto) {
     return this.service.toggleStatus(id, dto.status);
   }
 
@@ -67,13 +77,39 @@ export class ActivitiesController {
     return this.service.softDelete(id);
   }
 
-  // === GALLERY ===
+  // === GALLERY (existing JSON-based insert; kept as-is) ===
   @Post(':id/images')
   async addImages(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { imageNames: string[]; createdby?: number },
   ) {
     return this.service.addImages(id, body.imageNames ?? [], body.createdby ?? 0);
+  }
+
+  // ⬇️ NEW: GALLERY (multipart upload to /uploads + DB save of filenames)
+  // Route name chosen to avoid breaking existing /:id/images JSON endpoint
+  @Post(':id/images/upload')
+  @UseInterceptors(
+    FilesInterceptor('images', 12, {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+        filename: (_req, file, cb) => cb(null, randomName(file.originalname)),
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+      fileFilter: (_req, file, cb) => {
+        const ok = /^image\//.test(file.mimetype);
+        cb(ok ? null : new Error('Only image/* files are allowed'), ok);
+      },
+    }),
+  )
+  async uploadImages(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('createdby') createdby?: string,
+  ) {
+    const creator = Number(createdby ?? 0);
+    // Persist filenames in dvi_activity_image_gallery_details
+    return this.service.saveUploadedImages(id, files, creator);
   }
 
   @Delete(':id/images/:imageId')
@@ -86,28 +122,19 @@ export class ActivitiesController {
 
   // === TIME SLOTS (default + special) ===
   @Post(':id/time-slots')
-  async saveTimeSlots(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: SaveTimeSlotsDto,
-  ) {
+  async saveTimeSlots(@Param('id', ParseIntPipe) id: number, @Body() dto: SaveTimeSlotsDto) {
     return this.service.saveTimeSlots(id, dto);
   }
 
   // === PRICE BOOK (month rows with day_1..day_31) ===
   @Post(':id/pricebook')
-  async savePriceBook(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: SavePriceBookDto,
-  ) {
+  async savePriceBook(@Param('id', ParseIntPipe) id: number, @Body() dto: SavePriceBookDto) {
     return this.service.savePriceBook(id, dto);
   }
 
   // === REVIEWS ===
   @Post(':id/reviews')
-  async addReview(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: SaveReviewDto,
-  ) {
+  async addReview(@Param('id', ParseIntPipe) id: number, @Body() dto: SaveReviewDto) {
     return this.service.addOrUpdateReview(id, dto);
   }
 
@@ -140,4 +167,3 @@ export class ActivitiesController {
     return this.service.details(id);
   }
 }
-

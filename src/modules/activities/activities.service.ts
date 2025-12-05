@@ -305,6 +305,38 @@ export class ActivitiesService {
     return res;
   }
 
+  // ---- NEW: Save uploaded files (from Multer) into DB (filenames only)
+  async saveUploadedImages(
+    activityId: number,
+    files: Express.Multer.File[],
+    createdby: number,
+  ) {
+    if (!files?.length) return { count: 0, files: [] };
+
+    const existing = await this.prisma.dvi_activity.findFirst({
+      where: { activity_id: activityId, deleted: 0 },
+      select: { activity_id: true },
+    });
+    if (!existing) throw new NotFoundException('Activity not found');
+
+    const now = new Date();
+    const data = files.map((f) => ({
+      activity_id: activityId,
+      activity_image_gallery_name: f.filename, // stored by Multer
+      createdby: toInt(createdby, 0),
+      status: 1,
+      deleted: 0,
+      createdon: now,
+    }));
+
+    const res = await this.prisma.dvi_activity_image_gallery_details.createMany({
+      data,
+      skipDuplicates: true,
+    });
+
+    return { count: res.count, files: files.map((f) => f.filename) };
+  }
+
   async deleteImage(activityId: number, imageId: number) {
     // optional: verify image belongs to activity
     await this.prisma.dvi_activity_image_gallery_details.delete({
