@@ -7,7 +7,7 @@ import { HotelsModule } from './modules/hotels/hotels.module';
 import { AuthModule } from './modules/auth/auth.module';
 import {AccountsManagerModule} from './modules/accounts-manager/accounts-manager.module';
 import { AccountsLedgerModule } from './modules/accounts-ledger/accounts-ledger.module';
-import { ItineraryModule } from './modules/itinerary/itinerary.module';
+import { ItinerariesModule } from './modules/itineraries/itinerary.module';
 import {ItineraryDropdownsModule  } from './modules/itinerary-dropdowns/itinerary-dropdowns.module';
 import { DailyMomentTrackerModule } from './modules/daily-moment-tracker/daily-moment-tracker.module';
 import { AgentsModule } from './modules/agents/agents.module';

@@ -4,9 +4,9 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-} from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+} from "@nestjs/common";
+import { Observable } from "rxjs";
+import { map } from "rxjs/operators";
 
 // Recursively convert BigInt and Prisma Decimal to strings
 function serializeBigInts(value: any): any {
@@ -14,10 +14,16 @@ function serializeBigInts(value: any): any {
 
   const t = typeof value;
 
-  if (t === 'bigint') return value.toString();
+  // ✅ BigInt -> string
+  if (t === "bigint") return value.toString();
 
-  // Handle Prisma Decimal without importing Prisma at runtime
-  if (t === 'object' && value?.constructor?.name === 'Decimal') {
+  // ✅ Date must be handled explicitly (otherwise becomes {})
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value.toISOString();
+  }
+
+  // ✅ Prisma Decimal without importing Prisma at runtime
+  if (t === "object" && value?.constructor?.name === "Decimal") {
     return value.toString();
   }
 
@@ -25,7 +31,16 @@ function serializeBigInts(value: any): any {
     return value.map(serializeBigInts);
   }
 
-  if (t === 'object') {
+  // ✅ Only serialize "plain objects"; keep class instances as-is
+  if (t === "object") {
+    const proto = Object.getPrototypeOf(value);
+    const isPlain = proto === Object.prototype || proto === null;
+
+    if (!isPlain) {
+      // This prevents turning class instances / special objects into {}
+      return value;
+    }
+
     const out: any = {};
     for (const k of Object.keys(value)) {
       out[k] = serializeBigInts(value[k]);
