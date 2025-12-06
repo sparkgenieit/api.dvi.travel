@@ -7,12 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  admin
-  agent
-  vendor
-}
-
 model dvi_accounts_itinerary_activity_details {
   accounts_itinerary_activity_details_ID Int       @id @default(autoincrement())
   accounts_itinerary_details_ID          Int       @default(0)
@@ -1223,19 +1217,6 @@ model dvi_confirmed_itinerary_customer_feedback {
   @@index([itinerary_route_ID], map: "idx_cnf_iti_cstmr_fd_route_id")
   @@index([status], map: "idx_cnf_iti_cstmr_fd_status")
   @@index([updatedon], map: "idx_cnf_iti_cstmr_fd_updatedon")
-}
-
-model dvi_confirmed_itinerary_guide_feedback {
-  guide_feedback_ID  Int       @id @default(autoincrement())
-  itinerary_plan_ID  Int       @default(0)
-  itinerary_route_ID Int       @default(0)
-  guide_rating       String?   @db.VarChar(10)
-  guide_description  String?   @db.Text
-  createdby          Int       @default(0)
-  createdon          DateTime? @db.DateTime(0)
-  updatedon          DateTime? @db.DateTime(0)
-  status             Int       @default(0) @db.TinyInt
-  deleted            Int       @default(0) @db.TinyInt
 }
 
 model dvi_confirmed_itinerary_dailymoment_charge {
@@ -3003,33 +2984,33 @@ model dvi_guide_review_details {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dvi_hotel {
-  hotel_id                                              Int      @id @default(autoincrement())
-  hotel_name                                            String?  @db.VarChar(100)
-  hotel_code                                            String?  @db.VarChar(200)
-  hotel_mobile                                          String?  @db.VarChar(200)
-  hotel_email                                           String?  @db.VarChar(200)
-  hotel_country                                         String?  @db.VarChar(50)
-  hotel_city                                            String?  @db.VarChar(100)
-  hotel_state                                           String?  @db.VarChar(50)
-  hotel_place                                           String?  @db.Text
-  hotel_address                                         String?  @db.Text
-  hotel_pincode                                         String?  @db.VarChar(10)
-  hotel_margin                                          Float    @default(0) @db.Float
-  hotel_margin_gst_type                                 Int      @default(0)
-  hotel_margin_gst_percentage                           Float    @default(0) @db.Float
-  hotel_longitude                                       String?  @db.MediumText
-  hotel_latitude                                        String?  @db.MediumText
-  hotel_category                                        Int      @default(0)
-  hotel_cancel_policy                                   String?  @db.MediumText
-  hotel_power_backup                                    Int      @default(0)
-  hotel_free_cancel_policy_no_of_days_from_booking_date Int      @default(0)
-  hotel_cancel_policy_percentage                        Float    @default(0) @db.Float
-  hotel_hotspot_status                                  Int      @default(0)
-  createdby                                             Int      @default(0)
-  createdon                                             DateTime @default(now()) @db.DateTime(0)
-  updatedon                                             DateTime @updatedAt @db.DateTime(0)
-  status                                                Int      @default(0) @db.TinyInt
-  deleted                                               Boolean? @default(false)
+  hotel_id                                              Int       @id @default(autoincrement())
+  hotel_name                                            String?   @db.VarChar(100)
+  hotel_code                                            String?   @db.VarChar(200)
+  hotel_mobile                                          String?   @db.VarChar(200)
+  hotel_email                                           String?   @db.VarChar(200)
+  hotel_country                                         String?   @db.VarChar(50)
+  hotel_city                                            String?   @db.VarChar(100)
+  hotel_state                                           String?   @db.VarChar(50)
+  hotel_place                                           String?   @db.Text
+  hotel_address                                         String?   @db.Text
+  hotel_pincode                                         String?   @db.VarChar(10)
+  hotel_margin                                          Float     @default(0) @db.Float
+  hotel_margin_gst_type                                 Int       @default(0)
+  hotel_margin_gst_percentage                           Float     @default(0) @db.Float
+  hotel_longitude                                       String?   @db.MediumText
+  hotel_latitude                                        String?   @db.MediumText
+  hotel_category                                        Int       @default(0)
+  hotel_cancel_policy                                   String?   @db.MediumText
+  hotel_power_backup                                    Int       @default(0)
+  hotel_free_cancel_policy_no_of_days_from_booking_date Int       @default(0)
+  hotel_cancel_policy_percentage                        Float     @default(0) @db.Float
+  hotel_hotspot_status                                  Int       @default(0)
+  createdby                                             Int       @default(0)
+  createdon                                             DateTime? @db.DateTime(0)
+  updatedon                                             DateTime? @updatedAt @db.DateTime(0)
+  status                                                Int       @default(0) @db.TinyInt
+  deleted                                               Boolean?  @default(false)
 
   @@index([createdby], map: "idx_hotel_createdby")
   @@index([createdon], map: "idx_hotel_createdon")
@@ -3626,6 +3607,8 @@ model dvi_itinerary_plan_details {
   location_id              BigInt    @default(0)
   arrival_location         String?   @db.Text
   departure_location       String?   @db.Text
+  preferred_hotel_category   String?   @db.Text
+  hotel_facilities String?   @db.Text
   itinerary_quote_ID       String?   @db.Text
   trip_start_date_and_time DateTime? @db.DateTime(0)
   trip_end_date_and_time   DateTime? @db.DateTime(0)
@@ -4740,30 +4723,26 @@ model dvi_stored_location_via_routes {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dvi_stored_locations {
-  location_ID     BigInt @id @default(autoincrement())
-  source_location String @db.LongText
-
-  // CHANGED ↓↓↓
-  source_location_lattitude      Float @db.Double
-  source_location_longitude      Float @db.Double
-  destination_location_lattitude Float @db.Double
-  destination_location_longitude Float @db.Double
-  // CHANGED ↑↑↑
-
-  source_location_city       String    @db.LongText
-  source_location_state      String?   @db.LongText
-  destination_location       String    @db.LongText
-  destination_location_city  String    @db.LongText
-  destination_location_state String?   @db.LongText
-  distance                   Float     @default(0)
-  duration                   String?   @db.VarChar(100)
-  location_description       String?   @db.Text
-  created_from               Int       @default(0)
-  createdby                  BigInt    @default(0)
-  createdon                  DateTime? @db.DateTime(0)
-  updatedon                  DateTime? @db.DateTime(0)
-  status                     Int       @default(0)
-  deleted                    Int       @default(0)
+  location_ID                    BigInt    @id @default(autoincrement())
+  source_location                String    @db.LongText
+  source_location_lattitude      String    @db.LongText
+  source_location_longitude      String    @db.LongText
+  source_location_city           String    @db.LongText
+  source_location_state          String?   @db.LongText
+  destination_location           String    @db.LongText
+  destination_location_lattitude String    @db.LongText
+  destination_location_longitude String    @db.LongText
+  destination_location_city      String    @db.LongText
+  destination_location_state     String?   @db.LongText
+  distance                       Float     @default(0)
+  duration                       String?   @db.VarChar(100)
+  location_description           String?   @db.Text
+  created_from                   Int       @default(0)
+  createdby                      BigInt    @default(0)
+  createdon                      DateTime? @db.DateTime(0)
+  updatedon                      DateTime? @db.DateTime(0)
+  status                         Int       @default(0)
+  deleted                        Int       @default(0)
 
   @@index([created_from], map: "idx_dvi_stored_locations_created_from")
   @@index([createdby], map: "idx_dvi_stored_locations_createdby")
@@ -4786,6 +4765,10 @@ model dvi_stored_locations {
   @@index([deleted], map: "idx_stored_locations_deleted")
   @@index([status], map: "idx_stored_locations_status")
   @@index([source_location(length: 768)], map: "source_location_2")
+  @@index([destination_location_lattitude(length: 768)], map: "idx_dvi_stored_locations_destination_location_lattitude")
+  @@index([destination_location_longitude(length: 768)], map: "idx_dvi_stored_locations_destination_location_longitude")
+  @@index([source_location_lattitude(length: 768)], map: "idx_dvi_stored_locations_source_location_lattitude")
+  @@index([source_location_longitude(length: 768)], map: "idx_dvi_stored_locations_source_location_longitude")
 }
 
 model dvi_stored_route_location_details {
@@ -5486,16 +5469,51 @@ model dvi_vendor_vehicle_types {
   @@index([vendor_id], map: "idx_dvi_vendor_vehicle_types_vendor_id")
 }
 
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model old_dvi_stored_locations {
+  location_ID                    BigInt    @id @default(autoincrement())
+  source_location                String    @db.LongText
+  source_location_lattitude      String    @db.LongText
+  source_location_longitude      String    @db.LongText
+  source_location_city           String    @db.LongText
+  source_location_state          String?   @db.LongText
+  destination_location           String    @db.LongText
+  destination_location_lattitude String    @db.LongText
+  destination_location_longitude String    @db.LongText
+  destination_location_city      String    @db.LongText
+  destination_location_state     String?   @db.LongText
+  distance                       Float     @default(0)
+  duration                       String?   @db.VarChar(100)
+  location_description           String?   @db.Text
+  created_from                   Int       @default(0)
+  createdby                      BigInt    @default(0)
+  createdon                      DateTime? @db.DateTime(0)
+  updatedon                      DateTime? @db.DateTime(0)
+  status                         Int       @default(0)
+  deleted                        Int       @default(0)
 
-model User {
-  id        String   @id @db.VarChar(191)
-  email     String   @unique @db.VarChar(191)
-  password  String   @db.VarChar(191)
-  fullName  String   @db.VarChar(191)
-  role      Role     @default(admin)
-  isActive  Boolean  @default(true) // ✅ no @db.TinyInt(1)
-  createdAt DateTime @default(now()) @db.DateTime(3)
-  updatedAt DateTime @updatedAt @db.DateTime(3)
-
-  @@map("user")
+  @@index([created_from], map: "idx_dvi_stored_locations_created_from")
+  @@index([createdby], map: "idx_dvi_stored_locations_createdby")
+  @@index([createdon], map: "idx_dvi_stored_locations_createdon")
+  @@index([deleted], map: "idx_dvi_stored_locations_deleted")
+  @@index([destination_location(length: 768)], map: "idx_dvi_stored_locations_destination_location")
+  @@index([destination_location_city(length: 768)], map: "idx_dvi_stored_locations_destination_location_city")
+  @@index([destination_location_lattitude(length: 768)], map: "idx_dvi_stored_locations_destination_location_lattitude")
+  @@index([destination_location_longitude(length: 768)], map: "idx_dvi_stored_locations_destination_location_longitude")
+  @@index([destination_location_state(length: 768)], map: "idx_dvi_stored_locations_destination_location_state")
+  @@index([distance], map: "idx_dvi_stored_locations_distance")
+  @@index([duration], map: "idx_dvi_stored_locations_duration")
+  @@index([location_description(length: 768)], map: "idx_dvi_stored_locations_location_description")
+  @@index([source_location(length: 768)], map: "idx_dvi_stored_locations_source_location")
+  @@index([source_location_city(length: 768)], map: "idx_dvi_stored_locations_source_location_city")
+  @@index([source_location_lattitude(length: 768)], map: "idx_dvi_stored_locations_source_location_lattitude")
+  @@index([source_location_longitude(length: 768)], map: "idx_dvi_stored_locations_source_location_longitude")
+  @@index([source_location_state(length: 768)], map: "idx_dvi_stored_locations_source_location_state")
+  @@index([status], map: "idx_dvi_stored_locations_status")
+  @@index([updatedon], map: "idx_dvi_stored_locations_updatedon")
+  @@index([destination_location(length: 768)], map: "idx_main_destination_location")
+  @@index([source_location(length: 768)], map: "idx_main_source_location")
+  @@index([deleted], map: "idx_stored_locations_deleted")
+  @@index([status], map: "idx_stored_locations_status")
+  @@index([source_location(length: 768)], map: "source_location_2")
 }
