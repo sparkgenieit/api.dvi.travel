@@ -19,19 +19,6 @@ export class UsersController {
     return this.users.findAll();
   }
 
-  @ApiOperation({ summary: 'Get user by id' })
-  @ApiParam({ name: 'id' })
-  @Roles(SwaggerRole.admin as any)
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.users.findOne(id);
-  }
 
-  @ApiOperation({ summary: 'Set user role' })
-  @ApiParam({ name: 'id' })
-  @Roles(SwaggerRole.admin as any)
-  @Patch(':id/role')
-  setRole(@Param('id') id: string, @Body() body: { role: SwaggerRole }) {
-    return this.users.setRole(id, body.role as any);
-  }
+  
 }

@@ -1,22 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// FILE: src/modules/users/users.service.ts
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { Role } from '@prisma/client';
+import { Role } from 'src/auth/roles.decorator';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.user.findMany();
+  // TODO: Wire to a real User model once you add it to prisma.schema
+  async findAll() {
+    return [];
   }
 
-  findOne(id: string) {
-    return this.prisma.user.findUnique({ where: { id } });
+  async findOne(id: number) {
+    return null;
   }
 
-  async setRole(id: string, role: Role) {
-    const exists = await this.prisma.user.findUnique({ where: { id } });
-    if (!exists) throw new NotFoundException('User not found');
-    return this.prisma.user.update({ where: { id }, data: { role } });
+  async updateRole(id: number, role: Role) {
+    // Implement once you have a User model
+    return null;
   }
 }
