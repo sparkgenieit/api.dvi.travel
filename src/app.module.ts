@@ -7,7 +7,7 @@ import { HotelsModule } from './modules/hotels/hotels.module';
 import { AuthModule } from './modules/auth/auth.module';
 import {AccountsManagerModule} from './modules/accounts-manager/accounts-manager.module';
 import { AccountsLedgerModule } from './modules/accounts-ledger/accounts-ledger.module';
-import { ItineraryModule } from './modules/itinerary/itinerary.module';
+import { ItinerariesModule } from './modules/itineraries/itinerary.module';
 import {ItineraryDropdownsModule  } from './modules/itinerary-dropdowns/itinerary-dropdowns.module';
 import { DailyMomentTrackerModule } from './modules/daily-moment-tracker/daily-moment-tracker.module';
 import { AgentsModule } from './modules/agents/agents.module';
@@ -21,7 +21,7 @@ import { LocationsModule } from './modules/locations/locations.module';
 import { GuidesModule } from './modules/guides/guides.module';
 
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItineraryModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
