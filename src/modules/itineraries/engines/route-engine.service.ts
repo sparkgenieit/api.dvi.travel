@@ -1,0 +1,300 @@
+// REPLACE-WHOLE-FILE
+// FILE: src/itineraries/engines/route-engine.service.ts
+//
+// PHP-PARITY ROUTE WRITER
+// ------------------------
+// This service rebuilds dvi_itinerary_route_details for a plan so that
+// the rows for a NestJS-created plan (e.g. plan 4) match the rows that
+// PHP would create for the same payload (e.g. plan 2).
+//
+// Key parity points:
+//   • location_id      → looked up from dvi_stored_locations(source, destination)
+//   • location_name    → source location name (string)
+//   • itinerary_route_date → trip_start_date + leg index (1 day per leg)
+//   • no_of_days       → ALWAYS 1 (PHP uses $selected_NO_OF_DAYS = 1)
+//   • no_of_km         → distance from dvi_stored_locations.distance
+//   • direct_to_next_visiting_place → 0 (current PHP has checkbox logic disabled)
+//   • next_visiting_location       → destination name (string)
+//   • route_start_time / route_end_time:
+//         - first leg: trip_start_time
+//         - middle legs: 08:00:00 → 20:00:00
+//         - last leg going to departure_point:
+//               end   = trip_end_time - departure-buffer
+//               start = end - travel_duration(distance, speed)
+//
+//   • createdby / createdon / status / deleted → PHP-like semantics.
+
+import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import {
+  CreatePlanDto,
+  CreateRouteDto,
+} from "../dto/create-itinerary.dto";
+import { timeStringToPrismaTime } from "../utils/itinerary.utils";
+
+type Tx = Prisma.TransactionClient;
+
+@Injectable()
+export class RouteEngineService {
+  /* ----------------------------------------------------------
+   * Helpers: basic time formatting
+   * --------------------------------------------------------*/
+
+  private pad2(n: number): string {
+    return String(Math.max(0, n | 0)).padStart(2, "0");
+  }
+
+  private toHmsFromDate(d: Date): string {
+    const hh = d.getHours();
+    const mm = d.getMinutes();
+    const ss = d.getSeconds();
+    return `${this.pad2(hh)}:${this.pad2(mm)}:${this.pad2(ss)}`;
+  }
+
+  private parseHmsToSeconds(hms: string): number {
+    const [h, m, s] = (hms || "00:00:00").split(":").map((x) => Number(x || 0));
+    return (h | 0) * 3600 + (m | 0) * 60 + (s | 0);
+  }
+
+  private secondsToHms(sec: number): string {
+    const S = Math.max(0, Math.floor(sec || 0));
+    const h = Math.floor(S / 3600) % 24;
+    const m = Math.floor((S % 3600) / 60);
+    const s = S % 60;
+    return `${this.pad2(h)}:${this.pad2(m)}:${this.pad2(s)}`;
+  }
+
+  /**
+   * Extract trip_start_time and trip_end_time as HH:MM:SS from the plan DTO.
+   * We prefer trip_start_date / trip_end_date if present, otherwise fall back.
+   */
+  private extractTripTimes(plan: CreatePlanDto) {
+    const anyPlan: any = plan || {};
+
+    const startIso =
+      anyPlan.trip_start_date ||
+      anyPlan.pick_up_date_and_time ||
+      anyPlan.tripStartDate ||
+      anyPlan.pickUpDateAndTime;
+
+    const endIso =
+      anyPlan.trip_end_date ||
+      anyPlan.tripEndDate ||
+      anyPlan.trip_end_time ||
+      anyPlan.tripEndTime;
+
+    const start = startIso ? new Date(startIso) : new Date();
+    const end = endIso ? new Date(endIso) : new Date(start.getTime());
+
+    const tripStartTimeHms = this.toHmsFromDate(start);
+    const tripEndTimeHms = this.toHmsFromDate(end);
+
+    return { tripStartTimeHms, tripEndTimeHms };
+  }
+
+  /**
+   * PHP uses different buffer times for flight/train/road departures.
+   * We don't have the global settings table wired, so we mirror the
+   * typical values inferred from your sample:
+   *   - Flight (1): 2 hours
+   *   - Train  (2): 1 hour
+   *   - Road   (3): 0 hours (leave at end time)
+   */
+  private getDepartureBufferSeconds(departureType: number | null | undefined) {
+    switch (Number(departureType || 0)) {
+      case 1: // flight
+        return 2 * 3600;
+      case 2: // train
+        return 1 * 3600;
+      case 3: // road
+        return 0;
+      default:
+        return 0;
+    }
+  }
+
+  /**
+   * Resolve location_id + distance from dvi_stored_locations
+   * for (source_location, destination_location).
+   *
+   * If no row found, returns { 0n, "" } exactly like PHP's
+   * `$distanceKM = 0;` branch.
+   */
+  private async resolveSourceLocationAndKm(
+    tx: Tx,
+    sourceName: string,
+    destName: string,
+  ): Promise<{ locationId: bigint; distanceKm: string }> {
+    const trimmedSource = String(sourceName ?? "").trim();
+    const trimmedDest = String(destName ?? "").trim();
+
+    if (!trimmedSource || !trimmedDest) {
+      return { locationId: BigInt(0), distanceKm: "" };
+    }
+
+    const row = await (tx as any).dvi_stored_locations.findFirst({
+      where: {
+        source_location: trimmedSource,
+        destination_location: trimmedDest,
+        deleted: 0,
+      },
+      select: {
+        location_ID: true,
+        distance: true,
+      },
+    });
+
+    if (!row) {
+      return { locationId: BigInt(0), distanceKm: "" };
+    }
+
+    const rawId =
+      (row as any).location_ID ??
+      0;
+
+    let locationId: bigint;
+    try {
+      if (typeof rawId === "bigint") {
+        locationId = rawId;
+      } else if (typeof rawId === "number") {
+        locationId = BigInt(Math.trunc(rawId));
+      } else {
+        locationId = BigInt(String(rawId));
+      }
+    } catch {
+      locationId = BigInt(0);
+    }
+
+    const distanceRaw = (row as any).distance;
+    const distanceKm =
+      distanceRaw === null || distanceRaw === undefined
+        ? ""
+        : String(distanceRaw);
+
+    return { locationId, distanceKm };
+  }
+
+  /**
+   * Normalize the base trip start date (date-only) from the plan.
+   * PHP uses date('Y-m-d', strtotime(trip_start_date_and_time + N days)).
+   */
+  private getTripStartDateOnly(plan: CreatePlanDto): Date {
+    const anyPlan: any = plan || {};
+    const startIso =
+      anyPlan.trip_start_date ||
+      anyPlan.pick_up_date_and_time ||
+      anyPlan.tripStartDate ||
+      anyPlan.pickUpDateAndTime;
+
+    const base = startIso ? new Date(startIso) : new Date();
+    // date-only in local time
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  }
+
+  /**
+   * Main entry: rebuild all routes for a plan.
+   */
+  async rebuildRoutes(
+    planId: number,
+    plan: CreatePlanDto,
+    routes: CreateRouteDto[],
+    tx: Tx,
+    userId: number,
+  ) {
+    const anyPlan: any = plan || {};
+    const arrivalLocation = String(anyPlan.arrival_point ?? "").trim();
+    const departureLocation = String(anyPlan.departure_point ?? "").trim();
+    const departureType = Number(anyPlan.departure_type ?? 0) || 0;
+
+    const totalRoutes = Array.isArray(routes) ? routes.length : 0;
+
+    // If no routes, wipe existing and return.
+    if (!totalRoutes) {
+      await (tx as any).dvi_itinerary_route_details.deleteMany({
+        where: { itinerary_plan_ID: planId },
+      });
+      return [];
+    }
+
+    // Compute trip-level times + last-day end time.
+    const { tripStartTimeHms, tripEndTimeHms } = this.extractTripTimes(plan);
+    const bufferSec = this.getDepartureBufferSeconds(departureType);
+    const tripEndSec = this.parseHmsToSeconds(tripEndTimeHms);
+    const lastDayEndSec = Math.max(0, tripEndSec - bufferSec);
+
+    const baseDate = this.getTripStartDateOnly(plan);
+
+    // PHP deletes/rebuilds all routes for this plan.
+    await (tx as any).dvi_itinerary_route_details.deleteMany({
+      where: { itinerary_plan_ID: planId },
+    });
+
+    const created: any[] = [];
+    let dayOffset = 0; // PHP increments $no_of_days by 1 per leg.
+
+    for (let idx = 0; idx < totalRoutes; idx++) {
+      const r: any = routes[idx] || {};
+      const isFirst = idx === 0;
+      const isLast = idx === totalRoutes - 1;
+
+      const sourceName = String(r.location_name ?? "").trim();
+      const destName = String(r.next_visiting_location ?? "").trim();
+
+      // location_id + no_of_km from master stored locations table
+      const { locationId, distanceKm } = await this.resolveSourceLocationAndKm(
+        tx,
+        sourceName,
+        destName,
+      );
+
+      // itinerary_route_date = trip_start_date + dayOffset (one day per leg)
+      const routeDate = new Date(baseDate.getTime());
+      routeDate.setDate(routeDate.getDate() + dayOffset);
+      dayOffset += 1; // PHP's $selected_NO_OF_DAYS = 1;
+
+      // Start time defaults
+      let startHms: string;
+      if (
+        totalRoutes === 1 ||
+        (isFirst && sourceName === arrivalLocation)
+      ) {
+        // First leg matching arrival location → trip_start_time
+        startHms = tripStartTimeHms;
+      } else {
+        // Default sightseeing day start
+        startHms = "08:00:00";
+      }
+
+      // End time defaults
+      let endHms: string;
+
+      // PHP behavior: All sightseeing routes end at 20:00, regardless of being last route
+      // The trip_end_time is for the actual flight/train departure, not sightseeing end
+      endHms = "20:00:00";
+
+      const row = await (tx as any).dvi_itinerary_route_details.create({
+        data: {
+          itinerary_plan_ID: planId,
+          location_id: locationId,
+          location_name: sourceName,
+          itinerary_route_date: routeDate,
+          no_of_days: 1, // PHP: $selected_NO_OF_DAYS = 1
+          no_of_km: distanceKm, // from master distance; "" or "0" if missing
+          direct_to_next_visiting_place: 0, // PHP currently sets $selected_DIRECT_DESTINATION_VISIT_CHECK = 0
+          next_visiting_location: destName,
+          route_start_time: timeStringToPrismaTime(startHms),
+          route_end_time: timeStringToPrismaTime(endHms),
+          createdby: userId,
+          createdon: new Date(),
+          updatedon: null,
+          status: 1,
+          deleted: 0,
+        },
+      });
+
+      created.push(row);
+    }
+
+    return created;
+  }
+}

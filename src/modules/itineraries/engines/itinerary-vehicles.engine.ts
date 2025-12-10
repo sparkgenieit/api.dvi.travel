@@ -223,11 +223,7 @@ export class ItineraryVehiclesEngine {
   }
 
   // ---------------------------------------------------------------------------
-  // ROUTE KM SUMMARY (FROM HOTSPOTS) – SOURCE FOR total_running_km
-  // ---------------------------------------------------------------------------
-  // This reads dvi_itinerary_route_hotspot_details and aggregates
-  // hotspot_travelling_distance per route.
-  // If no hotspot rows exist for a route, it falls back to route.no_of_km.
+  // ROUTE KM SUMMARY (PHP-style helper; uses route.no_of_km ONLY)
   // ---------------------------------------------------------------------------
   private async buildRouteKmMap(
     tx: any,
@@ -236,47 +232,12 @@ export class ItineraryVehiclesEngine {
   ): Promise<Map<number, number>> {
     const routeKmMap = new Map<number, number>();
 
-    // 1) Start with fallback from itinerary_route_details.no_of_km
     for (const r of routes) {
       const routeId = Number(r.itinerary_route_ID ?? 0);
       if (!routeId) continue;
       const km = toNum(r.no_of_km);
       if (km > 0) {
         routeKmMap.set(routeId, km);
-      }
-    }
-
-    // 2) Overlay with real travel km from hotspot details if present
-    const hotspotRows =
-      await tx.dvi_itinerary_route_hotspot_details.findMany({
-        where: {
-          itinerary_plan_ID: planId,
-          deleted: 0,
-          status: 1,
-        },
-        select: {
-          itinerary_route_ID: true,
-          hotspot_travelling_distance: true,
-        },
-      });
-
-    const tmp: Record<number, number> = {};
-    for (const row of hotspotRows) {
-      const routeId = Number(row.itinerary_route_ID ?? 0);
-      if (!routeId) continue;
-
-      const km = toNum(row.hotspot_travelling_distance);
-      if (!Number.isFinite(km) || km <= 0) continue;
-
-      tmp[routeId] = (tmp[routeId] ?? 0) + km;
-    }
-
-    // Override fallback values if we actually have hotspot-based sums
-    for (const [routeIdStr, sumKm] of Object.entries(tmp)) {
-      const routeId = Number(routeIdStr);
-      if (!routeId) continue;
-      if (sumKm > 0) {
-        routeKmMap.set(routeId, sumKm);
       }
     }
 
@@ -445,7 +406,12 @@ export class ItineraryVehiclesEngine {
 
     const eligibleCityTokensLower = eligibleCities.map((c) => c.toLowerCase());
 
-    const totalKmsNum = routes.reduce((sum: any, r: any) => sum + toNum(r.no_of_km), 0);
+    // PHP: total km is sum of route.no_of_km ONLY
+    const totalKmsNum = routes.reduce(
+      (sum: number, r: { no_of_km: string | null }) => sum + toNum(r.no_of_km),
+      0,
+    );
+
     const totalOutstationKmNum = totalKmsNum;
 
     const tripStart = safeDate(plan.trip_start_date_and_time);
@@ -1149,8 +1115,9 @@ export class ItineraryVehiclesEngine {
 
       const travelType = Number(plan.itinerary_type ?? 0) || 2; // 1=local, 2=outstation
 
-      // NEW: accurate per-route running km from hotspots (fallback to route.no_of_km)
+      // keep helper call for logging / debugging (no hotspot override)
       const routeKmMap = await this.buildRouteKmMap(tx, planId, routes);
+      this.log("ROUTE_KM_MAP_FOR_DETAILS", Object.fromEntries(routeKmMap));
 
       for (const e of eligibles) {
         const eligibleId = Number(e.itinerary_plan_vendor_eligible_ID ?? 0);
@@ -1182,10 +1149,8 @@ export class ItineraryVehiclesEngine {
         });
 
         const planExtraKmNum = totalExtraKmsNum;
-        const perRouteExtraKmNum =
-          totalNoOfPlanRouteDetails > 0
-            ? planExtraKmNum / totalNoOfPlanRouteDetails
-            : 0;
+        // PHP: extra km duplicated per route
+        const perRouteExtraKmNum = planExtraKmNum;
 
         for (const r of routes) {
           const routeId = Number(r.itinerary_route_ID ?? 0);
@@ -1193,8 +1158,8 @@ export class ItineraryVehiclesEngine {
 
           const routeDate = safeDate(r.itinerary_route_date) || routeDateBase;
 
-          const runningKmNum =
-            routeKmMap.get(routeId) ?? toNum(r.no_of_km);
+          // PHP: always route.no_of_km
+          const runningKmNum = toNum(r.no_of_km);
 
           const pickupKmNum = 0;
           const dropKmNum = 0;

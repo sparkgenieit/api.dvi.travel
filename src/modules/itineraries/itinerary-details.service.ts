@@ -297,12 +297,21 @@ export class ItineraryDetailsService {
 
       let totalDistanceKm = 0;
 
-      // PHP header always shows a generic "Start ..." row with 12 AM – 12 AM.
-      segments.push({
-        type: 'start' as const,
-        title: index === 0 ? 'Start your Journey' : 'Start Your Day',
-        timeRange: '12:00 AM - 12:00 AM',
-      });
+      // Find item_type 1 (START/BREAK) to get actual start time
+      const startHotspot = routeHotspots.find(
+        (rh) => Number((rh as any).item_type ?? 0) === 1,
+      );
+
+      // Only add START segment if item_type 1 exists (match PHP behavior)
+      if (startHotspot) {
+        const startTimeRange = `${this.formatTime((startHotspot as any).hotspot_start_time ?? null)} - ${this.formatTime((startHotspot as any).hotspot_end_time ?? null)}`;
+
+        segments.push({
+          type: 'start' as const,
+          title: index === 0 ? 'Start your Journey' : 'Start Your Day',
+          timeRange: startTimeRange,
+        });
+      }
 
       for (const rh of routeHotspots) {
         const master = rh.hotspot_ID
@@ -367,36 +376,114 @@ export class ItineraryDetailsService {
           continue;
         }
 
-        // ATTRACTION / HOTSPOT rows (all other item types)
-        if (!master || !master.hotspot_name?.trim()) {
+        if (itemType === 4) {
+          // ATTRACTION / HOTSPOT visit
+          if (!master || !master.hotspot_name?.trim()) {
+            continue;
+          }
+
+          const stayDuration = (master as any).hotspot_duration ?? null;
+
+          segments.push({
+            type: 'attraction' as const,
+            name: master.hotspot_name,
+            description: master.hotspot_description ?? '',
+            visitTime:
+              startTimeText && endTimeText
+                ? `${startTimeText} - ${endTimeText}`
+                : null,
+            duration: this.formatDuration(stayDuration),
+            image: null,
+          });
+
+          previousStopName = master.hotspot_name;
           continue;
         }
 
-        const stayDuration = (master as any).hotspot_duration ?? null;
+        if (itemType === 5) {
+          // VIA ROUTE - travel segment without hotspot
+          const toName = (rh as any).via_location_name?.trim() || previousStopName;
 
-        segments.push({
-          type: 'attraction' as const,
-          name: master.hotspot_name,
-          description: master.hotspot_description ?? '',
-          visitTime:
-            startTimeText && endTimeText
-              ? `${startTimeText} - ${endTimeText}`
-              : null,
-          duration: this.formatDuration(stayDuration),
-          image: null,
-        });
+          if (!Number.isNaN(distanceNum)) {
+            totalDistanceKm += distanceNum;
+          }
 
-        previousStopName = master.hotspot_name;
+          segments.push({
+            type: 'travel' as const,
+            from: previousStopName,
+            to: toName,
+            timeRange:
+              startTimeText && endTimeText
+                ? `${startTimeText} - ${endTimeText}`
+                : null,
+            distance: travelDistance,
+            duration: this.formatDuration(travelDuration),
+            note: 'This may vary due to traffic conditions',
+          });
+
+          previousStopName = toName;
+          continue;
+        }
+
+        if (itemType === 6) {
+          // RETURN to hotel - PHP shows this as a RETURN segment ONLY if times are different
+          const startTime = (rh as any).hotspot_start_time;
+          const endTime = (rh as any).hotspot_end_time;
+          
+          // Only show RETURN segment if start and end times are different
+          if (startTime && endTime && startTime.getTime() !== endTime.getTime()) {
+            const dayEndTimeText = this.formatTime(startTime);
+
+            segments.push({
+              type: 'return' as const,
+              time: dayEndTimeText,
+              note: null,
+            });
+          }
+          continue;
+        }
+
+        if (itemType === 7) {
+          // DROP OFF - final travel to airport/departure point
+          const toName = route.next_visiting_location ?? plan.departure_location ?? 'Departure Point';
+
+          if (!Number.isNaN(distanceNum)) {
+            totalDistanceKm += distanceNum;
+          }
+
+          segments.push({
+            type: 'travel' as const,
+            from: previousStopName,
+            to: toName,
+            timeRange:
+              startTimeText && endTimeText
+                ? `${startTimeText} - ${endTimeText}`
+                : null,
+            distance: travelDistance,
+            duration: this.formatDuration(travelDuration),
+            note: 'This may vary due to traffic conditions',
+          });
+
+          previousStopName = toName;
+          continue;
+        }
       }
 
-      // RETURN block at the end of the day
+      // RETURN block at the end of the day (only if no item_type 6 or 7 exists)
+      const hasReturnOrDropOff = routeHotspots.some((rh) => {
+        const itemType = Number((rh as any).item_type ?? 0);
+        return itemType === 6 || itemType === 7;
+      });
+
       const dayEndTimeText = this.formatTime(route.route_end_time as any);
 
-      segments.push({
-        type: 'return' as const,
-        time: dayEndTimeText,
-        note: null,
-      });
+      if (!hasReturnOrDropOff) {
+        segments.push({
+          type: 'return' as const,
+          time: dayEndTimeText,
+          note: null,
+        });
+      }
 
       // Day distance: prefer total_running_kms from route (PHP header),
       // otherwise fall back to summed travel distances.
