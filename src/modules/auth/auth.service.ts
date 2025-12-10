@@ -49,7 +49,7 @@ console.log('Hashed password for comparison:', hashedPassword);
   async login(email: string, password: string) {
     console.log('Login attempt for:', email);
     const user = await this.validateUser(email, password);
-
+console.log(user);
     // userID is BigInt in Prisma → convert to string for JWT
     const userId = user.userID.toString();
 
