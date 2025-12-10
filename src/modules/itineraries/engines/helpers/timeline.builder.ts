@@ -765,7 +765,7 @@ export class TimelineBuilder {
 
       // PHP LINE 1003-1011: Filter includes source location when direct_to_next_visiting_place != 1
       // Categorize hotspots like PHP does (lines 1197-1210)
-      const sourceLocationHotspots: any[] = [];
+      let sourceLocationHotspots: any[] = [];
       const destinationHotspots: any[] = [];
       const viaRouteHotspots: any[] = [];
 
@@ -849,6 +849,23 @@ export class TimelineBuilder {
       sortHotspots(sourceLocationHotspots);
       sortHotspots(destinationHotspots);
       sortHotspots(viaRouteHotspots);
+
+      // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
+      // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
+      // This prevents low-value attractions from being added when traveling between cities
+      if (directToNextVisitingPlace === 0) {
+        const beforeFilter = sourceLocationHotspots.length;
+        sourceLocationHotspots = sourceLocationHotspots.filter((h: any) => {
+          const priority = Number(h.hotspot_priority ?? 0);
+          return priority > 0;
+        });
+        const afterFilter = sourceLocationHotspots.length;
+        if (beforeFilter > afterFilter) {
+          this.log(
+            `[fetchSelectedHotspots] Filtered ${beforeFilter - afterFilter} priority-0 SOURCE hotspots (${beforeFilter} → ${afterFilter})`,
+          );
+        }
+      }
 
       this.log(
         `[fetchSelectedHotspots] Categorized: source=${sourceLocationHotspots.length}, destination=${destinationHotspots.length}, via=${viaRouteHotspots.length}`,

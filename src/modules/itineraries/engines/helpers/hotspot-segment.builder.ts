@@ -47,9 +47,16 @@ export class HotspotSegmentBuilder {
       where: { hotspot_ID: hotspotId, deleted: 0, status: 1 },
     });
 
-    // Stay time: either from hotspot table or default 60 minutes.
-    const stayMinutes = Number(hotspot?.visit_time_in_minutes ?? 60);
-    const stayTime = minutesToTime(stayMinutes);
+    // Stay time: from hotspot_duration field (TIME type, stored as Date)
+    // PHP uses hotspot_duration directly (sql_functions.php line 15117)
+    let stayTime = "01:00:00"; // Default 1 hour
+    if (hotspot?.hotspot_duration) {
+      const durDate = hotspot.hotspot_duration;
+      const h = String(durDate.getUTCHours()).padStart(2, '0');
+      const m = String(durDate.getUTCMinutes()).padStart(2, '0');
+      const s = String(durDate.getUTCSeconds()).padStart(2, '0');
+      stayTime = `${h}:${m}:${s}`;
+    }
     const endTime = addTimes(startTime, stayTime);
 
     // Ticket prices – if you have pricebook table; else keep zero.
