@@ -39,7 +39,6 @@ export class HotelTravelBuilder {
       locationId: opts.locationId,
       sourceLocationName: opts.sourceLocationName,
       destinationLocationName: opts.destinationLocationName,
-      transportMode: opts.transportMode,
     });
   }
 

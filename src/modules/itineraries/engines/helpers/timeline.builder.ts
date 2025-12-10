@@ -30,7 +30,6 @@ import { DistanceHelper } from "./distance.helper";
 import { TimeConverter } from "./time-converter";
 import * as fs from "fs";
 import * as path from "path";
-import * as path from "path";
 
 type Tx = Prisma.TransactionClient;
 
@@ -129,7 +128,7 @@ export class TimelineBuilder {
     }
 
     // Check if open all time
-    const openAllTime = timingRecords.some((t) => t.hotspot_open_all_time === 1);
+    const openAllTime = timingRecords.some((t: any) => t.hotspot_open_all_time === 1);
     if (openAllTime) {
       return true;
     }
@@ -209,19 +208,19 @@ export class TimelineBuilder {
       
       // Convert Date objects to HH:MM:SS time strings
       // IMPORTANT: Use UTC methods because database stores times as UTC timestamps
-      const routeStartTime = typeof route.route_start_time === 'string' 
+      const routeStartTime: string = typeof route.route_start_time === 'string' 
         ? route.route_start_time 
-        : route.route_start_time instanceof Date
-        ? `${String(route.route_start_time.getUTCHours()).padStart(2, '0')}:${String(route.route_start_time.getUTCMinutes()).padStart(2, '0')}:${String(route.route_start_time.getUTCSeconds()).padStart(2, '0')}`
+        : route.route_start_time && typeof route.route_start_time === 'object'
+        ? `${String((route.route_start_time as any).getUTCHours()).padStart(2, '0')}:${String((route.route_start_time as any).getUTCMinutes()).padStart(2, '0')}:${String((route.route_start_time as any).getUTCSeconds()).padStart(2, '0')}`
         : '09:00:00';
         
-      const routeEndTime = typeof route.route_end_time === 'string'
+      const routeEndTime: string = typeof route.route_end_time === 'string'
         ? route.route_end_time
-        : route.route_end_time instanceof Date
-        ? `${String(route.route_end_time.getUTCHours()).padStart(2, '0')}:${String(route.route_end_time.getUTCMinutes()).padStart(2, '0')}:${String(route.route_end_time.getUTCSeconds()).padStart(2, '0')}`
+        : route.route_end_time && typeof route.route_end_time === 'object'
+        ? `${String((route.route_end_time as any).getUTCHours()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCMinutes()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCSeconds()).padStart(2, '0')}`
         : '18:00:00';
       
-      this.log(`[Timeline] Route ${route.itinerary_route_ID} (${route.location_name} → ${route.next_visiting_location}): routeStartTime=${routeStartTime}, routeEndTime=${routeEndTime}, direct_to_next=${route.direct_to_next_visiting_place}`);
+      this.log(`[Timeline] Route ${route.itinerary_route_ID} (${route.location_name} → ${route.next_visiting_location}): routeStartTime=${routeStartTime}, routeEndTime=${routeEndTime}, direct_to_next=${(route as any).direct_to_next_visiting_place || 0}`);
       
       let currentTime = routeStartTime;
       let routeEndSeconds = timeToSeconds(routeEndTime);
@@ -726,7 +725,7 @@ export class TimelineBuilder {
 
       const targetLower = targetLocation.toLowerCase();
       const nextLower = nextLocation.toLowerCase();
-      const directToNextVisitingPlace = route.direct_to_next_visiting_place || 0;
+      const directToNextVisitingPlace = (route as any).direct_to_next_visiting_place || 0;
 
       this.log(
         `[fetchSelectedHotspots] direct_to_next_visiting_place=${directToNextVisitingPlace}`,

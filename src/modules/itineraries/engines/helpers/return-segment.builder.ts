@@ -43,7 +43,6 @@ export class ReturnSegmentBuilder {
       userId: opts.userId,
       sourceLocationName: opts.currentLocationName,
       destinationLocationName,
-      transportMode: opts.transportMode,
     });
   }
 }
