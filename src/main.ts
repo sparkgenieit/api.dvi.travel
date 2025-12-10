@@ -27,12 +27,19 @@ try {
 // ---------------------------------------------------------------
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule);
+
+  // ✅ OPEN CORS (allows *, localhost, vercel, browser, postman)
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Authorization,Content-Type,Accept,Origin',
+  });
 
   // All routes start with /api/v1
   app.setGlobalPrefix('api/v1');
 
-  // ✅ Enable DTO validation + numeric transform for query/params/body
+  // ✅ Enable DTO validation + numeric transform
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -42,7 +49,7 @@ async function bootstrap() {
     }),
   );
 
-  // Serialize BigInt & Decimal in ALL responses
+  // Serialize BigInt & Decimal in responses
   app.useGlobalInterceptors(new BigIntSerializerInterceptor());
 
   // Swagger
@@ -55,8 +62,8 @@ async function bootstrap() {
       scheme: 'bearer',
       bearerFormat: 'JWT',
       description:
-        'Paste the JWT access token from /api/v1/auth/login here (without "Bearer " prefix).',
-    }) // <-- default name = 'bearer'
+        'Paste the JWT access token from /api/v1/auth/login here (without "Bearer ").',
+    })
     .build();
 
   const doc = SwaggerModule.createDocument(app, config);
