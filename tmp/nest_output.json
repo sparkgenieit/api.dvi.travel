@@ -1,0 +1,113 @@
+{
+  "quoteId": "DVI2025123",
+  "planId": 5,
+  "dateRange": "2025-12-11 to 2025-12-13",
+  "roomCount": 1,
+  "extraBed": 0,
+  "childWithBed": 0,
+  "childWithoutBed": 0,
+  "adults": 2,
+  "children": 0,
+  "infants": 0,
+  "overallCost": "15000.00",
+  "days": [
+    {
+      "id": 238,
+      "dayNumber": 1,
+      "date": "2025-12-10T00:00:00.000Z",
+      "departure": "Chennai International Airport",
+      "arrival": "Chennai",
+      "distance": "22.47 KM",
+      "startTime": "11:00 AM",
+      "endTime": "08:00 PM",
+      "segments": [
+        {
+          "type": "start",
+          "title": "Start your Journey",
+          "timeRange": "12:00 AM - 12:00 AM"
+        },
+        {
+          "type": "travel",
+          "from": "Chennai International Airport",
+          "to": "Marina Beach",
+          "timeRange": "11:00 AM - 12:30 PM",
+          "distance": "22.47 KM",
+          "duration": "1 Hours 30 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Marina Beach",
+          "description": "Marina beach in Chennai along the Bay of Bengal is India&#039;s longest and world&#039;s second longest beach. This predominantly sandy of nearly 12 kilometers extends from Beasant Nagar in the south to Fort St. George in the north. Chennai Marina beach was renovated by Governor Mountstuart Elphinstone Grant Duff in 1880s.",
+          "visitTime": "12:30 PM - 01:30 PM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "return",
+          "time": "08:00 PM",
+          "note": null
+        }
+      ]
+    },
+    {
+      "id": 239,
+      "dayNumber": 2,
+      "date": "2025-12-11T00:00:00.000Z",
+      "departure": "Chennai",
+      "arrival": "Pondicherry",
+      "startTime": "08:00 AM",
+      "endTime": "08:00 PM",
+      "segments": [
+        {
+          "type": "start",
+          "title": "Start Your Day",
+          "timeRange": "12:00 AM - 12:00 AM"
+        },
+        {
+          "type": "return",
+          "time": "08:00 PM",
+          "note": null
+        }
+      ]
+    },
+    {
+      "id": 240,
+      "dayNumber": 3,
+      "date": "2025-12-12T00:00:00.000Z",
+      "departure": "Pondicherry",
+      "arrival": "Pondicherry Airport",
+      "startTime": "09:56 AM",
+      "endTime": "10:00 AM",
+      "segments": [
+        {
+          "type": "start",
+          "title": "Start Your Day",
+          "timeRange": "12:00 AM - 12:00 AM"
+        },
+        {
+          "type": "return",
+          "time": "10:00 AM",
+          "note": null
+        }
+      ]
+    }
+  ],
+  "vehicles": [],
+  "packageIncludes": {
+    "description": "",
+    "houseBoatNote": "",
+    "rateNote": ""
+  },
+  "costBreakdown": {
+    "totalVehicleCost": 0,
+    "totalVehicleAmount": 0,
+    "additionalMargin": 0,
+    "totalAmount": 0,
+    "couponDiscount": 0,
+    "agentMargin": 0,
+    "totalRoundOff": 0,
+    "netPayable": 0,
+    "companyName": ""
+  }
+}

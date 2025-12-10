@@ -1,0 +1,395 @@
+/* Reset Vite boilerplate so the admin layout can be full-width */
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: initial; /* let each page control its own alignment */
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* wrapper like your php */
+.hotel-page-wrapper {
+  background: #f7edf8;
+  min-height: 100vh;
+  padding: 1.5rem 1.75rem 2.5rem;
+}
+
+.hotel-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.hotel-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #493c66;
+}
+
+.hotel-breadcrumb {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #9d80c3;
+  align-items: center;
+}
+
+.hotel-card {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #f0d9ff;
+  box-shadow: 0 10px 30px rgba(149, 90, 191, 0.04);
+  padding: 1.5rem 1.75rem 1.25rem;
+}
+
+.hotel-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.hotel-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #474060;
+}
+
+.hotel-head-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.hotel-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ffeef4;
+  color: #f93eac;
+  border: none;
+  padding: 0.45rem 1.1rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.hotel-filter-btn-active {
+  background: #f93eac;
+  color: #fff;
+}
+
+.hotel-add-btn {
+  background: #e9e4ff;
+  border: none;
+  padding: 0.45rem 1.1rem;
+  border-radius: 0.7rem;
+  font-size: 0.78rem;
+  color: #3b2f52;
+  font-weight: 500;
+}
+
+.hotel-pricebook-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #f2eaff;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.7rem;
+  font-size: 0.78rem;
+  color: #493c66;
+}
+
+.hotel-filter-box {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid #f0d9ff;
+  border-radius: 1rem;
+  padding: 1rem 1.25rem 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.hotel-filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hotel-filter-label {
+  font-size: 0.75rem;
+  color: #4d3f60;
+  font-weight: 500;
+}
+
+.hotel-filter-select {
+  height: 2.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ebe0ff;
+  background: #fff;
+  padding-left: 0.6rem;
+  font-size: 0.78rem;
+  color: #4a5568;
+}
+
+.hotel-filter-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.hotel-filter-clear {
+  background: #828282;
+  border: none;
+  padding: 0.45rem 1.35rem;
+  border-radius: 0.6rem;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.hotel-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.hotel-show-entries {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.78rem;
+  color: #4a4260;
+}
+.hotel-show-entries select {
+  height: 2.1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ebe0ff;
+  padding: 0 0.35rem;
+  background: #fff;
+}
+
+.hotel-right-tools {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.hotel-export-group {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.hotel-copy-btn,
+.hotel-excel-btn,
+.hotel-csv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(68, 68, 68, 0.08);
+  background: #fff;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.hotel-excel-btn {
+  background: #e5fff1;
+  border-color: #b6f4d9;
+  color: #239060;
+}
+.hotel-csv-btn {
+  background: #fff;
+}
+
+.hotel-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+}
+.hotel-search-box input {
+  height: 2.1rem;
+  width: 190px;
+  border-radius: 0.5rem;
+  border: 1px solid #ebe0ff;
+  padding: 0 0.5rem;
+  background: #fff;
+}
+
+.hotel-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(237, 214, 255, 0.8);
+  border-radius: 1rem;
+}
+
+.hotel-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.78rem;
+  color: #3f3a57;
+}
+
+.hotel-table thead tr {
+  background: #fbf6ff;
+}
+
+.hotel-table th,
+.hotel-table td {
+  padding: 0.7rem 1rem;
+  white-space: nowrap;
+}
+
+.hotel-table th:first-child {
+  border-top-left-radius: 1rem;
+}
+.hotel-table th:last-child {
+  border-top-right-radius: 1rem;
+}
+
+.hotel-th-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.hotel-sort-placeholder {
+  color: #d2cbe4;
+  font-size: 0.6rem;
+}
+.hotel-sort-active {
+  color: #f93eac;
+  font-size: 0.6rem;
+}
+
+.hotel-table tbody tr:nth-child(even) {
+  background: rgba(249, 245, 255, 0.4);
+}
+
+.hotel-action-col {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+.hotel-action-circle {
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 9999px;
+  border: 1px solid #ffe0ec;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  cursor: pointer;
+}
+.hotel-action-circle.view {
+  border-color: rgba(163, 160, 244, 0.5);
+}
+.hotel-action-circle.edit {
+  border-color: rgba(172, 143, 255, 0.5);
+}
+.hotel-action-circle.del {
+  border-color: rgba(244, 145, 145, 0.5);
+}
+
+.hotel-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #f4008f;
+  font-weight: 500;
+}
+
+.hotel-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: #4a4260;
+}
+
+.hotel-pagination {
+  display: flex;
+  gap: 0.35rem;
+}
+.hotel-pagination button {
+  background: #fff;
+  border: 1px solid #ebe0ff;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.hotel-pagination button.active {
+  background: #8b43d1;
+  color: #fff;
+  border-color: #8b43d1;
+}
+.hotel-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hotel-dots {
+  padding: 0.2rem 0.6rem;
+  color: #aaa;
+}
+
+.hotel-footer-note {
+  text-align: center;
+  font-size: 0.68rem;
+  color: #a89cc3;
+  margin-top: 0.6rem;
+}
+
+.app-brand-text {
+  flex-shrink: 0;
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+  color: gray;
+}
+html:not([dir="rtl"]) .app-brand-text {
+  margin-left: 0.625rem !important;
+}
+[dir="rtl"] .app-brand-text {
+  margin-right: 0.625rem !important;
+}

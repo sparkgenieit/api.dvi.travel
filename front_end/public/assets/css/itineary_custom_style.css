@@ -1,0 +1,188 @@
+/* START ITINEARY HOTSPOT CUSTOM STYLE */
+
+#loader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.8);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.tooltipSection {
+  position: relative;
+  margin-right: 40px;
+  cursor: pointer;
+}
+
+.tooltipPriceSectionText,
+.tooltipHotelSectionText {
+  background-color: #4b4b4b;
+  color: #fff;
+  position: absolute;
+  bottom: 130%;
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: 14px;
+  opacity: 0;
+  transition: all 0.5s;
+}
+
+.tooltipAction {
+  color: #fff;
+}
+
+.tooltipPriceSectionText::after,
+.tooltipHotelSectionText::after {
+  content: "";
+  border-width: 5px;
+  border-style: solid;
+  border-color: #4b4b4b transparent transparent transparent;
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+}
+
+.tooltipSection:hover .tooltipPriceSectionText,
+.tooltipSection:hover .tooltipHotelSectionText {
+  opacity: 1;
+  transform: translateY(30px);
+}
+.hotelIcon {
+  color: #7367f0;
+}
+
+.hotel-list-nav .nav-link .badge {
+  /* background-color: #f2f2f3 !important;
+            color: #a8aaae !important; */
+  background-color: #e4e4e4 !important;
+  color: #4b4b4b !important;
+}
+
+.hotel-list-nav .nav-link.active .badge,
+.hotel-list-nav .nav-link:hover .badge {
+  background-color: #eae8fd !important;
+  color: #7367f0 !important;
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link.active:hover,
+.nav-tabs .nav-link.active:focus,
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link.active:hover,
+.nav-tabs .nav-link.active:focus {
+  box-shadow: none;
+  color: #fff;
+  background: linear-gradient(
+    to right,
+    rgba(114, 49, 207, 0.8) 0%,
+    rgba(195, 60, 166, 0.8) 68%,
+    rgba(238, 63, 206, 0.8) 100%
+  ) !important;
+  border: none !important;
+}
+
+.hotel-list-nav .nav-link:not(.active):hover,
+.hotel-list-nav .nav-link:not(.active):focus,
+.nav-pills .nav-link:not(.active):hover,
+.nav-pills .nav-link:not(.active):focus {
+  color: #aa008e !important;
+}
+
+#recommendedHotelSelectionPlanBody tr,
+#recommendedHotelSelectionPlanBody td,
+#fourStarHotelSelectionPlanBody tr,
+#fourStarHotelSelectionPlanBody td,
+#threeStarHotelSelectionPlanBody tr,
+#threeStarHotelSelectionPlanBody td {
+  cursor: pointer !important;
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-item .nav-link.active .arrow::before {
+  top: 0;
+  border-width: 0.4rem 0.4rem 0;
+  border-top-color: #bf61c1 !important;
+}
+
+.nav-item .nav-link.active .arrow::before {
+  position: absolute;
+  content: "";
+  border-color: transparent;
+  border-style: solid;
+}
+
+.nav-item .nav-link.active .arrow.active {
+  position: absolute;
+  display: block;
+  width: 0.8rem;
+  height: 0.4rem;
+  left: 50%;
+  bottom: -7px;
+}
+
+.bs-tooltip-auto[x-placement^="top"] .arrow.active,
+.bs-tooltip-top .arrow.active {
+  bottom: 0;
+}
+
+.image-overview {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.image-overview i {
+  color: #fff;
+  font-size: 34px;
+}
+
+.mealSelectionOption label {
+  font-size: 0.8125rem;
+}
+
+.tooltip-inner {
+  max-width: 600px;
+  /* Adjust the width as needed */
+  width: auto;
+  /* Allow the tooltip to expand based on content */
+  text-align: left;
+}
+
+.route-details-nav-tabs .route-details-nav-item .route-details-nav-link.active,
+.route-details-nav-tabs
+  .route-details-nav-item
+  .route-details-nav-link.active:hover,
+.route-details-nav-tabs
+  .route-details-nav-item
+  .route-details-nav-link.active:focus,
+.route-details-nav-tabs .route-details-nav-item .route-details-nav-link.active,
+.route-details-nav-tabs
+  .route-details-nav-item
+  .route-details-nav-link.active:hover,
+.route-details-nav-tabs
+  .route-details-nav-item
+  .route-details-nav-link.active:focus {
+  box-shadow: 0 -2px 0 #d700b3 inset !important;
+  color: #aa008e !important;
+  background: #fff !important;
+}
+
+/* END OF ITINEARY HOTSPOT CUSTOM STYLE */

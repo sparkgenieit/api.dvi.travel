@@ -6,12 +6,13 @@
 export class TimeConverter {
   /**
    * Convert HH:MM:SS string to a Date object suitable for Prisma TIME fields.
-   * Uses epoch date (1970-01-01) with the specified time.
+   * Uses epoch date (1970-01-01) with the specified time in local timezone (IST).
+   * Database stores times in IST, not UTC.
    * Times exceeding 24 hours are wrapped using modulo 24.
    */
   static stringToDate(timeStr: string | null | undefined): Date {
     if (!timeStr) {
-      return new Date(1970, 0, 1, 0, 0, 0);
+      return new Date(Date.UTC(1970, 0, 1, 0, 0, 0));
     }
 
     const parts = String(timeStr).trim().split(":");
@@ -22,20 +23,20 @@ export class TimeConverter {
     // Wrap hours to 0-23 range (handle multi-day times)
     h = h % 24;
 
-    const d = new Date(1970, 0, 1, h, m, s);
-    return d;
+    return new Date(Date.UTC(1970, 0, 1, h, m, s));
   }
 
   /**
    * Convert seconds to a Date object suitable for Prisma TIME fields.
+   * Uses local timezone (IST) since database stores times in IST.
    * Handles seconds that exceed 86400 (24 hours) by wrapping.
    */
   static secondsToDate(seconds: number): Date {
     if (!Number.isFinite(seconds)) seconds = 0;
     // Wrap to 24-hour boundary
     const wrappedSeconds = Math.max(0, Math.floor(seconds)) % 86400;
-    const d = new Date(1970, 0, 1, 0, 0, 0);
-    d.setSeconds(wrappedSeconds);
+    const d = new Date(Date.UTC(1970, 0, 1, 0, 0, 0));
+    d.setUTCSeconds(wrappedSeconds);
     return d;
   }
 

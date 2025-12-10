@@ -1,0 +1,7 @@
+2024-06-27 08:39:39 - Script start
+2024-06-27 08:39:39 - After getPDOConnection
+2024-06-27 08:39:39 - Before fetchLocations
+2024-06-27 08:39:40 - After fetchLocations
+2024-06-27 08:39:40 - Before createDistanceMatrix
+2024-06-27 08:39:53 - After createDistanceMatrix
+2024-06-27 08:39:53 - Before optimizeItinerary

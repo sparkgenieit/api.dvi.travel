@@ -1,0 +1,58 @@
+input.parsley-success,
+select.parsley-success,
+textarea.parsley-success {
+  color: #10b759;
+  background-color: none;
+  border: 1px solid #10b759;
+}
+
+input.parsley-error,
+select.parsley-error,
+textarea.parsley-error {
+  color: #dc3545;
+  background-color: none;
+  border: 1px solid #dc3545;
+  padding-right: calc(1.5em + 0.9375rem);
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.23438rem) center;
+  /*  background-size: calc(0.75em + 0.46875rem) calc(0.75em + 0.46875rem); */
+}
+
+.parsley-errors-list {
+  margin: 2px 0 3px;
+  padding: 0;
+  list-style-type: none;
+  font-size: 0.8em;
+  line-height: 1.5em;
+  opacity: 0;
+  color: #dc3545;
+
+  transition: all 0.3s ease-in;
+  -o-transition: all 0.3s ease-in;
+  -moz-transition: all 0.3s ease-in;
+  -webkit-transition: all 0.3s ease-in;
+}
+
+.parsley-errors-list.filled {
+  opacity: 1;
+}
+
+input.parsley-error,
+input.parsley-error:focus,
+textarea.parsley-error,
+textarea.parsley-error:focus {
+  /* box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important; */
+  border-color: #dc3545;
+  padding-right: calc(1.5em + 0.9375rem);
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.23438rem) center;
+  /*  background-size: calc(0.75em + 0.46875rem) calc(0.75em + 0.46875rem); */
+}
+
+input.parsley-success,
+input.parsley-success:focus,
+textarea.parsley-success,
+textarea.parsley-success:focus {
+  /* box-shadow: 0 0 0 0.2rem rgba(16, 183, 89, 0.25) !important; */
+  border-color: #10b759;
+}

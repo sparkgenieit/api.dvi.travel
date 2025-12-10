@@ -1,0 +1,7 @@
+[24-Jul-2025 16:32:02 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: MySQL server has gone away in D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php:121
+Stack trace:
+#0 D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php(121): mysqli_query(Object(mysqli), 'INSERT INTO `dv...')
+#1 D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php(228): sqlQUERY('INSERT INTO `dv...')
+#2 D:\xampp\htdocs\dvi_travels\head\cron_tbo_country_cities_core_data.php(89): sqlACTIONS('INSERT', 'dvi_cities', Array, Array, '')
+#3 {main}
+  thrown in D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php on line 121

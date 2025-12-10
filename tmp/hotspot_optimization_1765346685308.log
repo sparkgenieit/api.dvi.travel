@@ -1,0 +1,92 @@
+[2025-12-10T06:04:45.308Z] === HOTSPOT OPTIMIZATION LOG ===
+[2025-12-10T06:04:45.310Z] Started at: 2025-12-10T06:04:45.310Z
+
+[2025-12-10T06:04:53.665Z] [Timeline] Route 358 (Chennai International Airport → Chennai): routeStartTime=11:00:00, routeEndTime=20:00:00, direct_to_next=0
+[2025-12-10T06:04:53.673Z] [Timeline] Route 358 starting coords from location_id 165946: (12.9811068, 80.159623)
+[2025-12-10T06:04:53.678Z] [Timeline] Route 358 - Added refreshment break: 11:00:00 - 12:00:00
+[2025-12-10T06:04:53.691Z] [fetchSelectedHotspots] route 358 target="Chennai International Airport" next="Chennai" dow=2
+[2025-12-10T06:04:53.811Z] [fetchSelectedHotspots] Found 583 total active hotspots
+[2025-12-10T06:04:53.818Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0
+[2025-12-10T06:04:53.819Z] [fetchSelectedHotspots] source="Chennai International Airport", destination="Chennai"
+[2025-12-10T06:04:53.826Z] [fetchSelectedHotspots] Starting coords from stored_locations: (12.9811068, 80.159623)
+[2025-12-10T06:04:53.827Z] [fetchSelectedHotspots] Hotspot 4 "Kapaleeshwarar Temple" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.828Z] [fetchSelectedHotspots] Hotspot 4 "Kapaleeshwarar Temple" → DESTINATION (matches "Chennai")
+[2025-12-10T06:04:53.829Z] [fetchSelectedHotspots] Hotspot 5 "Marina Beach" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.829Z] [fetchSelectedHotspots] Hotspot 5 "Marina Beach" → DESTINATION (matches "Chennai")
+[2025-12-10T06:04:53.830Z] [fetchSelectedHotspots] Hotspot 6 "Fort St.George Museum" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.831Z] [fetchSelectedHotspots] Hotspot 7 "Government Museum Chennai" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.832Z] [fetchSelectedHotspots] Hotspot 8 "Santhome Cathedral Basilica" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.832Z] [fetchSelectedHotspots] Hotspot 9 "Thousand Lights Mosque" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.836Z] [fetchSelectedHotspots] Hotspot 10 "Guindy National Park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.844Z] [fetchSelectedHotspots] Hotspot 11 "Parthasarathy Temple" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.848Z] [fetchSelectedHotspots] Hotspot 12 "Vivekanandar House" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.852Z] [fetchSelectedHotspots] Hotspot 13 "Arignar Anna Zoological Park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.865Z] [fetchSelectedHotspots] Hotspot 290 "Vgp snow kingdom" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.874Z] [fetchSelectedHotspots] Hotspot 291 "Vgp marine kingdom" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.878Z] [fetchSelectedHotspots] Hotspot 292 "Guindy snake park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.879Z] [fetchSelectedHotspots] Hotspot 293 "Queens land" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.880Z] [fetchSelectedHotspots] Hotspot 294 "light house marina" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.881Z] [fetchSelectedHotspots] Hotspot 296 "Anna tower park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.914Z] [fetchSelectedHotspots] Hotspot 297 "B.M Birla planitourim." → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.920Z] [fetchSelectedHotspots] Hotspot 298 "Click art museum" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.921Z] [fetchSelectedHotspots] Hotspot 299 "National art gallery" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.922Z] [fetchSelectedHotspots] Hotspot 300 "M G R  Memorial" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.922Z] [fetchSelectedHotspots] Hotspot 303 "Anna memorial." → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.928Z] [fetchSelectedHotspots] Hotspot 544 "Shri Ashtalakshmi Temple" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:04:53.929Z] [fetchSelectedHotspots] Hotspot 544 "Shri Ashtalakshmi Temple" → DESTINATION (matches "Chennai")
+[2025-12-10T06:04:53.946Z] [fetchSelectedHotspots] Categorized: source=22, destination=3, via=0
+[2025-12-10T06:04:53.948Z] [fetchSelectedHotspots] AIRPORT ARRIVAL DETECTED: "Chennai International Airport" → "Chennai"
+[2025-12-10T06:04:53.949Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0 + AIRPORT ARRIVAL: Processing DESTINATION → VIA
+[2025-12-10T06:04:53.951Z] [fetchSelectedHotspots] Matched 3 hotspots after PHP ordering
+[2025-12-10T06:04:53.953Z] [fetchSelectedHotspots] First 5 hotspots (sorted): ID=4 "Kapaleeshwarar Temple" priority=1 distance=19.94km, ID=5 "Marina Beach" priority=2 distance=22.47km, ID=544 "Shri Ashtalakshmi Temple" priority=0 distance=18.11km
+[2025-12-10T06:04:53.954Z] [fetchSelectedHotspots] Matched 3 hotspots for route 358
+[2025-12-10T06:04:53.956Z] [Timeline] Route 358: Selected 3 hotspots
+[2025-12-10T06:04:53.957Z] [Timeline] Route 358 - currentTime: 12:00:00, routeEndTime: 20:00:00, routeEndSeconds: 72000
+[2025-12-10T06:04:53.958Z] [Timeline] Hotspot 4 - currentSeconds: 43200, routeEndSeconds: 72000
+[2025-12-10T06:04:53.959Z] [Timeline] Processing hotspot 4 for route 358
+[2025-12-10T06:04:53.961Z] [Timeline] Hotspot 4 coords: lat=13.033798514213936, lon=80.26977915213011
+[2025-12-10T06:04:53.989Z] [Timeline] Checking operating hours for hotspot 4: visit window 12:30:00-19:00:00 on day 2
+[2025-12-10T06:04:54.001Z] [Timeline] Hotspot 4 timing window: 05:30:00-12:00:00 (19800s-43200s), visit: 12:30:00-19:00:00 (45000s-68400s)
+[2025-12-10T06:04:54.023Z] [Timeline] Hotspot 4 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 12:30:00-19:00:00 (45000s-68400s)
+[2025-12-10T06:04:54.025Z] [Timeline] Hotspot 4 not open during visit window 12:30:00-19:00:00 on day 2, skipping
+[2025-12-10T06:04:54.036Z] [Timeline] Hotspot 5 - currentSeconds: 43200, routeEndSeconds: 72000
+[2025-12-10T06:04:54.037Z] [Timeline] Processing hotspot 5 for route 358
+[2025-12-10T06:04:54.042Z] [Timeline] Hotspot 5 coords: lat=13.051080243192029, lon=80.27775926313883
+[2025-12-10T06:04:54.083Z] [Timeline] Checking operating hours for hotspot 5: visit window 12:34:00-19:04:00 on day 2
+[2025-12-10T06:04:54.110Z] [Timeline] Hotspot 5 operating hours OK
+[2025-12-10T06:04:54.111Z] [Timeline] Travel type for "Chennai International Airport" -> "Chennai International Airport|Chennai Domestic Airport|Chennai Central|Chennai|Chennai Egmore Station|Chennai Koyembedu|ECR Beach, Chennai, Tamil Nadu": 1 (1=local, 2=outstation)
+[2025-12-10T06:04:54.147Z] [Timeline] Building hotspot row for hotspot_ID=5
+[2025-12-10T06:04:54.156Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=5, order=3
+[2025-12-10T06:04:54.211Z] [Timeline] Hotspot 544 - currentSeconds: 48840, routeEndSeconds: 72000
+[2025-12-10T06:04:54.245Z] [Timeline] Processing hotspot 544 for route 358
+[2025-12-10T06:04:54.265Z] [Timeline] Hotspot 544 coords: lat=12.993461140291483, lon=80.27030436931474
+[2025-12-10T06:04:54.359Z] [Timeline] Checking operating hours for hotspot 544: visit window 13:49:00-25:19:00 on day 2
+[2025-12-10T06:04:54.373Z] [Timeline] Hotspot 544 timing window: 06:00:00-12:00:00 (21600s-43200s), visit: 13:49:00-25:19:00 (49740s-91140s)
+[2025-12-10T06:04:54.375Z] [Timeline] Hotspot 544 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 13:49:00-25:19:00 (49740s-91140s)
+[2025-12-10T06:04:54.377Z] [Timeline] Hotspot 544 not open during visit window 13:49:00-25:19:00 on day 2, skipping
+[2025-12-10T06:04:54.395Z] [Timeline] Route 359 (Chennai → Pondicherry): routeStartTime=08:00:00, routeEndTime=20:00:00, direct_to_next=0
+[2025-12-10T06:04:54.431Z] [Timeline] Route 359 starting coords from location_id 762: (13.0843007, 80.2704622)
+[2025-12-10T06:04:54.447Z] [Timeline] Route 359 - Added refreshment break: 08:00:00 - 09:00:00
+[2025-12-10T06:04:54.490Z] [fetchSelectedHotspots] route 359 target="Chennai" next="Pondicherry" dow=3
+[2025-12-10T06:04:54.612Z] [fetchSelectedHotspots] Found 583 total active hotspots
+[2025-12-10T06:04:54.626Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0
+[2025-12-10T06:04:54.628Z] [fetchSelectedHotspots] source="Chennai", destination="Pondicherry"
+[2025-12-10T06:04:54.642Z] [fetchSelectedHotspots] Starting coords from stored_locations: (12.9811068, 80.159623)
+[2025-12-10T06:04:54.644Z] [fetchSelectedHotspots] Hotspot 4 "Kapaleeshwarar Temple" → SOURCE (matches "Chennai")
+[2025-12-10T06:04:54.662Z] [fetchSelectedHotspots] Hotspot 5 "Marina Beach" → SOURCE (matches "Chennai")
+[2025-12-10T06:04:54.663Z] [fetchSelectedHotspots] Hotspot 17 "Sri Aurobindo Ashram" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.665Z] [fetchSelectedHotspots] Hotspot 18 "Auroville" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.679Z] [fetchSelectedHotspots] Hotspot 19 "Promenade Beach" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.680Z] [fetchSelectedHotspots] Hotspot 20 "Chunnambar Boathouse" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.681Z] [fetchSelectedHotspots] Hotspot 21 "The Basilica of the Sacred Heart of Jesus" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.682Z] [fetchSelectedHotspots] Hotspot 24 "The Pondicherry Museum" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.690Z] [fetchSelectedHotspots] Hotspot 25 "Manakula Vinayagar Temple" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.694Z] [fetchSelectedHotspots] Hotspot 277 "Pondicherry Backwater" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.712Z] [fetchSelectedHotspots] Hotspot 544 "Shri Ashtalakshmi Temple" → SOURCE (matches "Chennai")
+[2025-12-10T06:04:54.716Z] [fetchSelectedHotspots] Hotspot 669 "Eden Beach - Blue flag Beach" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.756Z] [fetchSelectedHotspots] Hotspot 676 "Botanical Garden" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.920Z] [fetchSelectedHotspots] Hotspot 677 "Bharathi Park &amp; Aayi Mandapam" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.940Z] [fetchSelectedHotspots] Hotspot 678 "French Colony" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.942Z] [fetchSelectedHotspots] Hotspot 679 "Pondi Marina Beach" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:04:54.944Z] [fetchSelectedHotspots] Categorized: source=3, destination=13, via=0
+[2025-12-10T06:04:54.945Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0: Processing SOURCE → DESTINATION → VIA

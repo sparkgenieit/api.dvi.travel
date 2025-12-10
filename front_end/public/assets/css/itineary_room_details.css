@@ -1,0 +1,317 @@
+#loader-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(255, 255, 255, 0.8);
+                display: none;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            }
+
+            .hotelIcon {
+                color: #7367f0;
+            }
+
+            .hotel-list-nav .nav-link .badge {
+                background-color: #e4e4e4 !important;
+                color: #4b4b4b !important;
+            }
+
+            .hotel-list-nav .nav-link.active .badge,
+            .hotel-list-nav .nav-link:hover .badge {
+                background-color: #eae8fd !important;
+                color: #7367f0 !important;
+            }
+
+            .nav-tabs .nav-link.active,
+            .nav-tabs .nav-link.active:hover,
+            .nav-tabs .nav-link.active:focus,
+            .nav-tabs .nav-link.active,
+            .nav-tabs .nav-link.active:hover,
+            .nav-tabs .nav-link.active:focus {
+                box-shadow: none;
+                color: #fff;
+                background: linear-gradient(to right, rgba(114, 49, 207, 0.8) 0%, rgba(195, 60, 166, 0.8) 68%, rgba(238, 63, 206, 0.8) 100%) !important;
+                border: none !important;
+            }
+
+            .hotel-list-nav .nav-link:not(.active):hover,
+            .hotel-list-nav .nav-link:not(.active):focus,
+            .nav-pills .nav-link:not(.active):hover,
+            .nav-pills .nav-link:not(.active):focus {
+                color: #aa008e !important;
+            }
+
+            .nav-item {
+                position: relative;
+            }
+
+            .nav-item .nav-link.active .arrow::before {
+                top: 0;
+                border-width: .4rem .4rem 0;
+                border-top-color: #bf61c1 !important;
+            }
+
+            .nav-item .nav-link.active .arrow::before {
+                position: absolute;
+                content: "";
+                border-color: transparent;
+                border-style: solid;
+            }
+
+            .nav-item .nav-link.active .arrow.active {
+                position: absolute;
+                display: block;
+                width: .8rem;
+                height: .4rem;
+                left: 50%;
+                bottom: -7px;
+            }
+
+            .bs-tooltip-auto[x-placement^=top] .arrow.active,
+            .bs-tooltip-top .arrow.active {
+                bottom: 0;
+            }
+
+            .image-overview {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 100%;
+                height: 100%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.5);
+                color: #fff;
+                padding: 5px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+            }
+
+            .image-overview i {
+                color: #fff;
+                font-size: 34px;
+            }
+
+            .mealSelectionOption label {
+                font-size: 0.8125rem;
+            }
+
+            .overlay_image_wrapper {
+                position: absolute;
+                color: #fff;
+                background-image: linear-gradient(to bottom, rgba(255, 0, 0, 0), rgba(0, 0, 0, 1));
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+                flex-direction: column;
+                left: 0;
+                bottom: 0;
+                width: 100%;
+                padding: 0.75rem;
+                padding-bottom: .3rem;
+                padding-top: 2rem;
+                text-wrap: wrap;
+            }
+
+            .overlay_image_wrapper h6 {
+                color: #fff;
+            }
+
+            .input-group-room-type {
+                border: 1px solid #dbdade;
+            }
+
+            .input-group-room-type h6 {
+                font-size: 13px;
+            }
+
+            .input-group-room-type .form-select:focus,
+            .input-group-room-type .form-select:focus-visible,
+            .input-group-room-type .selectize-input {
+                border: none !important;
+            }
+
+            .input-group-room-type,
+            .input-group-room-type input,
+            .input-group-room-type .form-select .selectize-input {
+                border: 1px solid #dbdade;
+                font-size: 13px;
+            }
+
+            .input-group-room-type:focus-within {
+                box-shadow: none;
+            }
+
+            .tooltip-inner {
+                max-width: auto;
+                width: auto;
+                background-color: #fff5fd;
+                color: #6f6b7d;
+                border-radius: 8px;
+                padding: 10px;
+                border: #6f6b7d 1px solid;
+                box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12), 0 2px 2px rgba(0, 0, 0, 0.12);
+            }
+
+            .grand_total_section p {
+                background-image: linear-gradient(to bottom, rgba(114, 49, 207, 1), rgba(195, 60, 166, 1), rgba(238, 63, 206, 1));
+                -webkit-background-clip: text;
+                /* Chrome, Safari, and Opera */
+                -webkit-text-fill-color: transparent;
+                /* Chrome, Safari, and Opera */
+                background-clip: text;
+                /* Standard property */
+                color: transparent;
+                /* Fallback color */
+            }
+
+            .vehicleSection {
+                cursor: pointer;
+            }
+
+            .headerDividerSection {
+                border-left: 4px solid #fff;
+                height: 210px;
+                position: absolute;
+                right: 390px;
+                top: 30px;
+            }
+
+            .room-badge-area-show {
+                width: 500px;
+                height: 500px;
+                margin: 0 auto;
+                background: #666;
+                position: relative;
+            }
+
+            .room-bagde-flag-wrap {
+                position: absolute;
+                top: 10px;
+                left: -12px;
+            }
+
+            .room-bagde-flag-wrap span {
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+            .room-bagde-flag-wrap::before {
+                content: "";
+                position: absolute;
+                top: 28px;
+                right: -12px;
+                width: 0;
+                height: 0;
+                border-style: solid;
+                border-width: 0 12px 12px 0;
+                /* border-color: transparent #cd48b7 transparent transparent; */
+                border-color: transparent #000 transparent transparent;
+            }
+
+            .room-bagde-flag {
+                text-transform: capitalize;
+                color: #fff;
+                /* background: linear-gradient(to right, rgba(114, 49, 207, 0.8) 0%, rgba(195, 60, 166, 0.8) 68%, rgba(238, 63, 206, 0.8) 100%) !important; */
+                background: #000;
+                letter-spacing: 0;
+                font-size: 14px;
+                line-height: 15px;
+                font-weight: 600;
+                padding: 5px 9px;
+                position: absolute;
+                left: 0px;
+                display: block;
+                text-decoration: none;
+            }
+
+            .badge-room-occupancy {
+                position: absolute;
+                top: 5px;
+                left: 0;
+                border-radius: 3px;
+            }
+
+            .roomTypeSelectionArea h5 {
+                font-size: 15px;
+            }
+
+            .roomCategoryDropdown {
+                font-size: 14px;
+                margin-left: 2px;
+                margin-top: 1px;
+            }
+
+            .defaultEditRoomCategory {
+                padding: 0.5rem 1rem 0.5rem 0;
+            }
+
+            .carousel .carousel-item.active h6 {
+                color: #5d596c;
+            }
+
+            .purple-badge {
+                height: 35px;
+                position: relative;
+                background-color: #000;
+                border-radius: 0.375rem 0 0 0;
+            }
+
+            .purple-badge span {
+                display: flex;
+                align-items: center;
+                height: 100%;
+                width: 100%;
+                justify-content: center;
+                color: white;
+                font-weight: bold;
+                font-size: 10px;
+            }
+
+            .roomDetailsCarousel .carousel-control-prev-icon,
+            .roomDetailsCarousel .carousel-control-next-icon {
+                background-color: #000;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+            }
+
+            .roomDetailsCarousel .carousel-control-prev {
+                left: -25px;
+            }
+
+            .roomDetailsCarousel .carousel-control-next {
+                right: -25px;
+            }
+
+            .hotel-supplementry-succesbadge {
+                border: 1px solid #28C76F;
+                background: #fff;
+                color: #28C76F;
+                position: absolute;
+                right: 0;
+                border-radius: 0px;
+                bottom: 21px;
+                font-size: 16px;
+            }
+
+            .hotel-supplementry-dangerbadge {
+                border: 1px solid #FF4C51;
+                background: #fff;
+                color: #FF4C51;
+                position: absolute;
+                right: 0;
+                border-radius: 0px;
+                bottom: 21px;
+                font-size: 16px;
+            }
+
+            .table-border-active {
+                border: 2px solid rgba(114, 49, 207, 0.8);
+                border-radius: 5px;
+            }

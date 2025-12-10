@@ -1,0 +1,509 @@
+.overview-section .swiper-wrapper .swiper-slide p,
+.overview-section .swiper-wrapper .swiper-slide small {
+  color: #fff;
+}
+
+.overview-section
+  .swiper-wrapper
+  .swiper-slide
+  .overview-section-status-report-section {
+  background-color: #fff !important;
+  color: #925ad6;
+}
+
+.welcome-banner-section .welcome-banner-text-overlay {
+  position: absolute;
+  top: 50%;
+  left: 11%;
+  transform: translate(-50%, -50%);
+  text-align: left;
+  border-radius: 5px;
+  color: #fff;
+}
+
+.welcome-banner-text-overlay.welcome-banner-text-overlay-admin {
+  left: 14%;
+}
+
+@keyframes fade {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.fade-in-banner {
+  animation: fade 2.5s forwards;
+}
+
+.apexcharts-legend.apexcharts-legend-series .apexcharts-legend-marker {
+  background-color: rgb(215, 0, 179) !important;
+}
+
+.hover-hotspot-list figure {
+  position: relative;
+  overflow: hidden;
+  /* width: 380px; */
+  height: 260px;
+}
+
+.hover-hotspot-list figure img {
+  transition: transform 0.3s, filter 0.3s;
+}
+
+.hover-hotspot-list figure:hover .overlay_image_wrapper {
+  background-image: linear-gradient(
+    to bottom,
+    rgba(114, 49, 207, 0.5),
+    rgba(195, 60, 166, 0.8) 68%,
+    rgba(238, 63, 206, 1) 100%
+  ) !important;
+}
+
+.overlay_image_wrapper {
+  position: absolute;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-direction: column;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0.75rem;
+  padding-top: 2rem;
+  text-wrap: wrap;
+  border-radius: 15px;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 0, 0, 0),
+    rgba(0, 0, 0, 1)
+  );
+  transition: background-size 0.3s;
+  background-size: 100% 0;
+  background-position: top;
+}
+
+.overlay_text_section {
+  position: absolute;
+  color: #fff;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 0, 0, 0),
+    rgba(0, 0, 0, 0.2),
+    rgba(0, 0, 0, 1)
+  );
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0.75rem;
+  padding-bottom: 0.3rem;
+  padding-top: 2rem;
+  text-wrap: wrap;
+}
+
+.overlay_text_section_DVIHotspotSection {
+  position: absolute;
+  color: #fff;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 0, 0, 0),
+    rgba(0, 0, 0, 0.2),
+    rgba(0, 0, 0, 1)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-direction: column;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0.75rem;
+  padding-bottom: 0.3rem;
+  padding-top: 2rem;
+  text-wrap: wrap;
+}
+
+.hover-hotspot-list figure:hover .overlay_image_wrapper {
+  background-size: 100% 100%;
+}
+
+.overlay_button,
+.overlay_button:hover,
+.overlay_button:active,
+.overlay_button:focus {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background-color: #fff;
+  color: #d700b3;
+  font-weight: 600;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.hover-hotspot-list figure:hover .overlay_button {
+  opacity: 1;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.hover-hotspot-list figure:hover,
+.hover-hotspot-list figure:hover,
+.hover-hotspot-list figure {
+  border-radius: 15px;
+}
+
+.hotspot-list-swiper-button-next,
+.hotspot-list-swiper-button-prev {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 25px;
+  height: 25px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.hotspot-list-swiper-button-next:hover,
+.hotspot-list-swiper-button-prev:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.hotspot-list-swiper-button-next {
+  right: 10px;
+}
+
+.hotspot-list-swiper-button-prev {
+  left: 10px;
+}
+
+/* CSS */
+.hotspot-list-swiper-button-prev,
+.hotspot-list-swiper-button-next {
+  position: absolute;
+  top: 100%;
+  transform: translateY(-20%);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.swiper-button-prev {
+  left: 10px;
+}
+
+.hotspot-list-swiper-button-next {
+  right: 20px;
+}
+
+.swiper-button-next:after,
+.swiper-rtl .swiper-button-prev:after {
+  content: "next";
+  font-size: 12px;
+}
+
+.swiper-button-prev:after,
+.swiper-rtl .swiper-button-next:after {
+  content: "previous";
+  font-size: 12px;
+}
+
+.hotspot-list-swiper-button-next,
+.hotspot-list-swiper-button-next:active,
+.hotspot-list-swiper-button-prev,
+.hotspot-list-swiper-button-prev:active {
+  background: linear-gradient(
+    to right,
+    rgba(114, 49, 207, 0.8) 0%,
+    rgba(195, 60, 166, 0.8) 68%,
+    rgba(238, 63, 206, 0.8) 100%
+  ) !important;
+}
+
+.overlay_image_wrapper_itinerary_section {
+  position: absolute;
+  color: #fff;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 0, 0, 0),
+    rgba(0, 0, 0, 1)
+  );
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  padding: 0.75rem;
+  padding-bottom: 0.3rem;
+  padding-top: 2rem;
+  text-wrap: wrap;
+}
+
+/* Itinerary Detailed Overview */
+
+.itinerary_detailed_overview {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  height: 500px;
+  gap: 10px;
+}
+
+.itinerary_detailed_overview > .itinerary_detailed_overview_div_section {
+  flex: 0 0 120px;
+  border-radius: 0.5rem;
+  transition: 0.5s ease-in-out;
+  cursor: pointer;
+  box-shadow: 1px 5px 15px #1e0e3e;
+  position: relative;
+  overflow: hidden;
+  height: 300px;
+}
+
+.itinerary_detailed_overview
+  > .itinerary_detailed_overview_div_section:nth-of-type(1) {
+  background: url("assets/img/itinerary/hotspots/surf.jpg") no-repeat 50% /
+    cover;
+}
+
+.itinerary_detailed_overview
+  > .itinerary_detailed_overview_div_section:nth-of-type(2) {
+  background: url("assets/img/itinerary/hotspots/marina_beach_1.jpeg") no-repeat
+    50% / cover;
+}
+
+.itinerary_detailed_overview
+  > .itinerary_detailed_overview_div_section:nth-of-type(3) {
+  background: url("assets/img/itinerary/hotspots/kapaleeshwarar_temple_1.jpeg")
+    no-repeat 50% / cover;
+}
+
+.itinerary_detailed_overview
+  > .itinerary_detailed_overview_div_section
+  .content {
+  font-size: 1.5rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  opacity: 0;
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-end;
+  background: rgb(2, 2, 46);
+  background: linear-gradient(
+    0deg,
+    rgba(2, 2, 46, 0.6755077030812324) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateY(100%);
+  transition: opacity 0.5s ease-in-out, transform 0.5s 0.2s;
+  visibility: hidden;
+}
+
+.itinerary_detailed_overview > .itinerary_detailed_overview_div_section:hover {
+  flex: 0 0 250px;
+  box-shadow: 1px 3px 15px #7645d8;
+  transform: translateY(-30px);
+}
+
+.itinerary_detailed_overview
+  > .itinerary_detailed_overview_div_section:hover
+  .content {
+  opacity: 1;
+  transform: translateY(0%);
+  visibility: visible;
+}
+
+.itinerary_detailed_overview
+  > .itinerary_detailed_overview_div_section
+  .content
+  span {
+  display: block;
+  margin-top: 5px;
+  font-size: 1.2rem;
+}
+
+.itinerary-package {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.itinerary-package-section {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 100px 50px;
+  padding: 100px 50px;
+}
+
+.itinerary-package-section .card {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 300px;
+  max-width: 100%;
+  height: 300px;
+  background: #fff;
+  border-radius: 20px;
+  transition: 0.5s;
+  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.15);
+}
+
+.itinerary-package-section .card:hover {
+  height: 400px;
+}
+
+.itinerary-package-section .card .img-box {
+  position: absolute;
+  top: 0px;
+  width: 300px;
+  height: 220px;
+  background: #333;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: 0.5s;
+}
+
+.itinerary-package-section .card:hover .img-box {
+  top: -100px;
+  scale: 0.75;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.2);
+}
+
+.itinerary-package-section .card .img-box img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.itinerary-package-section .card .content {
+  position: absolute;
+  top: 225px;
+  width: 100%;
+  height: 35px;
+  padding: 0 30px;
+  text-align: center;
+  overflow: hidden;
+  transition: 0.5s;
+}
+
+.itinerary-package-section .card:hover .content {
+  top: 130px;
+  height: 250px;
+}
+
+.itinerary-package-section .card .content h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--clr);
+}
+
+.itinerary-package-section .card .content p {
+  color: #333;
+}
+
+.itinerary-package-section .card .content a {
+  position: relative;
+  top: 15px;
+  display: inline-block;
+  padding: 12px 25px;
+  text-decoration: none;
+  background: var(--clr);
+  color: #fff;
+  font-weight: 500;
+}
+
+.itinerary-package-section .card .content a:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 480px) {
+  .itinerary-package-section .card {
+    width: 230px;
+    border-radius: 15px;
+  }
+
+  .itinerary-package-section .card .img-box {
+    width: 185px;
+    border-radius: 10px;
+  }
+
+  .itinerary-package-section .card .content p {
+    font-size: 0.8rem;
+  }
+
+  .itinerary-package-section .card .content a {
+    font-size: 0.9rem;
+  }
+}
+
+.vehicle-live-data-section .timeline .timeline-item .timeline-event:before {
+  display: none;
+}
+
+.top-rated-performance-section .profile-image-container {
+    width: 50px;
+    height: 50px;
+    border: 1px solid #d3d3d3;
+    border-radius: 50%;
+    padding: 2px;
+}
+
+.vehicle-live-data-section .itinerary-image-section {
+  background-color: #f2f2f3 ;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vehicle-live-data-section .itinerary-image-section img {
+  width: 30px;
+}
+
+.vehicle-live-data-section .avatar-wrapper {
+  margin-right: 10px;
+}
+
+.vehicle-branch-section table {
+  border-bottom: none !important;
+}
+
+.vehicle-branch-section .accordion-arrow-left .accordion-button::before { 
+   margin-top: 0;
+}

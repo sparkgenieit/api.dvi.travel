@@ -1,0 +1,4 @@
+v 1.0==========  21-11-2018Here you will have the globally used terms in different language.  You should not delete any language files or change any existing variables.You can add new sets by commenting, like "why you wanted that new option. 
+
+V 4.0.1 ========= 09/12/2019 added by Mohan
+Page and Uses:[1] messagepopup.class.inc"To display popup message alert for SUCCESS/UPDATE/DELETE/ERROR in a page"[2] validationjs.class.inc"To generate JS Validation script at the bottom of each pages"[3] validation.class.inc"To perform Client Side Validation using PHP"[4] validationexp.class.inc"All common validation expressions for supporting VALIDATIONJS file"[5] error.class.inc"To display custom error"V 4.0.1 ========= 09/12/2019  Syntax of Toast-Alert Message added by Mohan$displayMSG_globalclass->displayMSG( 1, "Success", 'Record created Successfully', 'success');

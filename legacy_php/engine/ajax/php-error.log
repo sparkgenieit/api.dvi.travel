@@ -1,0 +1,80 @@
+[11-Mar-2025 12:03:43 Asia/Kolkata] PHP Warning:  Undefined variable $total_hotel_margin in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27065
+[11-Mar-2025 12:03:44 Asia/Kolkata] PHP Warning:  Undefined array key "price_changed_details" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27638
+[11-Mar-2025 12:03:44 Asia/Kolkata] PHP Warning:  Undefined array key "price_changed_details" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27646
+[11-Mar-2025 12:03:45 Asia/Kolkata] PHP Warning:  Undefined variable $reply_to in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_itinerary_confirmation_email_notification.php on line 921
+[11-Mar-2025 12:03:52 Asia/Kolkata] PHP Warning:  Undefined array key "infant_name" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27788
+[11-Mar-2025 12:03:52 Asia/Kolkata] PHP Warning:  Undefined array key "infant_age" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27789
+[11-Mar-2025 12:03:54 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'confirmed_itinerary_plan_hotel_details_id' in 'field list' in D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php:121
+Stack trace:
+#0 D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php(121): mysqli_query(Object(mysqli), 'INSERT INTO `dv...')
+#1 D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php(228): sqlQUERY('INSERT INTO `dv...')
+#2 D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php(28014): sqlACTIONS('INSERT', 'dvi_confirmed_i...', Array, Array, '')
+#3 {main}
+  thrown in D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php on line 121
+[11-Mar-2025 12:07:02 Asia/Kolkata] PHP Warning:  Undefined variable $itinerary_preference in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27059
+[11-Mar-2025 12:07:02 Asia/Kolkata] PHP Warning:  Undefined variable $total_hotel_margin in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27078
+[11-Mar-2025 12:07:02 Asia/Kolkata] PHP Warning:  Undefined variable $vendor_margin_amount in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27078
+[11-Mar-2025 12:07:02 Asia/Kolkata] PHP Warning:  Undefined variable $guide_for_itinerary in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27139
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $itinerary_quote_ID in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27688
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $itinerary_quote_ID in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27700
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $itinerary_preference in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27702
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $itinerary_preference in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27705
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $itinerary_preference in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $location_id in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $arrival_location in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $departure_location in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $trip_start_date_and_time in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $trip_end_date_and_time in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $arrival_type in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $departure_type in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $no_of_nights in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $no_of_days in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $expecting_budget in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $itinerary_type in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $entry_ticket_required in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $total_adult in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $total_children in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $total_infants in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $no_of_routes in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $guide_for_itinerary in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $preferred_room_count in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $total_extra_bed in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $total_child_with_bed in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $total_child_without_bed in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $food_type in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $nationality in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $meal_plan_breakfast in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $meal_plan_lunch in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $meal_plan_dinner in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $special_instructions in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $pick_up_date_and_time in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $hotel_rates_visibility in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27715
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $arrival_location in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27723
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $departure_location in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27724
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $no_of_days in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27725
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $no_of_nights in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27726
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $trip_start_date_and_time in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27727
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $trip_end_date_and_time in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27728
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Deprecated:  strtotime(): Passing null to parameter #1 ($datetime) of type string is deprecated in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_itinerary_confirmation_email_notification.php on line 763
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Deprecated:  strtotime(): Passing null to parameter #1 ($datetime) of type string is deprecated in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_itinerary_confirmation_email_notification.php on line 763
+[11-Mar-2025 12:07:03 Asia/Kolkata] PHP Warning:  Undefined variable $reply_to in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_itinerary_confirmation_email_notification.php on line 921
+[11-Mar-2025 12:07:10 Asia/Kolkata] PHP Warning:  Undefined array key "infant_name" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27788
+[11-Mar-2025 12:07:10 Asia/Kolkata] PHP Warning:  Undefined array key "infant_age" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 27789
+[26-Mar-2025 12:23:24 Asia/Kolkata] PHP Warning:  Undefined variable $total_hotel_margin in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 29331
+[26-Mar-2025 12:23:24 Asia/Kolkata] PHP Warning:  Undefined variable $total_vehicle_margin in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 29343
+[26-Mar-2025 12:23:25 Asia/Kolkata] PHP Warning:  Undefined variable $vendor_vehicle_type_ID in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 29600
+[26-Mar-2025 12:23:25 Asia/Kolkata] PHP Warning:  Trying to access array offset on value of type null in D:\xampp\htdocs\dvi_travels\head\controller\core\sql_functions.php on line 3520
+[26-Mar-2025 12:23:25 Asia/Kolkata] PHP Warning:  Undefined variable $vendor_vehicle_type_ID in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 29600
+[26-Mar-2025 12:23:25 Asia/Kolkata] PHP Warning:  Trying to access array offset on value of type null in D:\xampp\htdocs\dvi_travels\head\controller\core\sql_functions.php on line 3520
+[26-Mar-2025 12:23:25 Asia/Kolkata] PHP Warning:  Undefined array key "price_changed_details" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 29907
+[26-Mar-2025 12:23:25 Asia/Kolkata] PHP Warning:  Undefined array key "price_changed_details" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 29915
+[26-Mar-2025 12:23:26 Asia/Kolkata] PHP Warning:  Undefined variable $reply_to in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_itinerary_confirmation_email_notification.php on line 921
+[26-Mar-2025 12:23:31 Asia/Kolkata] PHP Warning:  Undefined array key "infant_name" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 30057
+[26-Mar-2025 12:23:31 Asia/Kolkata] PHP Warning:  Undefined array key "infant_age" in D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php on line 30058
+[26-Mar-2025 12:23:33 Asia/Kolkata] PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'confirmed_itinerary_plan_hotel_details_id' in 'field list' in D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php:121
+Stack trace:
+#0 D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php(121): mysqli_query(Object(mysqli), 'INSERT INTO `dv...')
+#1 D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php(228): sqlQUERY('INSERT INTO `dv...')
+#2 D:\xampp\htdocs\dvi_travels\head\engine\ajax\ajax_latest_manage_itineary.php(30283): sqlACTIONS('INSERT', 'dvi_confirmed_i...', Array, Array, '')
+#3 {main}
+  thrown in D:\xampp\htdocs\dvi_travels\head\controller\core\global_SQLifunctions.php on line 121

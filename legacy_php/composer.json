@@ -1,0 +1,14 @@
+{
+  "require": {
+    "phpclasses/php-stmr": ">=1.0.0"
+  },
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "https://www.phpclasses.org/"
+    },
+    {
+      "packagist": false
+    }
+  ]
+}

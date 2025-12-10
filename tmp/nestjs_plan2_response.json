@@ -1,0 +1,541 @@
+{
+  "quoteId": "DVI2025122",
+  "planId": 2,
+  "dateRange": "2025-12-11 to 2025-12-13",
+  "roomCount": 1,
+  "extraBed": 0,
+  "childWithBed": 0,
+  "childWithoutBed": 0,
+  "adults": 2,
+  "children": 0,
+  "infants": 0,
+  "overallCost": "15000.00",
+  "days": [
+    {
+      "id": 178,
+      "dayNumber": 1,
+      "date": "2025-12-11T00:00:00.000Z",
+      "departure": "Chennai International Airport",
+      "arrival": "Chennai",
+      "distance": "22.47 KM",
+      "startTime": "11:00 AM",
+      "endTime": "08:00 PM",
+      "segments": [
+        {
+          "type": "start",
+          "title": "Start your Journey",
+          "timeRange": "12:00 AM - 12:00 AM"
+        },
+        {
+          "type": "travel",
+          "from": "Chennai International Airport",
+          "to": "Marina Beach",
+          "timeRange": "12:00 PM - 01:30 PM",
+          "distance": "22.47 KM",
+          "duration": "1 Hours 30 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Marina Beach",
+          "description": "Marina beach in Chennai along the Bay of Bengal is India&#039;s longest and world&#039;s second longest beach. This predominantly sandy of nearly 12 kilometers extends from Beasant Nagar in the south to Fort St. George in the north. Chennai Marina beach was renovated by Governor Mountstuart Elphinstone Grant Duff in 1880s.",
+          "visitTime": "01:30 PM - 02:30 PM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "return",
+          "time": "08:00 PM",
+          "note": null
+        }
+      ]
+    },
+    {
+      "id": 179,
+      "dayNumber": 2,
+      "date": "2025-12-12T00:00:00.000Z",
+      "departure": "Chennai",
+      "arrival": "Pondicherry",
+      "distance": "212.38 KM",
+      "startTime": "08:00 AM",
+      "endTime": "08:00 PM",
+      "segments": [
+        {
+          "type": "start",
+          "title": "Start Your Day",
+          "timeRange": "12:00 AM - 12:00 AM"
+        },
+        {
+          "type": "travel",
+          "from": "Chennai",
+          "to": "Kapaleeshwarar Temple",
+          "timeRange": "09:00 AM - 09:34 AM",
+          "distance": "8.42 KM",
+          "duration": "34 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Kapaleeshwarar Temple",
+          "description": "The Kapaleeshwarar temple is of typical Dravidian architectural style, with the gopuram overpowering the street on which the temple sits. This temple is also a testimonial for the vishwakarmas sthapathis. There are two entrances to the temple marked by the gopuram on either side.",
+          "visitTime": "09:34 AM - 10:34 AM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Kapaleeshwarar Temple",
+          "to": "Auroville",
+          "timeRange": "10:34 AM - 01:40 PM",
+          "distance": "186.20 KM",
+          "duration": "3 Hours 6 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Auroville",
+          "description": "Auroville is a universal township in the making for a population of up to 50,000 people from around the world. The concept of Auroville &ndash; an ideal township devoted to an experiment in human unity &ndash; came to the Mother as early as the 1930s.In the mid 1960s the concept was developed and put before the Govt.",
+          "visitTime": "01:40 PM - 03:40 PM",
+          "duration": "2 Hours",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Auroville",
+          "to": "The Basilica of the Sacred Heart of Jesus",
+          "timeRange": "03:40 PM - 03:54 PM",
+          "distance": "13.80 KM",
+          "duration": "14 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "The Basilica of the Sacred Heart of Jesus",
+          "description": "Synopsis. This church is one of the best examples of Gothic architecture in India. A revered pilgrimage spot, it is quite famous for its brilliant stained glass panels depicting incidents from Christ&#039;s life. A century-old structure, it is house to 28 glass pictures of saints who were related to the church.",
+          "visitTime": "03:54 PM - 04:24 PM",
+          "duration": "30 Min",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "The Basilica of the Sacred Heart of Jesus",
+          "to": "Promenade Beach",
+          "timeRange": "04:24 PM - 04:26 PM",
+          "distance": "1.55 KM",
+          "duration": "2 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Promenade Beach",
+          "description": "Rock Beach (or, known as, &quot;Pondicherry Beach&quot;. French: Plage de la promenade) is the popular stretch of beachfront in the city of Puducherry, India, along the Bay of Bengal. It is a 1.2-kilometre-long stretch in Pondicherry, starts from War Memorial and end at Dupleix Park on the Goubert Avenue.",
+          "visitTime": "04:26 PM - 05:26 PM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Promenade Beach",
+          "to": "Sri Aurobindo Ashram",
+          "timeRange": "05:26 PM - 05:27 PM",
+          "distance": "0.97 KM",
+          "duration": "1 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Sri Aurobindo Ashram",
+          "description": "At its centre, in a tree-shaded courtyard, lies the Samadhi, a white marble shrine where their bodies are laid to rest. The Ashram provides its members with all they need for a decent and healthy life. Various departments look after the basic requirements of food, clothing and shelter, as well as medical care.",
+          "visitTime": "05:27 PM - 06:27 PM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Sri Aurobindo Ashram",
+          "to": "French Colony",
+          "timeRange": "06:27 PM - 06:28 PM",
+          "distance": "1.44 KM",
+          "duration": "1 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "French Colony",
+          "description": "A French colony was a territory under French rule, with the most well-known being the &quot;French Settlements in India&quot; which included five enclaves: Pondicherry, Karaikal, Yanam, Mahe, and Chandernagor. These settlements, established by the French East India Company, were de facto absorbed into India in 1950 and 1954. French colonialism also extended to other parts of the world, creating a vast empire that included territories in the Americas, the Caribbean, and Southeast Asia.",
+          "visitTime": "06:28 PM - 07:28 PM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "return",
+          "time": "08:00 PM",
+          "note": null
+        }
+      ]
+    },
+    {
+      "id": 180,
+      "dayNumber": 3,
+      "date": "2025-12-13T00:00:00.000Z",
+      "departure": "Pondicherry",
+      "arrival": "Pondicherry Airport",
+      "distance": "43.43 KM",
+      "startTime": "08:00 AM",
+      "endTime": "06:57 PM",
+      "segments": [
+        {
+          "type": "start",
+          "title": "Start Your Day",
+          "timeRange": "12:00 AM - 12:00 AM"
+        },
+        {
+          "type": "travel",
+          "from": "Pondicherry",
+          "to": "Manakula Vinayagar Temple",
+          "timeRange": "09:00 AM - 09:18 AM",
+          "distance": "4.42 KM",
+          "duration": "18 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Manakula Vinayagar Temple",
+          "description": "Being more than 500 years old, it has an illustrious history and is one of the oldest temples in the region. The temple derives its name from two Tamil words Manal meaning &#039;sand&#039; and Kulam meaning &#039;pond near the sea&#039;. The temple was known by the name Manal Kulathu Vinayagar earlier.",
+          "visitTime": "09:18 AM - 09:48 AM",
+          "duration": "30 Min",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Manakula Vinayagar Temple",
+          "to": "Chunnambar Boathouse",
+          "timeRange": "09:48 AM - 10:29 AM",
+          "distance": "10.29 KM",
+          "duration": "41 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Chunnambar Boathouse",
+          "description": "Surrounded by beautiful backwaters and stunning white sand beaches, Chunnambar Boat House is ideal for boating and is also a great picnic spot in Pondicherry.",
+          "visitTime": "10:29 AM - 11:29 AM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Chunnambar Boathouse",
+          "to": "Botanical Garden",
+          "timeRange": "11:29 AM - 12:03 PM",
+          "distance": "8.45 KM",
+          "duration": "34 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Botanical Garden",
+          "description": "The Botanical Garden in Pondicherry is a 22-acre garden established in 1826, known for its variety of trees, flower beds, and recreational facilities like a toy train, aquarium, and musical fountain. It features themed plots, a Japanese rock garden, and a collection of over 2,400 trees, including rare and endangered species and ancient trees. The garden is a popular spot for both locals and tourists, offering a blend of natural beauty with family-friendly attractions.",
+          "visitTime": "12:03 PM - 01:03 PM",
+          "duration": "1 Hours",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Botanical Garden",
+          "to": "Paradise Beach",
+          "timeRange": "01:03 PM - 01:12 PM",
+          "distance": "8.88 KM",
+          "duration": "9 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Paradise Beach",
+          "description": "This serene and private beach sits at the tip of a peninsula where the Bay of Bengal and Chunnambar River converge. Officially called Chunnambar Beach, Paradise Beach was given its popular name by the local residents who delight in escaping to a quiet haven close to the city center.",
+          "visitTime": "01:12 PM - 01:42 PM",
+          "duration": "30 Min",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Paradise Beach",
+          "to": "French War Memorial",
+          "timeRange": "01:42 PM - 01:50 PM",
+          "distance": "7.72 KM",
+          "duration": "8 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "French War Memorial",
+          "description": "The French War Memorial in Puducherry, India (French: Monument aux combattants des Indes francaises morts pour la patrie) is a war memorial dedicated to residents of French India who died for the country during the First World War. It is on Goubert Avenue in Puducherry, located opposite to the Gandhi statue.",
+          "visitTime": "01:50 PM - 02:10 PM",
+          "duration": "20 Min",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "French War Memorial",
+          "to": "Bharathi Park &amp; Aayi Mandapam",
+          "timeRange": "02:10 PM - 02:11 PM",
+          "distance": "0.24 KM",
+          "duration": "1 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Bharathi Park &amp; Aayi Mandapam",
+          "description": "Bharathi Park in Puducherry is a well-known colonial-era park featuring the central Aayi Mandapam monument, manicured lawns, and flowerbeds, making it a popular spot for recreation, morning walks, and relaxation. Also known as Government Park, it is a green oasis centrally located in the old French colonial town, close to the beach promenade, and is suitable for families, birdwatching, and enjoying a serene atmosphere.",
+          "visitTime": "02:11 PM - 02:56 PM",
+          "duration": "45 Min",
+          "image": null
+        },
+        {
+          "type": "travel",
+          "from": "Bharathi Park &amp; Aayi Mandapam",
+          "to": "Pondi Marina Beach",
+          "timeRange": "02:56 PM - 03:10 PM",
+          "distance": "3.43 KM",
+          "duration": "14 Min",
+          "note": "This may vary due to traffic conditions"
+        },
+        {
+          "type": "attraction",
+          "name": "Pondi Marina Beach",
+          "description": "Pondi Marina Beach is a vibrant coastal hub in Puducherry known for its scenic beauty and diverse activities, including relaxing, water sports, and cultural experiences. It features a long, scenic stretch of beach, food stalls, and attractions like horse and camel rides. Visitors can enjoy stunning sunsets, take boat rides from the nearby boat house, and find both vibrant markets and relaxing spots for quiet contemplation.",
+          "visitTime": "03:10 PM - 03:40 PM",
+          "duration": "30 Min",
+          "image": null
+        },
+        {
+          "type": "return",
+          "time": "06:57 PM",
+          "note": null
+        }
+      ]
+    }
+  ],
+  "vehicles": [
+    {
+      "vendorName": "DVI-CHENNAI",
+      "branchName": "DVI-CHENNAI",
+      "vehicleOrigin": "Chennai International Airport",
+      "totalQty": "1",
+      "totalAmount": "12208.35",
+      "rentalCharges": 8800,
+      "tollCharges": 470,
+      "parkingCharges": 800,
+      "driverCharges": 0,
+      "permitCharges": 500,
+      "before6amDriver": 0,
+      "before6amVendor": 0,
+      "after8pmDriver": 0,
+      "after8pmVendor": 0,
+      "breakdown": [
+        {
+          "label": "Rental Charges",
+          "amount": 8800
+        },
+        {
+          "label": "Toll Charges",
+          "amount": 470
+        },
+        {
+          "label": "Parking Charges",
+          "amount": 800
+        },
+        {
+          "label": "Permit Charges",
+          "amount": 500
+        }
+      ]
+    },
+    {
+      "vendorName": "PONDICHERRY",
+      "branchName": "PONDICHERRY",
+      "vehicleOrigin": "Chennai International Airport",
+      "totalQty": "1",
+      "totalAmount": "13281.79",
+      "rentalCharges": 9600,
+      "tollCharges": 470,
+      "parkingCharges": 800,
+      "driverCharges": 0,
+      "permitCharges": 500,
+      "before6amDriver": 0,
+      "before6amVendor": 0,
+      "after8pmDriver": 0,
+      "after8pmVendor": 0,
+      "breakdown": [
+        {
+          "label": "Rental Charges",
+          "amount": 9600
+        },
+        {
+          "label": "Toll Charges",
+          "amount": 470
+        },
+        {
+          "label": "Parking Charges",
+          "amount": 800
+        },
+        {
+          "label": "Permit Charges",
+          "amount": 500
+        }
+      ]
+    },
+    {
+      "vendorName": "DVI-CHENNAI",
+      "branchName": "DVI-CHENNAI",
+      "vehicleOrigin": "Chennai",
+      "totalQty": "1",
+      "totalAmount": "12208.35",
+      "rentalCharges": 8800,
+      "tollCharges": 470,
+      "parkingCharges": 800,
+      "driverCharges": 0,
+      "permitCharges": 500,
+      "before6amDriver": 0,
+      "before6amVendor": 0,
+      "after8pmDriver": 0,
+      "after8pmVendor": 0,
+      "breakdown": [
+        {
+          "label": "Rental Charges",
+          "amount": 8800
+        },
+        {
+          "label": "Toll Charges",
+          "amount": 470
+        },
+        {
+          "label": "Parking Charges",
+          "amount": 800
+        },
+        {
+          "label": "Permit Charges",
+          "amount": 500
+        }
+      ]
+    },
+    {
+      "vendorName": "PONDICHERRY",
+      "branchName": "PONDICHERRY",
+      "vehicleOrigin": "Chennai",
+      "totalQty": "1",
+      "totalAmount": "13281.79",
+      "rentalCharges": 9600,
+      "tollCharges": 470,
+      "parkingCharges": 800,
+      "driverCharges": 0,
+      "permitCharges": 500,
+      "before6amDriver": 0,
+      "before6amVendor": 0,
+      "after8pmDriver": 0,
+      "after8pmVendor": 0,
+      "breakdown": [
+        {
+          "label": "Rental Charges",
+          "amount": 9600
+        },
+        {
+          "label": "Toll Charges",
+          "amount": 470
+        },
+        {
+          "label": "Parking Charges",
+          "amount": 800
+        },
+        {
+          "label": "Permit Charges",
+          "amount": 500
+        }
+      ]
+    },
+    {
+      "vendorName": "DVI-CHENNAI",
+      "branchName": "DVI-CHENNAI",
+      "vehicleOrigin": "Pondicherry",
+      "totalQty": "1",
+      "totalAmount": "12208.35",
+      "rentalCharges": 8800,
+      "tollCharges": 470,
+      "parkingCharges": 800,
+      "driverCharges": 0,
+      "permitCharges": 500,
+      "before6amDriver": 0,
+      "before6amVendor": 0,
+      "after8pmDriver": 0,
+      "after8pmVendor": 0,
+      "breakdown": [
+        {
+          "label": "Rental Charges",
+          "amount": 8800
+        },
+        {
+          "label": "Toll Charges",
+          "amount": 470
+        },
+        {
+          "label": "Parking Charges",
+          "amount": 800
+        },
+        {
+          "label": "Permit Charges",
+          "amount": 500
+        }
+      ]
+    },
+    {
+      "vendorName": "PONDICHERRY",
+      "branchName": "PONDICHERRY",
+      "vehicleOrigin": "Pondicherry",
+      "totalQty": "1",
+      "totalAmount": "13281.79",
+      "rentalCharges": 9600,
+      "tollCharges": 470,
+      "parkingCharges": 800,
+      "driverCharges": 0,
+      "permitCharges": 500,
+      "before6amDriver": 0,
+      "before6amVendor": 0,
+      "after8pmDriver": 0,
+      "after8pmVendor": 0,
+      "breakdown": [
+        {
+          "label": "Rental Charges",
+          "amount": 9600
+        },
+        {
+          "label": "Toll Charges",
+          "amount": 470
+        },
+        {
+          "label": "Parking Charges",
+          "amount": 800
+        },
+        {
+          "label": "Permit Charges",
+          "amount": 500
+        }
+      ]
+    }
+  ],
+  "packageIncludes": {
+    "description": "",
+    "houseBoatNote": "",
+    "rateNote": ""
+  },
+  "costBreakdown": {
+    "totalVehicleCost": 25490.14,
+    "totalVehicleAmount": 25490.14,
+    "additionalMargin": 0,
+    "totalAmount": 25490.14,
+    "couponDiscount": 0,
+    "agentMargin": 10,
+    "totalRoundOff": 0,
+    "netPayable": 25490.14,
+    "companyName": ""
+  }
+}

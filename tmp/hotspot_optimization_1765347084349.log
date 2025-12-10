@@ -1,0 +1,327 @@
+[2025-12-10T06:11:24.349Z] === HOTSPOT OPTIMIZATION LOG ===
+[2025-12-10T06:11:24.356Z] Started at: 2025-12-10T06:11:24.356Z
+
+[2025-12-10T06:11:27.511Z] [Timeline] Route 367 (Chennai International Airport → Chennai): routeStartTime=11:00:00, routeEndTime=20:00:00, direct_to_next=0
+[2025-12-10T06:11:27.515Z] [Timeline] Route 367 starting coords from location_id 165946: (12.9811068, 80.159623)
+[2025-12-10T06:11:27.524Z] [Timeline] Route 367 - Added refreshment break: 11:00:00 - 12:00:00
+[2025-12-10T06:11:27.530Z] [fetchSelectedHotspots] route 367 target="Chennai International Airport" next="Chennai" dow=2
+[2025-12-10T06:11:27.622Z] [fetchSelectedHotspots] Found 583 total active hotspots
+[2025-12-10T06:11:27.625Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0
+[2025-12-10T06:11:27.627Z] [fetchSelectedHotspots] source="Chennai International Airport", destination="Chennai"
+[2025-12-10T06:11:27.632Z] [fetchSelectedHotspots] Starting coords from stored_locations: (12.9811068, 80.159623)
+[2025-12-10T06:11:27.633Z] [fetchSelectedHotspots] Hotspot 4 "Kapaleeshwarar Temple" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.633Z] [fetchSelectedHotspots] Hotspot 4 "Kapaleeshwarar Temple" → DESTINATION (matches "Chennai")
+[2025-12-10T06:11:27.634Z] [fetchSelectedHotspots] Hotspot 5 "Marina Beach" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.635Z] [fetchSelectedHotspots] Hotspot 5 "Marina Beach" → DESTINATION (matches "Chennai")
+[2025-12-10T06:11:27.635Z] [fetchSelectedHotspots] Hotspot 6 "Fort St.George Museum" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.636Z] [fetchSelectedHotspots] Hotspot 7 "Government Museum Chennai" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.637Z] [fetchSelectedHotspots] Hotspot 8 "Santhome Cathedral Basilica" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.637Z] [fetchSelectedHotspots] Hotspot 9 "Thousand Lights Mosque" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.638Z] [fetchSelectedHotspots] Hotspot 10 "Guindy National Park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.638Z] [fetchSelectedHotspots] Hotspot 11 "Parthasarathy Temple" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.639Z] [fetchSelectedHotspots] Hotspot 12 "Vivekanandar House" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.639Z] [fetchSelectedHotspots] Hotspot 13 "Arignar Anna Zoological Park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.646Z] [fetchSelectedHotspots] Hotspot 290 "Vgp snow kingdom" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.647Z] [fetchSelectedHotspots] Hotspot 291 "Vgp marine kingdom" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.652Z] [fetchSelectedHotspots] Hotspot 292 "Guindy snake park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.653Z] [fetchSelectedHotspots] Hotspot 293 "Queens land" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.654Z] [fetchSelectedHotspots] Hotspot 294 "light house marina" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.655Z] [fetchSelectedHotspots] Hotspot 296 "Anna tower park" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.656Z] [fetchSelectedHotspots] Hotspot 297 "B.M Birla planitourim." → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.657Z] [fetchSelectedHotspots] Hotspot 298 "Click art museum" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.658Z] [fetchSelectedHotspots] Hotspot 299 "National art gallery" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.659Z] [fetchSelectedHotspots] Hotspot 300 "M G R  Memorial" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.660Z] [fetchSelectedHotspots] Hotspot 303 "Anna memorial." → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.670Z] [fetchSelectedHotspots] Hotspot 544 "Shri Ashtalakshmi Temple" → SOURCE (matches "Chennai International Airport")
+[2025-12-10T06:11:27.671Z] [fetchSelectedHotspots] Hotspot 544 "Shri Ashtalakshmi Temple" → DESTINATION (matches "Chennai")
+[2025-12-10T06:11:27.674Z] [fetchSelectedHotspots] Categorized: source=22, destination=3, via=0
+[2025-12-10T06:11:27.674Z] [fetchSelectedHotspots] AIRPORT ARRIVAL DETECTED: "Chennai International Airport" → "Chennai"
+[2025-12-10T06:11:27.675Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0 + AIRPORT ARRIVAL: Processing DESTINATION → VIA
+[2025-12-10T06:11:27.676Z] [fetchSelectedHotspots] Matched 3 hotspots after PHP ordering
+[2025-12-10T06:11:27.676Z] [fetchSelectedHotspots] First 5 hotspots (sorted): ID=4 "Kapaleeshwarar Temple" priority=1 distance=19.94km, ID=5 "Marina Beach" priority=2 distance=22.47km, ID=544 "Shri Ashtalakshmi Temple" priority=0 distance=18.11km
+[2025-12-10T06:11:27.678Z] [fetchSelectedHotspots] Matched 3 hotspots for route 367
+[2025-12-10T06:11:27.682Z] [Timeline] Route 367: Selected 3 hotspots
+[2025-12-10T06:11:27.684Z] [Timeline] Route 367 - currentTime: 12:00:00, routeEndTime: 20:00:00, routeEndSeconds: 72000
+[2025-12-10T06:11:27.685Z] [Timeline] Hotspot 4 - currentSeconds: 43200, routeEndSeconds: 72000
+[2025-12-10T06:11:27.685Z] [Timeline] Processing hotspot 4 for route 367
+[2025-12-10T06:11:27.688Z] [Timeline] Hotspot 4 coords: lat=13.033798514213936, lon=80.26977915213011
+[2025-12-10T06:11:27.704Z] [Timeline] Checking operating hours for hotspot 4: visit window 12:30:00-19:00:00 on day 2
+[2025-12-10T06:11:27.717Z] [Timeline] Hotspot 4 timing window: 05:30:00-12:00:00 (19800s-43200s), visit: 12:30:00-19:00:00 (45000s-68400s)
+[2025-12-10T06:11:27.720Z] [Timeline] Hotspot 4 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 12:30:00-19:00:00 (45000s-68400s)
+[2025-12-10T06:11:27.723Z] [Timeline] Hotspot 4 not open during visit window 12:30:00-19:00:00 on day 2, skipping
+[2025-12-10T06:11:27.732Z] [Timeline] Hotspot 5 - currentSeconds: 43200, routeEndSeconds: 72000
+[2025-12-10T06:11:27.739Z] [Timeline] Processing hotspot 5 for route 367
+[2025-12-10T06:11:27.755Z] [Timeline] Hotspot 5 coords: lat=13.051080243192029, lon=80.27775926313883
+[2025-12-10T06:11:27.801Z] [Timeline] Checking operating hours for hotspot 5: visit window 12:34:00-19:04:00 on day 2
+[2025-12-10T06:11:27.807Z] [Timeline] Hotspot 5 operating hours OK
+[2025-12-10T06:11:27.809Z] [Timeline] Travel type for "Chennai International Airport" -> "Chennai International Airport|Chennai Domestic Airport|Chennai Central|Chennai|Chennai Egmore Station|Chennai Koyembedu|ECR Beach, Chennai, Tamil Nadu": 1 (1=local, 2=outstation)
+[2025-12-10T06:11:27.885Z] [Timeline] Building hotspot row for hotspot_ID=5
+[2025-12-10T06:11:27.891Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=5, order=3
+[2025-12-10T06:11:27.931Z] [Timeline] Hotspot 544 - currentSeconds: 48840, routeEndSeconds: 72000
+[2025-12-10T06:11:27.973Z] [Timeline] Processing hotspot 544 for route 367
+[2025-12-10T06:11:28.007Z] [Timeline] Hotspot 544 coords: lat=12.993461140291483, lon=80.27030436931474
+[2025-12-10T06:11:28.160Z] [Timeline] Checking operating hours for hotspot 544: visit window 13:49:00-25:19:00 on day 2
+[2025-12-10T06:11:28.242Z] [Timeline] Hotspot 544 timing window: 06:00:00-12:00:00 (21600s-43200s), visit: 13:49:00-25:19:00 (49740s-91140s)
+[2025-12-10T06:11:28.260Z] [Timeline] Hotspot 544 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 13:49:00-25:19:00 (49740s-91140s)
+[2025-12-10T06:11:28.281Z] [Timeline] Hotspot 544 not open during visit window 13:49:00-25:19:00 on day 2, skipping
+[2025-12-10T06:11:28.302Z] [Timeline] Route 368 (Chennai → Pondicherry): routeStartTime=08:00:00, routeEndTime=20:00:00, direct_to_next=0
+[2025-12-10T06:11:28.307Z] [Timeline] Route 368 starting coords from location_id 762: (13.0843007, 80.2704622)
+[2025-12-10T06:11:28.316Z] [Timeline] Route 368 - Added refreshment break: 08:00:00 - 09:00:00
+[2025-12-10T06:11:28.323Z] [fetchSelectedHotspots] route 368 target="Chennai" next="Pondicherry" dow=3
+[2025-12-10T06:11:28.420Z] [fetchSelectedHotspots] Found 583 total active hotspots
+[2025-12-10T06:11:28.421Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0
+[2025-12-10T06:11:28.422Z] [fetchSelectedHotspots] source="Chennai", destination="Pondicherry"
+[2025-12-10T06:11:28.441Z] [fetchSelectedHotspots] Starting coords from stored_locations: (12.9811068, 80.159623)
+[2025-12-10T06:11:28.451Z] [fetchSelectedHotspots] Hotspot 4 "Kapaleeshwarar Temple" → SOURCE (matches "Chennai")
+[2025-12-10T06:11:28.453Z] [fetchSelectedHotspots] Hotspot 5 "Marina Beach" → SOURCE (matches "Chennai")
+[2025-12-10T06:11:28.454Z] [fetchSelectedHotspots] Hotspot 17 "Sri Aurobindo Ashram" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.455Z] [fetchSelectedHotspots] Hotspot 18 "Auroville" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.455Z] [fetchSelectedHotspots] Hotspot 19 "Promenade Beach" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.456Z] [fetchSelectedHotspots] Hotspot 20 "Chunnambar Boathouse" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.456Z] [fetchSelectedHotspots] Hotspot 21 "The Basilica of the Sacred Heart of Jesus" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.456Z] [fetchSelectedHotspots] Hotspot 24 "The Pondicherry Museum" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.457Z] [fetchSelectedHotspots] Hotspot 25 "Manakula Vinayagar Temple" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.458Z] [fetchSelectedHotspots] Hotspot 277 "Pondicherry Backwater" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.461Z] [fetchSelectedHotspots] Hotspot 544 "Shri Ashtalakshmi Temple" → SOURCE (matches "Chennai")
+[2025-12-10T06:11:28.469Z] [fetchSelectedHotspots] Hotspot 669 "Eden Beach - Blue flag Beach" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.470Z] [fetchSelectedHotspots] Hotspot 676 "Botanical Garden" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.471Z] [fetchSelectedHotspots] Hotspot 677 "Bharathi Park &amp; Aayi Mandapam" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.472Z] [fetchSelectedHotspots] Hotspot 678 "French Colony" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.473Z] [fetchSelectedHotspots] Hotspot 679 "Pondi Marina Beach" → DESTINATION (matches "Pondicherry")
+[2025-12-10T06:11:28.474Z] [fetchSelectedHotspots] Categorized: source=3, destination=13, via=0
+[2025-12-10T06:11:28.475Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0: Processing SOURCE → DESTINATION → VIA
+[2025-12-10T06:11:28.476Z] [fetchSelectedHotspots] Matched 16 hotspots after PHP ordering
+[2025-12-10T06:11:28.485Z] [fetchSelectedHotspots] First 5 hotspots (sorted): ID=4 "Kapaleeshwarar Temple" priority=1 distance=19.94km, ID=5 "Marina Beach" priority=2 distance=22.47km, ID=544 "Shri Ashtalakshmi Temple" priority=0 distance=18.11km, ID=18 "Auroville" priority=1 distance=171.53km, ID=25 "Manakula Vinayagar Temple" priority=2 distance=182.13km
+[2025-12-10T06:11:28.488Z] [fetchSelectedHotspots] Matched 16 hotspots for route 368
+[2025-12-10T06:11:28.489Z] [Timeline] Route 368: Selected 16 hotspots
+[2025-12-10T06:11:28.490Z] [Timeline] Route 368 - currentTime: 09:00:00, routeEndTime: 20:00:00, routeEndSeconds: 72000
+[2025-12-10T06:11:28.490Z] [Timeline] Hotspot 4 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:28.491Z] [Timeline] Processing hotspot 4 for route 368
+[2025-12-10T06:11:28.493Z] [Timeline] Hotspot 4 coords: lat=13.033798514213936, lon=80.26977915213011
+[2025-12-10T06:11:28.518Z] [Timeline] Checking operating hours for hotspot 4: visit window 09:13:00-15:43:00 on day 3
+[2025-12-10T06:11:28.525Z] [Timeline] Hotspot 4 timing window: 05:30:00-12:00:00 (19800s-43200s), visit: 09:13:00-15:43:00 (33180s-56580s)
+[2025-12-10T06:11:28.536Z] [Timeline] Hotspot 4 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 09:13:00-15:43:00 (33180s-56580s)
+[2025-12-10T06:11:28.537Z] [Timeline] Hotspot 4 not open during visit window 09:13:00-15:43:00 on day 3, skipping
+[2025-12-10T06:11:28.537Z] [Timeline] Hotspot 5 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:28.538Z] [Timeline] Processing hotspot 5 for route 368
+[2025-12-10T06:11:28.539Z] [Timeline] Skipping hotspot 5 - already added to plan 5
+[2025-12-10T06:11:28.539Z] [Timeline] Hotspot 544 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:28.539Z] [Timeline] Processing hotspot 544 for route 368
+[2025-12-10T06:11:28.542Z] [Timeline] Hotspot 544 coords: lat=12.993461140291483, lon=80.27030436931474
+[2025-12-10T06:11:28.567Z] [Timeline] Checking operating hours for hotspot 544: visit window 09:23:00-20:53:00 on day 3
+[2025-12-10T06:11:28.575Z] [Timeline] Hotspot 544 timing window: 06:00:00-12:00:00 (21600s-43200s), visit: 09:23:00-20:53:00 (33780s-75180s)
+[2025-12-10T06:11:28.576Z] [Timeline] Hotspot 544 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 09:23:00-20:53:00 (33780s-75180s)
+[2025-12-10T06:11:28.576Z] [Timeline] Hotspot 544 not open during visit window 09:23:00-20:53:00 on day 3, skipping
+[2025-12-10T06:11:28.577Z] [Timeline] Hotspot 18 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:28.578Z] [Timeline] Processing hotspot 18 for route 368
+[2025-12-10T06:11:28.581Z] [Timeline] Hotspot 18 coords: lat=12.008342334177776, lon=79.81781931258232
+[2025-12-10T06:11:28.599Z] [Timeline] Checking operating hours for hotspot 18: visit window 12:14:00-19:44:00 on day 3
+[2025-12-10T06:11:28.603Z] [Timeline] Hotspot 18 timing window: 09:00:00-13:00:00 (32400s-46800s), visit: 12:14:00-19:44:00 (44040s-71040s)
+[2025-12-10T06:11:28.604Z] [Timeline] Hotspot 18 timing window: 13:30:00-17:00:00 (48600s-61200s), visit: 12:14:00-19:44:00 (44040s-71040s)
+[2025-12-10T06:11:28.609Z] [Timeline] Hotspot 18 not open during visit window 12:14:00-19:44:00 on day 3, skipping
+[2025-12-10T06:11:28.610Z] [Timeline] Hotspot 25 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:28.617Z] [Timeline] Processing hotspot 25 for route 368
+[2025-12-10T06:11:28.622Z] [Timeline] Hotspot 25 coords: lat=11.936184966220257, lon=79.83484226674099
+[2025-12-10T06:11:28.639Z] [Timeline] Checking operating hours for hotspot 25: visit window 12:24:00-18:24:00 on day 3
+[2025-12-10T06:11:28.642Z] [Timeline] Hotspot 25 timing window: 05:45:00-12:30:00 (20700s-45000s), visit: 12:24:00-18:24:00 (44640s-66240s)
+[2025-12-10T06:11:28.643Z] [Timeline] Hotspot 25 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 12:24:00-18:24:00 (44640s-66240s)
+[2025-12-10T06:11:28.652Z] [Timeline] Hotspot 25 not open during visit window 12:24:00-18:24:00 on day 3, skipping
+[2025-12-10T06:11:28.657Z] [Timeline] Hotspot 21 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:28.658Z] [Timeline] Processing hotspot 21 for route 368
+[2025-12-10T06:11:28.660Z] [Timeline] Hotspot 21 coords: lat=11.926178758041798, lon=79.82779781515121
+[2025-12-10T06:11:28.676Z] [Timeline] Checking operating hours for hotspot 21: visit window 12:26:00-18:26:00 on day 3
+[2025-12-10T06:11:28.681Z] [Timeline] Hotspot 21 timing window: 06:00:00-19:00:00 (21600s-68400s), visit: 12:26:00-18:26:00 (44760s-66360s)
+[2025-12-10T06:11:28.683Z] [Timeline] Hotspot 21 MATCH on day 3
+[2025-12-10T06:11:28.686Z] [Timeline] Hotspot 21 operating hours OK
+[2025-12-10T06:11:28.687Z] [Timeline] Travel type for "Chennai" -> "Pondicherry Airport|Pondicherry": 2 (1=local, 2=outstation)
+[2025-12-10T06:11:28.704Z] [Timeline] Building hotspot row for hotspot_ID=21
+[2025-12-10T06:11:28.707Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=21, order=3
+[2025-12-10T06:11:28.710Z] [Timeline] Hotspot 19 - currentSeconds: 48360, routeEndSeconds: 72000
+[2025-12-10T06:11:28.712Z] [Timeline] Processing hotspot 19 for route 368
+[2025-12-10T06:11:28.717Z] [Timeline] Hotspot 19 coords: lat=11.931203427435934, lon=79.83580349426904
+[2025-12-10T06:11:28.735Z] [Timeline] Checking operating hours for hotspot 19: visit window 13:28:00-19:58:00 on day 3
+[2025-12-10T06:11:28.739Z] [Timeline] Hotspot 19 timing window: 06:00:00-20:00:00 (21600s-72000s), visit: 13:28:00-19:58:00 (48480s-71880s)
+[2025-12-10T06:11:28.740Z] [Timeline] Hotspot 19 MATCH on day 3
+[2025-12-10T06:11:28.741Z] [Timeline] Hotspot 19 operating hours OK
+[2025-12-10T06:11:28.750Z] [Timeline] Travel type for "Pondicherry Airport|Pondicherry" -> "Pondicherry Airport|Pondicherry": 1 (1=local, 2=outstation)
+[2025-12-10T06:11:28.771Z] [Timeline] Building hotspot row for hotspot_ID=19
+[2025-12-10T06:11:28.775Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=19, order=5
+[2025-12-10T06:11:28.800Z] [Timeline] Hotspot 20 - currentSeconds: 52080, routeEndSeconds: 72000
+[2025-12-10T06:11:28.801Z] [Timeline] Processing hotspot 20 for route 368
+[2025-12-10T06:11:28.804Z] [Timeline] Hotspot 20 coords: lat=11.883875481616602, lon=79.80141705562612
+[2025-12-10T06:11:28.821Z] [Timeline] Checking operating hours for hotspot 20: visit window 14:43:00-21:13:00 on day 3
+[2025-12-10T06:11:28.825Z] [Timeline] Hotspot 20 timing window: 09:30:00-12:00:00 (34200s-43200s), visit: 14:43:00-21:13:00 (52980s-76380s)
+[2025-12-10T06:11:28.834Z] [Timeline] Hotspot 20 not open during visit window 14:43:00-21:13:00 on day 3, skipping
+[2025-12-10T06:11:28.835Z] [Timeline] Hotspot 17 - currentSeconds: 52080, routeEndSeconds: 72000
+[2025-12-10T06:11:28.836Z] [Timeline] Processing hotspot 17 for route 368
+[2025-12-10T06:11:28.839Z] [Timeline] Hotspot 17 coords: lat=11.936929030828965, lon=79.83477998559515
+[2025-12-10T06:11:28.855Z] [Timeline] Checking operating hours for hotspot 17: visit window 14:29:00-20:59:00 on day 3
+[2025-12-10T06:11:28.859Z] [Timeline] Hotspot 17 timing window: 10:30:00-19:00:00 (37800s-68400s), visit: 14:29:00-20:59:00 (52140s-75540s)
+[2025-12-10T06:11:28.867Z] [Timeline] Hotspot 17 not open during visit window 14:29:00-20:59:00 on day 3, skipping
+[2025-12-10T06:11:28.868Z] [Timeline] Hotspot 24 - currentSeconds: 52080, routeEndSeconds: 72000
+[2025-12-10T06:11:28.870Z] [Timeline] Processing hotspot 24 for route 368
+[2025-12-10T06:11:28.880Z] [Timeline] Hotspot 24 coords: lat=11.934656339062595, lon=79.83484999477534
+[2025-12-10T06:11:28.896Z] [Timeline] Checking operating hours for hotspot 24: visit window 14:29:00-20:29:00 on day 3
+[2025-12-10T06:11:28.900Z] [Timeline] Hotspot 24 timing window: 09:00:00-12:00:00 (32400s-43200s), visit: 14:29:00-20:29:00 (52140s-73740s)
+[2025-12-10T06:11:28.901Z] [Timeline] Hotspot 24 not open during visit window 14:29:00-20:29:00 on day 3, skipping
+[2025-12-10T06:11:28.902Z] [Timeline] Hotspot 677 - currentSeconds: 52080, routeEndSeconds: 72000
+[2025-12-10T06:11:28.903Z] [Timeline] Processing hotspot 677 for route 368
+[2025-12-10T06:11:28.919Z] [Timeline] Hotspot 677 coords: lat=11.933029585291068, lon=79.83418306595088
+[2025-12-10T06:11:28.950Z] [Timeline] Checking operating hours for hotspot 677: visit window 14:29:00-20:44:00 on day 3
+[2025-12-10T06:11:28.954Z] [Timeline] Hotspot 677 timing window: 06:00:00-19:00:00 (21600s-68400s), visit: 14:29:00-20:44:00 (52140s-74640s)
+[2025-12-10T06:11:28.955Z] [Timeline] Hotspot 677 not open during visit window 14:29:00-20:44:00 on day 3, skipping
+[2025-12-10T06:11:28.957Z] [Timeline] Hotspot 678 - currentSeconds: 52080, routeEndSeconds: 72000
+[2025-12-10T06:11:28.957Z] [Timeline] Processing hotspot 678 for route 368
+[2025-12-10T06:11:28.962Z] [Timeline] Hotspot 678 coords: lat=11.928492248303817, lon=79.83303242117643
+[2025-12-10T06:11:28.988Z] [Timeline] Checking operating hours for hotspot 678: visit window 14:29:00-20:59:00 on day 3
+[2025-12-10T06:11:28.991Z] [Timeline] Hotspot 678 operating hours OK
+[2025-12-10T06:11:28.992Z] [Timeline] Hotspot 678 would end at 20:59:00 (75540s) (exceeds route_end_time 20:00:00 (72000s)), skipping
+[2025-12-10T06:11:29.005Z] [Timeline] Route 369 (Pondicherry → Pondicherry Airport): routeStartTime=08:00:00, routeEndTime=20:00:00, direct_to_next=0
+[2025-12-10T06:11:29.010Z] [Timeline] Route 369 starting coords from location_id 5922: (11.9415915, 79.8083133)
+[2025-12-10T06:11:29.023Z] [Timeline] Route 369 - Added refreshment break: 08:00:00 - 09:00:00
+[2025-12-10T06:11:29.026Z] [fetchSelectedHotspots] route 369 target="Pondicherry" next="Pondicherry Airport" dow=4
+[2025-12-10T06:11:29.108Z] [fetchSelectedHotspots] Found 583 total active hotspots
+[2025-12-10T06:11:29.108Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0
+[2025-12-10T06:11:29.110Z] [fetchSelectedHotspots] source="Pondicherry", destination="Pondicherry Airport"
+[2025-12-10T06:11:29.115Z] [fetchSelectedHotspots] Starting coords from stored_locations: (13.0827989, 80.2754246)
+[2025-12-10T06:11:29.116Z] [fetchSelectedHotspots] Hotspot 16 "Paradise Beach" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.117Z] [fetchSelectedHotspots] Hotspot 17 "Sri Aurobindo Ashram" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.118Z] [fetchSelectedHotspots] Hotspot 17 "Sri Aurobindo Ashram" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.118Z] [fetchSelectedHotspots] Hotspot 18 "Auroville" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.119Z] [fetchSelectedHotspots] Hotspot 18 "Auroville" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.119Z] [fetchSelectedHotspots] Hotspot 19 "Promenade Beach" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.120Z] [fetchSelectedHotspots] Hotspot 19 "Promenade Beach" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.120Z] [fetchSelectedHotspots] Hotspot 20 "Chunnambar Boathouse" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.124Z] [fetchSelectedHotspots] Hotspot 20 "Chunnambar Boathouse" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.124Z] [fetchSelectedHotspots] Hotspot 21 "The Basilica of the Sacred Heart of Jesus" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.125Z] [fetchSelectedHotspots] Hotspot 21 "The Basilica of the Sacred Heart of Jesus" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.126Z] [fetchSelectedHotspots] Hotspot 23 "French War Memorial" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.126Z] [fetchSelectedHotspots] Hotspot 24 "The Pondicherry Museum" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.127Z] [fetchSelectedHotspots] Hotspot 24 "The Pondicherry Museum" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.129Z] [fetchSelectedHotspots] Hotspot 25 "Manakula Vinayagar Temple" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.130Z] [fetchSelectedHotspots] Hotspot 25 "Manakula Vinayagar Temple" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.134Z] [fetchSelectedHotspots] Hotspot 277 "Pondicherry Backwater" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.135Z] [fetchSelectedHotspots] Hotspot 277 "Pondicherry Backwater" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.141Z] [fetchSelectedHotspots] Hotspot 669 "Eden Beach - Blue flag Beach" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.142Z] [fetchSelectedHotspots] Hotspot 669 "Eden Beach - Blue flag Beach" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.143Z] [fetchSelectedHotspots] Hotspot 676 "Botanical Garden" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.146Z] [fetchSelectedHotspots] Hotspot 676 "Botanical Garden" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.148Z] [fetchSelectedHotspots] Hotspot 677 "Bharathi Park &amp; Aayi Mandapam" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.148Z] [fetchSelectedHotspots] Hotspot 677 "Bharathi Park &amp; Aayi Mandapam" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.149Z] [fetchSelectedHotspots] Hotspot 678 "French Colony" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.150Z] [fetchSelectedHotspots] Hotspot 678 "French Colony" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.151Z] [fetchSelectedHotspots] Hotspot 679 "Pondi Marina Beach" → SOURCE (matches "Pondicherry")
+[2025-12-10T06:11:29.152Z] [fetchSelectedHotspots] Hotspot 679 "Pondi Marina Beach" → DESTINATION (matches "Pondicherry Airport")
+[2025-12-10T06:11:29.155Z] [fetchSelectedHotspots] Categorized: source=13, destination=15, via=0
+[2025-12-10T06:11:29.156Z] [fetchSelectedHotspots] direct_to_next_visiting_place=0: Processing SOURCE → DESTINATION → VIA
+[2025-12-10T06:11:29.156Z] [fetchSelectedHotspots] Matched 28 hotspots after PHP ordering
+[2025-12-10T06:11:29.157Z] [fetchSelectedHotspots] First 5 hotspots (sorted): ID=18 "Auroville" priority=1 distance=194.08km, ID=25 "Manakula Vinayagar Temple" priority=2 distance=204.26km, ID=21 "The Basilica of the Sacred Heart of Jesus" priority=4 distance=206.23km, ID=19 "Promenade Beach" priority=5 distance=204.98km, ID=20 "Chunnambar Boathouse" priority=5 distance=214.35km
+[2025-12-10T06:11:29.157Z] [fetchSelectedHotspots] Matched 15 hotspots for route 369
+[2025-12-10T06:11:29.158Z] [Timeline] Route 369: Selected 15 hotspots
+[2025-12-10T06:11:29.158Z] [Timeline] Route 369 - currentTime: 09:00:00, routeEndTime: 20:00:00, routeEndSeconds: 72000
+[2025-12-10T06:11:29.159Z] [Timeline] Hotspot 18 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:29.159Z] [Timeline] Processing hotspot 18 for route 369
+[2025-12-10T06:11:29.163Z] [Timeline] Hotspot 18 coords: lat=12.008342334177776, lon=79.81781931258232
+[2025-12-10T06:11:29.185Z] [Timeline] Checking operating hours for hotspot 18: visit window 09:17:00-16:47:00 on day 4
+[2025-12-10T06:11:29.187Z] [Timeline] Hotspot 18 timing window: 09:00:00-13:00:00 (32400s-46800s), visit: 09:17:00-16:47:00 (33420s-60420s)
+[2025-12-10T06:11:29.188Z] [Timeline] Hotspot 18 timing window: 13:30:00-17:00:00 (48600s-61200s), visit: 09:17:00-16:47:00 (33420s-60420s)
+[2025-12-10T06:11:29.189Z] [Timeline] Hotspot 18 not open during visit window 09:17:00-16:47:00 on day 4, skipping
+[2025-12-10T06:11:29.190Z] [Timeline] Hotspot 25 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:29.190Z] [Timeline] Processing hotspot 25 for route 369
+[2025-12-10T06:11:29.193Z] [Timeline] Hotspot 25 coords: lat=11.936184966220257, lon=79.83484226674099
+[2025-12-10T06:11:29.212Z] [Timeline] Checking operating hours for hotspot 25: visit window 09:07:00-15:07:00 on day 4
+[2025-12-10T06:11:29.216Z] [Timeline] Hotspot 25 timing window: 05:45:00-12:30:00 (20700s-45000s), visit: 09:07:00-15:07:00 (32820s-54420s)
+[2025-12-10T06:11:29.218Z] [Timeline] Hotspot 25 timing window: 16:00:00-20:00:00 (57600s-72000s), visit: 09:07:00-15:07:00 (32820s-54420s)
+[2025-12-10T06:11:29.219Z] [Timeline] Hotspot 25 not open during visit window 09:07:00-15:07:00 on day 4, skipping
+[2025-12-10T06:11:29.220Z] [Timeline] Hotspot 21 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:29.220Z] [Timeline] Processing hotspot 21 for route 369
+[2025-12-10T06:11:29.221Z] [Timeline] Skipping hotspot 21 - already added to plan 5
+[2025-12-10T06:11:29.221Z] [Timeline] Hotspot 19 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:29.222Z] [Timeline] Processing hotspot 19 for route 369
+[2025-12-10T06:11:29.222Z] [Timeline] Skipping hotspot 19 - already added to plan 5
+[2025-12-10T06:11:29.223Z] [Timeline] Hotspot 20 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:29.223Z] [Timeline] Processing hotspot 20 for route 369
+[2025-12-10T06:11:29.225Z] [Timeline] Hotspot 20 coords: lat=11.883875481616602, lon=79.80141705562612
+[2025-12-10T06:11:29.241Z] [Timeline] Checking operating hours for hotspot 20: visit window 09:15:00-15:45:00 on day 4
+[2025-12-10T06:11:29.246Z] [Timeline] Hotspot 20 timing window: 09:30:00-16:00:00 (34200s-57600s), visit: 09:15:00-15:45:00 (33300s-56700s)
+[2025-12-10T06:11:29.246Z] [Timeline] Hotspot 20 not open during visit window 09:15:00-15:45:00 on day 4, skipping
+[2025-12-10T06:11:29.256Z] [Timeline] Hotspot 17 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:29.256Z] [Timeline] Processing hotspot 17 for route 369
+[2025-12-10T06:11:29.258Z] [Timeline] Hotspot 17 coords: lat=11.936929030828965, lon=79.83477998559515
+[2025-12-10T06:11:29.271Z] [Timeline] Checking operating hours for hotspot 17: visit window 09:07:00-15:37:00 on day 4
+[2025-12-10T06:11:29.274Z] [Timeline] Hotspot 17 timing window: 10:30:00-19:00:00 (37800s-68400s), visit: 09:07:00-15:37:00 (32820s-56220s)
+[2025-12-10T06:11:29.275Z] [Timeline] Hotspot 17 not open during visit window 09:07:00-15:37:00 on day 4, skipping
+[2025-12-10T06:11:29.275Z] [Timeline] Hotspot 24 - currentSeconds: 32400, routeEndSeconds: 72000
+[2025-12-10T06:11:29.276Z] [Timeline] Processing hotspot 24 for route 369
+[2025-12-10T06:11:29.280Z] [Timeline] Hotspot 24 coords: lat=11.934656339062595, lon=79.83484999477534
+[2025-12-10T06:11:29.298Z] [Timeline] Checking operating hours for hotspot 24: visit window 09:07:00-15:07:00 on day 4
+[2025-12-10T06:11:29.303Z] [Timeline] Hotspot 24 timing window: 09:00:00-18:00:00 (32400s-64800s), visit: 09:07:00-15:07:00 (32820s-54420s)
+[2025-12-10T06:11:29.303Z] [Timeline] Hotspot 24 MATCH on day 4
+[2025-12-10T06:11:29.304Z] [Timeline] Hotspot 24 operating hours OK
+[2025-12-10T06:11:29.304Z] [Timeline] Travel type for "Pondicherry" -> "Pondicherry Airport|Pondicherry": 1 (1=local, 2=outstation)
+[2025-12-10T06:11:29.319Z] [Timeline] Building hotspot row for hotspot_ID=24
+[2025-12-10T06:11:29.322Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=24, order=3
+[2025-12-10T06:11:29.325Z] [Timeline] Hotspot 677 - currentSeconds: 36420, routeEndSeconds: 72000
+[2025-12-10T06:11:29.325Z] [Timeline] Processing hotspot 677 for route 369
+[2025-12-10T06:11:29.334Z] [Timeline] Hotspot 677 coords: lat=11.933029585291068, lon=79.83418306595088
+[2025-12-10T06:11:29.351Z] [Timeline] Checking operating hours for hotspot 677: visit window 10:07:00-16:22:00 on day 4
+[2025-12-10T06:11:29.354Z] [Timeline] Hotspot 677 timing window: 06:00:00-19:00:00 (21600s-68400s), visit: 10:07:00-16:22:00 (36420s-58920s)
+[2025-12-10T06:11:29.355Z] [Timeline] Hotspot 677 MATCH on day 4
+[2025-12-10T06:11:29.356Z] [Timeline] Hotspot 677 operating hours OK
+[2025-12-10T06:11:29.357Z] [Timeline] Travel type for "Pondicherry Airport|Pondicherry" -> "Pondicherry|Pondicherry Airport": 1 (1=local, 2=outstation)
+[2025-12-10T06:11:29.373Z] [Timeline] Building hotspot row for hotspot_ID=677
+[2025-12-10T06:11:29.383Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=677, order=5
+[2025-12-10T06:11:29.386Z] [Timeline] Hotspot 678 - currentSeconds: 40020, routeEndSeconds: 72000
+[2025-12-10T06:11:29.387Z] [Timeline] Processing hotspot 678 for route 369
+[2025-12-10T06:11:29.389Z] [Timeline] Hotspot 678 coords: lat=11.928492248303817, lon=79.83303242117643
+[2025-12-10T06:11:29.416Z] [Timeline] Checking operating hours for hotspot 678: visit window 11:08:00-17:38:00 on day 4
+[2025-12-10T06:11:29.420Z] [Timeline] Hotspot 678 operating hours OK
+[2025-12-10T06:11:29.421Z] [Timeline] Travel type for "Pondicherry|Pondicherry Airport" -> "Pondicherry|Pondicherry Airport": 1 (1=local, 2=outstation)
+[2025-12-10T06:11:29.434Z] [Timeline] Building hotspot row for hotspot_ID=678
+[2025-12-10T06:11:29.439Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=678, order=7
+[2025-12-10T06:11:29.449Z] [Timeline] Hotspot 676 - currentSeconds: 43680, routeEndSeconds: 72000
+[2025-12-10T06:11:29.450Z] [Timeline] Processing hotspot 676 for route 369
+[2025-12-10T06:11:29.455Z] [Timeline] Hotspot 676 coords: lat=11.930177048465467, lon=79.8224313245787
+[2025-12-10T06:11:29.473Z] [Timeline] Checking operating hours for hotspot 676: visit window 12:11:00-18:41:00 on day 4
+[2025-12-10T06:11:29.476Z] [Timeline] Hotspot 676 timing window: 10:00:00-17:00:00 (36000s-61200s), visit: 12:11:00-18:41:00 (43860s-67260s)
+[2025-12-10T06:11:29.476Z] [Timeline] Hotspot 676 not open during visit window 12:11:00-18:41:00 on day 4, skipping
+[2025-12-10T06:11:29.478Z] [Timeline] Hotspot 277 - currentSeconds: 43680, routeEndSeconds: 72000
+[2025-12-10T06:11:29.479Z] [Timeline] Processing hotspot 277 for route 369
+[2025-12-10T06:11:29.483Z] [Timeline] Hotspot 277 coords: lat=11.916309213225349, lon=79.82433098120615
+[2025-12-10T06:11:29.497Z] [Timeline] Checking operating hours for hotspot 277: visit window 12:12:00-20:42:00 on day 4
+[2025-12-10T06:11:29.502Z] [Timeline] Hotspot 277 timing window: 09:00:00-18:00:00 (32400s-64800s), visit: 12:12:00-20:42:00 (43920s-74520s)
+[2025-12-10T06:11:29.503Z] [Timeline] Hotspot 277 not open during visit window 12:12:00-20:42:00 on day 4, skipping
+[2025-12-10T06:11:29.504Z] [Timeline] Hotspot 679 - currentSeconds: 43680, routeEndSeconds: 72000
+[2025-12-10T06:11:29.505Z] [Timeline] Processing hotspot 679 for route 369
+[2025-12-10T06:11:29.507Z] [Timeline] Hotspot 679 coords: lat=11.913052113056816, lon=79.82932149874199
+[2025-12-10T06:11:29.523Z] [Timeline] Checking operating hours for hotspot 679: visit window 12:12:00-18:12:00 on day 4
+[2025-12-10T06:11:29.525Z] [Timeline] Hotspot 679 operating hours OK
+[2025-12-10T06:11:29.526Z] [Timeline] Travel type for "Pondicherry|Pondicherry Airport" -> "Pondicherry|Pondicherry Airport": 1 (1=local, 2=outstation)
+[2025-12-10T06:11:29.542Z] [Timeline] Building hotspot row for hotspot_ID=679
+[2025-12-10T06:11:29.550Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=679, order=9
+[2025-12-10T06:11:29.553Z] [Timeline] Hotspot 669 - currentSeconds: 47520, routeEndSeconds: 72000
+[2025-12-10T06:11:29.554Z] [Timeline] Processing hotspot 669 for route 369
+[2025-12-10T06:11:29.556Z] [Timeline] Hotspot 669 coords: lat=11.882310987345338, lon=79.8244548517534
+[2025-12-10T06:11:29.573Z] [Timeline] Checking operating hours for hotspot 669: visit window 13:20:00-19:50:00 on day 4
+[2025-12-10T06:11:29.581Z] [Timeline] Hotspot 669 timing window: 06:00:00-18:00:00 (21600s-64800s), visit: 13:20:00-19:50:00 (48000s-71400s)
+[2025-12-10T06:11:29.582Z] [Timeline] Hotspot 669 not open during visit window 13:20:00-19:50:00 on day 4, skipping
+[2025-12-10T06:11:29.583Z] [Timeline] Hotspot 16 - currentSeconds: 47520, routeEndSeconds: 72000
+[2025-12-10T06:11:29.584Z] [Timeline] Processing hotspot 16 for route 369
+[2025-12-10T06:11:29.588Z] [Timeline] Hotspot 16 coords: lat=11.894346668881749, lon=79.86265715952393
+[2025-12-10T06:11:29.601Z] [Timeline] Checking operating hours for hotspot 16: visit window 13:21:00-19:21:00 on day 4
+[2025-12-10T06:11:29.604Z] [Timeline] Hotspot 16 timing window: 09:00:00-18:00:00 (32400s-64800s), visit: 13:21:00-19:21:00 (48060s-69660s)
+[2025-12-10T06:11:29.605Z] [Timeline] Hotspot 16 not open during visit window 13:21:00-19:21:00 on day 4, skipping
+[2025-12-10T06:11:29.605Z] [Timeline] Hotspot 23 - currentSeconds: 47520, routeEndSeconds: 72000
+[2025-12-10T06:11:29.606Z] [Timeline] Processing hotspot 23 for route 369
+[2025-12-10T06:11:29.608Z] [Timeline] Hotspot 23 coords: lat=11.93212951685565, lon=79.83535346593922
+[2025-12-10T06:11:29.621Z] [Timeline] Checking operating hours for hotspot 23: visit window 13:17:00-19:07:00 on day 4
+[2025-12-10T06:11:29.624Z] [Timeline] Hotspot 23 operating hours OK
+[2025-12-10T06:11:29.629Z] [Timeline] Travel type for "Pondicherry|Pondicherry Airport" -> "Pondicherry Airport": 1 (1=local, 2=outstation)
+[2025-12-10T06:11:29.639Z] [Timeline] Building hotspot row for hotspot_ID=23
+[2025-12-10T06:11:29.643Z] [Timeline] Built hotspot row: item_type=4, hotspot_ID=23, order=11
+[2025-12-10T06:11:29.673Z] [Timeline] Returning 26 hotspot rows and 0 parking rows
+[2025-12-10T06:11:29.674Z] [Timeline] Hotspot rows item_types: 1, 3, 4, 5, 6, 1, 3, 4, 3, 4, 5, 6, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 5, 6, 7
+[2025-12-10T06:11:29.675Z] [Timeline] Hotspot rows hotspot_IDs: , 5, 5, 0, 0, , 21, 21, 19, 19, 0, 0, , 24, 24, 677, 677, 678, 678, 679, 679, 23, 23, 0, 0, 0
+[2025-12-10T06:11:29.675Z] 
+=== LOG FILE SAVED TO: D:\wamp64\www\dvi_fullstack\dvi_backend\tmp\hotspot_optimization_1765347084349.log ===
+
