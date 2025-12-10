@@ -27,19 +27,12 @@ try {
 // ---------------------------------------------------------------
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  // ✅ OPEN CORS (allows *, localhost, vercel, browser, postman)
-  app.enableCors({
-    origin: '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Authorization,Content-Type,Accept,Origin',
-  });
+  const app = await NestFactory.create(AppModule, { cors: true });
 
   // All routes start with /api/v1
   app.setGlobalPrefix('api/v1');
 
-  // ✅ Enable DTO validation + numeric transform
+  // ✅ Enable DTO validation + numeric transform for query/params/body
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -49,7 +42,7 @@ async function bootstrap() {
     }),
   );
 
-  // Serialize BigInt & Decimal in responses
+  // Serialize BigInt & Decimal in ALL responses
   app.useGlobalInterceptors(new BigIntSerializerInterceptor());
 
   // Swagger
@@ -62,8 +55,8 @@ async function bootstrap() {
       scheme: 'bearer',
       bearerFormat: 'JWT',
       description:
-        'Paste the JWT access token from /api/v1/auth/login here (without "Bearer ").',
-    })
+        'Paste the JWT access token from /api/v1/auth/login here (without "Bearer " prefix).',
+    }) // <-- default name = 'bearer'
     .build();
 
   const doc = SwaggerModule.createDocument(app, config);
@@ -74,7 +67,7 @@ async function bootstrap() {
   await prisma.enableShutdownHooks(app);
 
   const port = Number(process.env.PORT) || 4006;
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port,'0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger docs at http://localhost:${port}/docs`);
 }
