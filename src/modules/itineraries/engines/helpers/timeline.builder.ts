@@ -211,6 +211,13 @@ export class TimelineBuilder {
     const createdByUserId = 1;
 
     for (const route of routes) {
+      // Determine if this is the last route BEFORE processing
+      const isLastRoute = await this.isLastRouteOfPlan(
+        tx,
+        planId,
+        route.itinerary_route_ID,
+      );
+      
       let order = 1;
       
       // Convert Date objects to HH:MM:SS time strings
@@ -275,24 +282,26 @@ export class TimelineBuilder {
       }
 
       // 1) ADD REFRESHMENT BREAK (PHP line 969-993)
-      // PHP adds 1-hour refreshment at route start
-      const globalSettings = await (tx as any).dvi_global_settings?.findFirst({
-        where: { status: 1, deleted: 0 },
-        select: { itinerary_common_buffer_time: true },
-      });
-      
-      const bufferTime = globalSettings?.itinerary_common_buffer_time
-        ? (globalSettings.itinerary_common_buffer_time instanceof Date
-          ? `${String(globalSettings.itinerary_common_buffer_time.getUTCHours()).padStart(2, '0')}:${String(globalSettings.itinerary_common_buffer_time.getUTCMinutes()).padStart(2, '0')}:${String(globalSettings.itinerary_common_buffer_time.getUTCSeconds()).padStart(2, '0')}`
-          : String(globalSettings.itinerary_common_buffer_time))
-        : '01:00:00';
-      
-      const bufferSeconds = timeToSeconds(bufferTime);
-      const refreshmentEndTime = addSeconds(currentTime, bufferSeconds);
-      const refreshmentEndSeconds = timeToSeconds(refreshmentEndTime);
-      
-      // Only add refreshment if it fits within route time
-      if (refreshmentEndSeconds <= routeEndSeconds) {
+      // PHP adds 1-hour refreshment at route start EXCEPT for last route
+      // Last route starts directly with hotspots (order 2) and skips refreshment
+      if (!isLastRoute) {
+        const globalSettings = await (tx as any).dvi_global_settings?.findFirst({
+          where: { status: 1, deleted: 0 },
+          select: { itinerary_common_buffer_time: true },
+        });
+        
+        const bufferTime = globalSettings?.itinerary_common_buffer_time
+          ? (globalSettings.itinerary_common_buffer_time instanceof Date
+            ? `${String(globalSettings.itinerary_common_buffer_time.getUTCHours()).padStart(2, '0')}:${String(globalSettings.itinerary_common_buffer_time.getUTCMinutes()).padStart(2, '0')}:${String(globalSettings.itinerary_common_buffer_time.getUTCSeconds()).padStart(2, '0')}`
+            : String(globalSettings.itinerary_common_buffer_time))
+          : '01:00:00';
+        
+        const bufferSeconds = timeToSeconds(bufferTime);
+        const refreshmentEndTime = addSeconds(currentTime, bufferSeconds);
+        const refreshmentEndSeconds = timeToSeconds(refreshmentEndTime);
+        
+        // Only add refreshment if it fits within route time
+        if (refreshmentEndSeconds <= routeEndSeconds) {
         // PHP line 978: refreshment fields - use TimeConverter to match other builders
         hotspotRows.push({
           itinerary_plan_ID: planId,
@@ -311,11 +320,16 @@ export class TimelineBuilder {
           `[Timeline] Route ${route.itinerary_route_ID} - Added refreshment break: ${currentTime} - ${refreshmentEndTime}`,
         );
         
-        // Update current time after refreshment
-        currentTime = refreshmentEndTime;
+          // Update current time after refreshment
+          currentTime = refreshmentEndTime;
+        } else {
+          this.log(
+            `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment (not enough time): ${refreshmentEndTime} > ${routeEndTime}`,
+          );
+        }
       } else {
         this.log(
-          `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment (not enough time): ${refreshmentEndTime} > ${routeEndTime}`,
+          `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment (last route - PHP behavior)`,
         );
       }
 
@@ -549,55 +563,57 @@ export class TimelineBuilder {
       // 3) TRAVEL TO HOTEL (item_type = 5)
       // In PHP this uses the chosen hotel for that route/date.
       // PHP BEHAVIOR: Hotel travel (type 5) and hotel closing (type 6) share the same order
-      const hotelOrder = order;
-      
-      const hotelLocationName =
-        (await this.getHotelLocationNameForRoute(
-          tx,
-          planId,
-          route.itinerary_route_ID,
-        )) ||
-        (route.next_visiting_location as string) ||
-        currentLocationName;
+      // PHP BEHAVIOR: Last route SKIPS hotel rows (no ToHotel, no AtHotel)
+      if (!isLastRoute) {
+        const hotelOrder = order;
+        
+        const hotelLocationName =
+          (await this.getHotelLocationNameForRoute(
+            tx,
+            planId,
+            route.itinerary_route_ID,
+          )) ||
+          (route.next_visiting_location as string) ||
+          currentLocationName;
 
-      const { row: toHotelRow, nextTime: tAfterHotel } =
-        await this.hotelBuilder.buildToHotel(tx, {
-          planId,
-          routeId: route.itinerary_route_ID,
-          order: hotelOrder,
-          startTime: currentTime,
-          travelLocationType: 1, // TODO: local vs outstation if needed
-          userId: createdByUserId,
-          sourceLocationName: currentLocationName,
-          destinationLocationName: hotelLocationName,
-        });
+        const { row: toHotelRow, nextTime: tAfterHotel } =
+          await this.hotelBuilder.buildToHotel(tx, {
+            planId,
+            routeId: route.itinerary_route_ID,
+            order: hotelOrder,
+            startTime: currentTime,
+            travelLocationType: 1, // TODO: local vs outstation if needed
+            userId: createdByUserId,
+            sourceLocationName: currentLocationName,
+            destinationLocationName: hotelLocationName,
+          });
 
-      hotspotRows.push(toHotelRow);
-      currentTime = tAfterHotel;
-      currentLocationName = hotelLocationName;
+        hotspotRows.push(toHotelRow);
+        currentTime = tAfterHotel;
+        currentLocationName = hotelLocationName;
 
-      // 4) RETURN / CLOSING ROW FOR HOTEL (item_type = 6)
-      // PHP usually creates a closing row with 0 distance/time.
-      const { row: closeHotelRow, nextTime: tClose } =
-        await this.hotelBuilder.buildReturnToHotel(tx, {
-          planId,
-          routeId: route.itinerary_route_ID,
-          order: hotelOrder, // Use same order as hotel travel
-          startTime: currentTime,
-          userId: createdByUserId,
-        });
+        // 4) RETURN / CLOSING ROW FOR HOTEL (item_type = 6)
+        // PHP usually creates a closing row with 0 distance/time.
+        const { row: closeHotelRow, nextTime: tClose } =
+          await this.hotelBuilder.buildReturnToHotel(tx, {
+            planId,
+            routeId: route.itinerary_route_ID,
+            order: hotelOrder, // Use same order as hotel travel
+            startTime: currentTime,
+            userId: createdByUserId,
+          });
 
-      hotspotRows.push(closeHotelRow);
-      order++; // Increment order after both hotel rows added
-      currentTime = tClose;
-      // currentLocationName stays at hotel.
+        hotspotRows.push(closeHotelRow);
+        order++; // Increment order after both hotel rows added
+        currentTime = tClose;
+        // currentLocationName stays at hotel.
+      } else {
+        this.log(
+          `[Timeline] Route ${route.itinerary_route_ID} - Skipping hotel rows (last route - PHP behavior)`,
+        );
+      }
 
       // 5) LAST ROUTE ONLY → RETURN TO DEPARTURE LOCATION (item_type = 7)
-      const isLastRoute = await this.isLastRouteOfPlan(
-        tx,
-        planId,
-        route.itinerary_route_ID,
-      );
 
       if (isLastRoute) {
         const { row: returnRow, nextTime: tAfterReturn } =
