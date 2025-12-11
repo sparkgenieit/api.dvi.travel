@@ -225,6 +225,11 @@ export class HotelEngineService {
 
         const hotelId = firstRoom?.hotel_id || 0;
 
+        // Calculate hotel margin (12% of room + breakfast costs)
+        const baseCost = totalRoomCost + totalBreakfastCost;
+        const marginRate = baseCost * 0.12; // 12%
+        const marginTaxAmt = marginRate * 0.18; // 18% GST on margin
+
         const header = await (tx as any)
           .dvi_itinerary_plan_hotel_details.create({
             data: {
@@ -241,8 +246,8 @@ export class HotelEngineService {
               hotel_margin_percentage: 12,
               hotel_margin_gst_type: 2,
               hotel_margin_gst_percentage: 18,
-              hotel_margin_rate: 0,
-              hotel_margin_rate_tax_amt: 0,
+              hotel_margin_rate: marginRate,
+              hotel_margin_rate_tax_amt: marginTaxAmt,
 
               hotel_breakfast_cost: totalBreakfastCost,
               hotel_breakfast_cost_gst_amount: 0,
