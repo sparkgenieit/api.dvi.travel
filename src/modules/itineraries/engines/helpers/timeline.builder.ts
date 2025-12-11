@@ -773,6 +773,34 @@ export class TimelineBuilder {
         `[fetchSelectedHotspots] Found ${allHotspots.length} total active hotspots`,
       );
 
+      // 3b) Fetch operating hours for all hotspots to enable time-aware sorting
+      // PHP behavior: sortHotspots() re-orders to prioritize time-critical hotspots
+      const hotspotTimings = phpDow !== undefined
+        ? await (tx as any).dvi_hotspot_timing?.findMany({
+            where: {
+              hotspot_timing_day: phpDow,
+              deleted: 0,
+              status: 1,
+            },
+          }) || []
+        : [];
+
+      // Map hotspot_ID -> earliest closing time for quick lookup
+      const closingTimeMap = new Map<number, string>();
+      for (const timing of hotspotTimings) {
+        const hotspotId = Number(timing.hotspot_ID ?? 0);
+        const endTime = timing.hotspot_end_time || '23:59:59';
+        
+        // Keep earliest closing time if multiple slots exist
+        if (!closingTimeMap.has(hotspotId) || endTime < closingTimeMap.get(hotspotId)!) {
+          closingTimeMap.set(hotspotId, endTime);
+        }
+      }
+
+      this.log(
+        `[fetchSelectedHotspots] Loaded operating hours for ${closingTimeMap.size} hotspots`,
+      );
+
       const targetLower = targetLocation.toLowerCase();
       const nextLower = nextLocation.toLowerCase();
       const directToNextVisitingPlace = (route as any).direct_to_next_visiting_place || 0;
@@ -898,7 +926,9 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category  
-      // PHP SQL: ORDER BY CASE WHEN hotspot_priority = 0 THEN 1 ELSE 0 END, hotspot_priority ASC
+      // CRITICAL: PHP implements Earliest Deadline First (EDF) scheduling
+      // Example: Hotspot 25 closes at 12:30, so it's prioritized over hotspot 16 (same priority)
+      // even though SQL returns them in order [18, 16, 25]
       const sortHotspots = (hotspots: any[], sourceLocation: string = '', destLocation: string = '') => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
@@ -911,7 +941,25 @@ export class TimelineBuilder {
           // Then by priority ASC (PHP: hotspot_priority ASC)
           if (aPriority !== bPriority) return aPriority - bPriority;
           
-          // For same priority, prefer hotspots with multiple locations
+          // CRITICAL PHP LOGIC: For same priority, prioritize by earliest closing time (EDF)
+          // This ensures time-critical hotspots aren't missed
+          if (aPriority === bPriority && aPriority > 0) {
+            const aId = Number(a.hotspot_ID ?? 0);
+            const bId = Number(b.hotspot_ID ?? 0);
+            const aClosing = closingTimeMap.get(aId);
+            const bClosing = closingTimeMap.get(bId);
+            
+            // Both have closing times - prioritize earlier closing time
+            if (aClosing && bClosing && aClosing !== bClosing) {
+              return aClosing < bClosing ? -1 : 1;
+            }
+            
+            // One has closing time, one doesn't - prioritize the one with closing time (more urgent)
+            if (aClosing && !bClosing) return -1;
+            if (!aClosing && bClosing) return 1;
+          }
+          
+          // For same priority and no closing time difference, prefer hotspots with multiple locations
           const aLocCount = (a.hotspot_location || '').split('|').length;
           const bLocCount = (b.hotspot_location || '').split('|').length;
           if (aLocCount !== bLocCount) return bLocCount - aLocCount;
