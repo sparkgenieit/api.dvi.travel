@@ -5,6 +5,14 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../prisma.service";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  VehicleCalculationContext,
+  RouteData,
+  calculateRouteVehicleDetails,
+  getVehicleLocationDetails,
+  getLocationIdFromSourceDest,
+  getStoredLocationCity
+} from "./vehicle-calculation.helpers";
 
 function toNum(v: any) {
   const n = typeof v === "number" ? v : Number(String(v ?? "").trim());
@@ -252,7 +260,7 @@ export class ItineraryVehiclesEngine {
    * Behaviour aligned with PHP `add_vehicle_plan`:
    * - Build vendor eligibles
    * - Mark cheapest per vehicle type as assigned
-   * - Build vendor_vehicle_details ONLY for assigned eligibles
+   * - Build vendor_vehicle_details for ALL eligibles (not just assigned)
    */
   async rebuildEligibleVendorList(args: { planId: number; createdBy: number }) {
     const planId = Number(args.planId);
@@ -1049,7 +1057,7 @@ export class ItineraryVehiclesEngine {
 
     // ---------------------------------------------------------------------
     // BUILD dvi_itinerary_plan_vendor_vehicle_details
-    // EXACTLY FROM ASSIGNED ELIGIBLES (PHP parity)
+    // FOR ALL ELIGIBLES (PHP parity - creates for both assigned and non-assigned)
     // ---------------------------------------------------------------------
     if (tAny?.dvi_itinerary_plan_vendor_vehicle_details && totalNoOfPlanRouteDetails > 0) {
       const delDetailsWhere2: any = { itinerary_plan_id: planId };
@@ -1065,7 +1073,8 @@ export class ItineraryVehiclesEngine {
 
       const eligiblesWhere = {
         itinerary_plan_id: planId,
-        itineary_plan_assigned_status: 1,
+        // REMOVED: itineary_plan_assigned_status: 1,
+        // PHP creates vehicle_details for ALL vendors (assigned and non-assigned)
         status: 1,
         deleted: 0,
       };
@@ -1099,40 +1108,109 @@ export class ItineraryVehiclesEngine {
         const vendorBranchId = Number(e.vendor_branch_id ?? 0);
         const qty = Number(e.total_vehicle_qty ?? 1) || 1;
 
-        const extraKmRateNum = toNum(e.extra_km_rate);
-        const totalExtraKmsNum = toNum(e.total_extra_kms);
-        const totalExtraKmsChargeNum = toNum(e.total_extra_kms_charge);
-        const totalRentalNum = toNum(e.total_rental_charges);
-        const vehicleGrandTotalNum = toNum(
-          e.vehicle_grand_total || e.vehicle_total_amount,
+        // Get vehicle details from dvi_vehicle table (PHP joins dvi_vehicle + dvi_vendor_vehicle_types)
+        // In dvi_vehicle, vehicle_type_id actually stores vendor_vehicle_type_ID
+        const vehicle = await tx.dvi_vehicle.findUnique({
+          where: { vehicle_id: vehicleId },
+          select: {
+            vehicle_location_id: true,
+            extra_km_charge: true,
+            early_morning_charges: true,
+            evening_charges: true,
+            vendor_id: true,
+            vendor_branch_id: true,
+            vehicle_type_id: true  // This is actually vendor_vehicle_type_ID
+          }
+        });
+
+        if (!vehicle) continue;
+
+        // Get vendor_vehicle_type details for driver charges
+        // PHP: VEHICLE.vehicle_type_id = VENDOR_VEHICLE_TYPES.vendor_vehicle_type_ID
+        const vendorVehicleType = await tx.dvi_vendor_vehicle_types.findUnique({
+          where: { vendor_vehicle_type_ID: vehicle.vehicle_type_id || 0 },
+          select: {
+            driver_batta: true,
+            food_cost: true,
+            accomodation_cost: true,
+            extra_cost: true,
+            driver_early_morning_charges: true,
+            driver_evening_charges: true
+          }
+        });
+
+        if (!vendorVehicleType) continue;
+
+        // Get vehicle origin details from dvi_stored_locations
+        const vehicleLocationId = vehicle.vehicle_location_id || 0;
+        const vehicleLocationDetails = await getVehicleLocationDetails(
+          tx,
+          vehicleLocationId
         );
 
-        const planExtraKmNum = totalExtraKmsNum;
-        // PHP: extra km duplicated per route
-        const perRouteExtraKmNum = planExtraKmNum;
+        // Build calculation context
+        const calcCtx: VehicleCalculationContext = {
+          prisma: tx,
+          itinerary_plan_ID: planId,
+          vehicle_type_id: vehicleTypeId,
+          vendor_id: vendorId,
+          vendor_vehicle_type_ID: vvtId,
+          vendor_branch_id: vendorBranchId,
+          vehicle_location_id: vehicleLocationId,
+          vehicle_origin: vehicleLocationDetails.origin,
+          vehicle_origin_city: vehicleLocationDetails.city,
+          vehicle_origin_latitude: vehicleLocationDetails.latitude,
+          vehicle_origin_longitude: vehicleLocationDetails.longitude,
+          extra_km_charge: toNum(vehicle.extra_km_charge),  // From dvi_vehicle
+          get_kms_limit: 250,  // Default outstation KM limit
+          driver_batta: toNum(vendorVehicleType.driver_batta),
+          food_cost: toNum(vendorVehicleType.food_cost),
+          accomodation_cost: toNum(vendorVehicleType.accomodation_cost),
+          extra_cost: toNum(vendorVehicleType.extra_cost),
+          driver_early_morning_charges: toNum(vendorVehicleType.driver_early_morning_charges),
+          driver_evening_charges: toNum(vendorVehicleType.driver_evening_charges),
+          early_morning_charges: toNum(vehicle.early_morning_charges),  // From dvi_vehicle
+          evening_charges: toNum(vehicle.evening_charges)  // From dvi_vehicle
+        };
+
+        let previous_destination_city = '';
+        let route_count = 0;
+        const total_routes = routes.length;
 
         for (const r of routes) {
+          route_count++;
           const routeId = Number(r.itinerary_route_ID ?? 0);
           if (!routeId) continue;
 
           const routeDate = safeDate(r.itinerary_route_date) || routeDateBase;
 
-          // PHP: always route.no_of_km
-          const runningKmNum = toNum(r.no_of_km);
-
-          const pickupKmNum = 0;
-          const dropKmNum = 0;
-
-          const extraKmNum = perRouteExtraKmNum > 0 ? perRouteExtraKmNum : 0;
-
-          const travelledKmNum =
-            runningKmNum + pickupKmNum + dropKmNum + extraKmNum;
-
-          const perRouteExtraKmChargeNum =
-            extraKmRateNum > 0 ? extraKmNum * extraKmRateNum : 0;
-
           const fromLoc = (r.location_name ?? null) as any;
           const toLoc = (r.next_visiting_location ?? null) as any;
+
+          // Build route data for calculation
+          const routeData: RouteData = {
+            itinerary_route_ID: routeId,
+            itinerary_route_date: routeDate,
+            location_name: fromLoc,
+            next_visiting_location: toLoc,
+            no_of_km: r.no_of_km,
+            route_start_time: undefined,
+            route_end_time: undefined
+          };
+
+          // Calculate all route details using PHP-parity logic
+          const result = await calculateRouteVehicleDetails(
+            calcCtx,
+            routeData,
+            route_count,
+            total_routes,
+            previous_destination_city
+          );
+
+          // Skip if vehicle cost is 0 (PHP line 1771)
+          if (result.vehicle_cost_for_the_day === 0) {
+            continue;
+          }
 
           const detailsData: any = {
             itinerary_plan_vendor_eligible_ID: eligibleId,
@@ -1145,40 +1223,40 @@ export class ItineraryVehiclesEngine {
             vendor_vehicle_type_id: vvtId,
             vehicle_id: vehicleId,
             vendor_branch_id: vendorBranchId,
-            time_limit_id: 0,
+            time_limit_id: result.time_limit_id,
             kms_limit_id: 0,
-            travel_type: travelType,
+            travel_type: result.travel_type,
             itinerary_route_location_from: fromLoc,
             itinerary_route_location_to: toLoc,
 
-            // --- DISTANCE FIELDS (strings, Prisma expects String/Null) ---
-            total_running_km: runningKmNum.toFixed(2),      // string
-            total_running_time: null,
-            total_siteseeing_km: null,
-            total_siteseeing_time: null,
-            total_pickup_km: pickupKmNum.toFixed(2),        // string
-            total_pickup_duration: null,
-            total_drop_km: dropKmNum.toFixed(2),            // string
-            total_drop_duration: null,
-            total_extra_km: extraKmNum.toFixed(2),          // string
-            extra_km_rate: extraKmRateNum,
-            total_extra_km_charges: perRouteExtraKmChargeNum,
-            total_travelled_km: travelledKmNum.toFixed(2),  // string
-            total_travelled_time: null,
+            // Distance fields (strings from calculation)
+            total_running_km: result.TOTAL_RUNNING_KM,
+            total_running_time: result.TOTAL_TRAVELLING_TIME,
+            total_siteseeing_km: result.SIGHT_SEEING_TRAVELLING_KM,
+            total_siteseeing_time: result.SIGHT_SEEING_TRAVELLING_TIME,
+            total_pickup_km: result.TOTAL_PICKUP_KM,
+            total_pickup_duration: result.TOTAL_PICKUP_DURATION,
+            total_drop_km: result.TOTAL_DROP_KM,
+            total_drop_duration: result.TOTAL_DROP_DURATION,
+            total_extra_km: result.TOTAL_LOCAL_EXTRA_KM.toFixed(2),
+            extra_km_rate: calcCtx.extra_km_charge,
+            total_extra_km_charges: result.TOTAL_LOCAL_EXTRA_KM_CHARGES,
+            total_travelled_km: result.TOTAL_KM,
+            total_travelled_time: result.TOTAL_TIME,
 
-            // --- MONEY FIELDS (numbers) ---
-            vehicle_rental_charges: totalRentalNum,
-            vehicle_toll_charges: 0,
-            vehicle_parking_charges: 0,
-            vehicle_driver_charges: 0,
-            vehicle_permit_charges: 0,
-            before_6_am_extra_time: null,
-            after_8_pm_extra_time: null,
-            before_6_am_charges_for_driver: 0,
-            before_6_am_charges_for_vehicle: 0,
-            after_8_pm_charges_for_driver: 0,
-            after_8_pm_charges_for_vehicle: 0,
-            total_vehicle_amount: vehicleGrandTotalNum,
+            // Money fields (numbers from calculation)
+            vehicle_rental_charges: result.vehicle_cost_for_the_day,
+            vehicle_toll_charges: result.VEHICLE_TOLL_CHARGE,
+            vehicle_parking_charges: result.VEHICLE_PARKING_CHARGE,
+            vehicle_driver_charges: result.TOTAL_DRIVER_CHARGES,
+            vehicle_permit_charges: result.permit_charges,
+            before_6_am_extra_time: result.morning_extra_time,
+            after_8_pm_extra_time: result.evening_extra_time,
+            before_6_am_charges_for_driver: result.DRIVER_MORINING_CHARGES,
+            before_6_am_charges_for_vehicle: result.VENDOR_VEHICLE_MORNING_CHARGES,
+            after_8_pm_charges_for_driver: result.DRIVER_EVEINING_CHARGES,
+            after_8_pm_charges_for_vehicle: result.VENDOR_VEHICLE_EVENING_CHARGES,
+            total_vehicle_amount: result.TOTAL_VEHICLE_AMOUNT,
 
             createdby: createdBy,
             createdon: new Date(),
@@ -1200,6 +1278,9 @@ export class ItineraryVehiclesEngine {
             await tAny.dvi_itinerary_plan_vendor_vehicle_details.create({
               data: detailsData,
             });
+
+          // Update previous destination city for next iteration
+          previous_destination_city = await getStoredLocationCity(tx, toLoc);
         }
       }
     }
