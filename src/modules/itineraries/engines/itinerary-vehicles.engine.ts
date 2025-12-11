@@ -815,10 +815,35 @@ export class ItineraryVehiclesEngine {
           });
           const totalParkingCharges = Number(parkingAgg._sum?.parking_charges_amt || 0);
           
-          // TODO: Add toll and permit charge aggregation when available
-          const totalTollCharges = 0;
+          // Aggregate toll charges from vehicle_details
+          const tollAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
+            where: {
+              itinerary_plan_id: planId,
+              vendor_vehicle_type_id: vendorVehicleTypeId,
+              status: 1,
+              deleted: 0,
+            },
+            _sum: {
+              toll_charges: true,
+            },
+          });
+          const totalTollCharges = Number(tollAgg._sum?.toll_charges || 0);
+          
+          // Aggregate permit charges from vehicle_details
+          const permitAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
+            where: {
+              itinerary_plan_id: planId,
+              vendor_vehicle_type_id: vendorVehicleTypeId,
+              status: 1,
+              deleted: 0,
+            },
+            _sum: {
+              permit_charges: true,
+            },
+          });
+          const totalPermitCharges = Number(permitAgg._sum?.permit_charges || 0);
+          
           const totalDriverCharges = 0;
-          const totalPermitCharges = 0;
 
           const vehicleBaseTotal = totalRentalNum + totalExtraKmsChargeNum + 
                                    totalTollCharges + totalParkingCharges + 
