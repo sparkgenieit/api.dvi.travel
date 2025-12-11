@@ -60,6 +60,7 @@ export class HotelEngineService {
         itinerary_route_ID: true,
         itinerary_route_date: true,
         location_name: true,
+        next_visiting_location: true, // PHP uses this for hotel city!
       },
     });
 
@@ -67,7 +68,8 @@ export class HotelEngineService {
 
     for (const r of routes) {
       const routeDate = r.itinerary_route_date ? new Date(r.itinerary_route_date) : new Date();
-      const city = r.location_name;
+      // PHP uses next_visiting_location for hotels, not location_name!
+      const city = r.next_visiting_location;
 
       // PHP picks a DIFFERENT hotel for EACH group_type!
       for (const groupType of [1, 2, 3, 4]) {
@@ -240,7 +242,7 @@ export class HotelEngineService {
               itinerary_plan_id: planId,
               itinerary_route_id: r.itinerary_route_ID,
               itinerary_route_date: r.itinerary_route_date,
-              itinerary_route_location: r.location_name,
+              itinerary_route_location: r.next_visiting_location, // PHP uses next_visiting_location!
               group_type: groupType,
 
               hotel_required: 1,
