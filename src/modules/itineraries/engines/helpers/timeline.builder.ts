@@ -347,6 +347,8 @@ export class TimelineBuilder {
         
         this.log(
           `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment row (last route) but advancing time by ${bufferTime} to ${currentTime}`,
+        );
+      }
 
       // 2) SELECTED HOTSPOTS FOR THIS ROUTE
       const selectedHotspots = await this.fetchSelectedHotspotsForRoute(
