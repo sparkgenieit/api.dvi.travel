@@ -993,6 +993,31 @@ export class TimelineBuilder {
         uniqueHotspots.push(h);
       }
 
+      // PHP BEHAVIOR: After merging and de-duplication, re-sort by priority and distance
+      // This ensures proper priority ordering across all categories (SOURCE + DESTINATION + VIA)
+      uniqueHotspots.sort((a: any, b: any) => {
+        const aPriority = Number(a.hotspot_priority ?? 0);
+        const bPriority = Number(b.hotspot_priority ?? 0);
+        
+        // Priority-0 hotspots go last
+        if (aPriority === 0 && bPriority !== 0) return 1;
+        if (aPriority !== 0 && bPriority === 0) return -1;
+        
+        // Then by priority
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        
+        // For same priority, prefer PRIMARY location match
+        const aIsPrimary = a.isPrimaryDestination || a.isPrimarySource;
+        const bIsPrimary = b.isPrimaryDestination || b.isPrimarySource;
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        // Finally by distance (with safety check for undefined/NaN)
+        const aDist = Number(a.hotspot_distance) || 0;
+        const bDist = Number(b.hotspot_distance) || 0;
+        return aDist - bDist;
+      });
+
       this.log(
         `[fetchSelectedHotspots] Matched ${uniqueHotspots.length} hotspots for route ${routeId}`,
       );
