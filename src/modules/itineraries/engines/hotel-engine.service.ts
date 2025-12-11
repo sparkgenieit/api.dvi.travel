@@ -294,6 +294,8 @@ export class HotelEngineService {
 
     /* ---------------- PHASE 3: ZERO-PRICE CLEANUP ---------------- */
 
+    // NOTE: We keep the hotel_id even if room_rate is 0
+    // Only zero out the room-specific fields
     const zeroRows = await (tx as any)
       .dvi_itinerary_plan_hotel_room_details.findMany({
         where: {
@@ -316,7 +318,7 @@ export class HotelEngineService {
           group_type: row.group_type,
         },
         data: {
-          hotel_id: 0,
+          // Keep hotel_id! Don't reset to 0
           room_type_id: 0,
           room_id: 0,
           room_rate: 0,
