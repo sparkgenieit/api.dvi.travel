@@ -3,7 +3,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { PrismaService } from "../../../prisma/prisma.service";
+import { PrismaService } from "../../../prisma.service";
 import { TimelineBuilder } from "./helpers/timeline.builder";
 
 type Tx = Prisma.TransactionClient;
@@ -85,7 +85,7 @@ export class HotspotEngineService {
   async rebuildParkingCharges(planId: number, userId: number): Promise<void> {
     this.logger.log(`Rebuilding parking charges for itinerary_plan_ID=${planId}`);
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Tx) => {
       // Delete existing parking charges
       await (tx as any).dvi_itinerary_route_hotspot_parking_charge.deleteMany({
         where: { itinerary_plan_ID: planId },
