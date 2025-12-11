@@ -949,8 +949,9 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category  
-      // CRITICAL: PHP implements Earliest Deadline First (EDF) ACROSS priorities
-      // Example: Priority-2 hotspot with 12:30 closing comes BEFORE priority-1 hotspot with 18:00 closing
+      // CRITICAL: PHP sorts by priority ASC FIRST, then EDF WITHIN same priority
+      // Example: Priority-1 (null closing) comes before Priority-2 (closes 12:30)
+      // But within Priority-1: hotspots with earlier closing come first
       const sortHotspots = (hotspots: any[], sourceLocation: string = '', destLocation: string = '') => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
@@ -960,26 +961,24 @@ export class TimelineBuilder {
           if (aPriority === 0 && bPriority !== 0) return 1;
           if (aPriority !== 0 && bPriority === 0) return -1;
           
-          // For non-zero priorities, check earliest closing time FIRST (EDF across priorities)
-          if (aPriority > 0 && bPriority > 0) {
-            const aId = Number(a.hotspot_ID ?? 0);
-            const bId = Number(b.hotspot_ID ?? 0);
-            const aClosing = closingTimeMap.get(aId);
-            const bClosing = closingTimeMap.get(bId);
-            
-            // Both have closing times - prioritize earlier closing (URGENT first)
-            if (aClosing && bClosing && aClosing !== bClosing) {
-              return aClosing < bClosing ? -1 : 1;
-            }
-            
-            // One has closing time, one doesn't - prioritize the one with closing time
-            // (assumes time constraint is more urgent than no constraint)
-            if (aClosing && !bClosing) return -1;
-            if (!aClosing && bClosing) return 1;
+          // First by priority ASC (PHP: hotspot_priority ASC)
+          if (aPriority !== bPriority) return aPriority - bPriority;
+          
+          // Within same priority, apply EDF (Earliest Deadline First)
+          const aId = Number(a.hotspot_ID ?? 0);
+          const bId = Number(b.hotspot_ID ?? 0);
+          const aClosing = closingTimeMap.get(aId);
+          const bClosing = closingTimeMap.get(bId);
+          
+          // Both have closing times - prioritize earlier closing (URGENT first)
+          if (aClosing && bClosing && aClosing !== bClosing) {
+            return aClosing < bClosing ? -1 : 1;
           }
           
-          // Then by priority ASC (PHP: hotspot_priority ASC)
-          if (aPriority !== bPriority) return aPriority - bPriority;
+          // One has closing time, one doesn't - prioritize no closing time (open all day)
+          // because hotspot with null closing has no urgency
+          if (aClosing && !bClosing) return 1; // b (no closing) comes first
+          if (!aClosing && bClosing) return -1; // a (no closing) comes first
           
           // For same priority and no closing time difference, prefer hotspots with multiple locations
           const aLocCount = (a.hotspot_location || '').split('|').length;
