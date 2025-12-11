@@ -472,8 +472,218 @@ export function sumStringNumbers(numbers: string[]): string {
 }
 
 /**
- * Get local vehicle pricing for a specific time limit
- * PHP: dvi_vehicle_local_pricebook
+ * Get KM limit ID for a vendor's vehicle type
+ * PHP: getKMLIMIT($vendor_vehicle_type_ID, 'get_kms_limit_id', $vendor_id)
+ * This determines which outstation pricing row to use
+ */
+export async function getKmsLimitId(
+  prisma: any,
+  vendor_id: number,
+  vendor_vehicle_type_ID: number
+): Promise<number> {
+  try {
+    // Try to find existing vehicle details record for this vendor/vehicle type
+    const existingVehicleDetails = await prisma.dvi_itinerary_plan_vendor_vehicle_details.findFirst({
+      where: {
+        vendor_id,
+        vendor_vehicle_type_id: vendor_vehicle_type_ID,
+        deleted: 0,
+        status: 1,
+      },
+      select: {
+        kms_limit_id: true,
+      },
+      orderBy: {
+        createdby: 'desc', // Get most recent
+      },
+    });
+
+    if (existingVehicleDetails && existingVehicleDetails.kms_limit_id) {
+      return existingVehicleDetails.kms_limit_id;
+    }
+
+    // If no existing record, try to find from outstation pricebook
+    const pricebook = await prisma.dvi_vehicle_outstation_price_book.findFirst({
+      where: {
+        vendor_id,
+        vehicle_type_id: vendor_vehicle_type_ID,
+        status: 1,
+        deleted: 0,
+      },
+      select: {
+        kms_limit_id: true,
+      },
+      orderBy: {
+        kms_limit_id: 'asc', // Use lowest available
+      },
+    });
+
+    if (pricebook) {
+      return pricebook.kms_limit_id;
+    }
+
+    console.log(`[getKmsLimitId] No kms_limit_id found for vendor=${vendor_id}, vehicle_type=${vendor_vehicle_type_ID}, using default 1`);
+    return 1; // Default fallback
+  } catch (error) {
+    console.error('[getKmsLimitId] Error:', error);
+    return 1;
+  }
+}
+
+/**
+ * Get time limit ID for a vendor's vehicle type (for LOCAL trips)
+ * PHP: getTIMELIMIT($vendor_vehicle_type_ID, 'get_time_limit_id_for_hours_and_km', $vendor_id, $TOTAL_HOURS, $TOTAL_KM)
+ * Determines which local pricing row to use based on hours and KM
+ */
+export async function getTimeLimitId(
+  prisma: any,
+  vendor_id: number,
+  vendor_vehicle_type_ID: number,
+  total_hours?: number,
+  total_km?: number
+): Promise<number> {
+  try {
+    // Try to find existing vehicle details record
+    const existingVehicleDetails = await prisma.dvi_itinerary_plan_vendor_vehicle_details.findFirst({
+      where: {
+        vendor_id,
+        vendor_vehicle_type_id: vendor_vehicle_type_ID,
+        deleted: 0,
+        status: 1,
+      },
+      select: {
+        time_limit_id: true,
+      },
+      orderBy: {
+        createdby: 'desc',
+      },
+    });
+
+    if (existingVehicleDetails && existingVehicleDetails.time_limit_id) {
+      return existingVehicleDetails.time_limit_id;
+    }
+
+    // If no existing record, try to find from local pricebook
+    const pricebook = await prisma.dvi_vehicle_local_pricebook.findFirst({
+      where: {
+        vendor_id,
+        vehicle_type_id: vendor_vehicle_type_ID,
+        status: 1,
+        deleted: 0,
+      },
+      select: {
+        time_limit_id: true,
+      },
+      orderBy: {
+        time_limit_id: 'asc', // Use lowest available
+      },
+    });
+
+    if (pricebook) {
+      return pricebook.time_limit_id;
+    }
+
+    console.log(`[getTimeLimitId] No time_limit_id found for vendor=${vendor_id}, vehicle_type=${vendor_vehicle_type_ID}, using default 1`);
+    return 1; // Default fallback
+  } catch (error) {
+    console.error('[getTimeLimitId] Error:', error);
+    return 1;
+  }
+}
+
+/**
+ * Get LOCAL vehicle pricing from day-based pricebook
+ * PHP: getVEHICLE_LOCAL_PRICEBOOK_COST($day, $year, $month, $vendor_id, $vendor_branch_id, $vendor_vehicle_type_ID, $time_limit_id)
+ * Table: dvi_vehicle_local_pricebook with day_1...day_31 columns
+ */
+export async function getLocalVehiclePricingByDate(
+  prisma: any,
+  day: number,
+  year: string,
+  month: string,
+  vendor_id: number,
+  vendor_branch_id: number,
+  vendor_vehicle_type_ID: number,
+  time_limit_id: number
+): Promise<number> {
+  try {
+    const pricing = await prisma.dvi_vehicle_local_pricebook.findFirst({
+      where: {
+        vendor_id,
+        vendor_branch_id,
+        vehicle_type_id: vendor_vehicle_type_ID,
+        time_limit_id,
+        year,
+        month,
+        status: 1,
+        deleted: 0
+      }
+    });
+
+    if (!pricing) {
+      console.log(`[getLocalVehiclePricingByDate] No pricing found for vendor=${vendor_id}, branch=${vendor_branch_id}, vehicle_type=${vendor_vehicle_type_ID}, time_limit=${time_limit_id}, ${month} ${year}`);
+      return 0;
+    }
+
+    // Get price from day column (day_1 through day_31)
+    const dayColumn = `day_${day}`;
+    const price = pricing[dayColumn as keyof typeof pricing];
+    
+    return toNum(price);
+  } catch (error) {
+    console.error('[getLocalVehiclePricingByDate] Error:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get OUTSTATION vehicle pricing from day-based pricebook
+ * PHP: getVEHICLE_OUTSTATION_PRICEBOOK_COST($day, $year, $month, $vendor_id, $vendor_branch_id, $vendor_vehicle_type_ID, $kms_limit_id)
+ * Table: dvi_vehicle_outstation_price_book with day_1...day_31 columns
+ */
+export async function getOutstationVehiclePricingByDate(
+  prisma: any,
+  day: number,
+  year: string,
+  month: string,
+  vendor_id: number,
+  vendor_branch_id: number,
+  vendor_vehicle_type_ID: number,
+  kms_limit_id: number
+): Promise<number> {
+  try {
+    const pricing = await prisma.dvi_vehicle_outstation_price_book.findFirst({
+      where: {
+        vendor_id,
+        vendor_branch_id,
+        vehicle_type_id: vendor_vehicle_type_ID,
+        kms_limit_id,
+        year,
+        month,
+        status: 1,
+        deleted: 0
+      }
+    });
+
+    if (!pricing) {
+      console.log(`[getOutstationVehiclePricingByDate] No pricing found for vendor=${vendor_id}, branch=${vendor_branch_id}, vehicle_type=${vendor_vehicle_type_ID}, kms_limit=${kms_limit_id}, ${month} ${year}`);
+      return 0;
+    }
+
+    // Get price from day column (day_1 through day_31)
+    const dayColumn = `day_${day}`;
+    const price = pricing[dayColumn as keyof typeof pricing];
+    
+    return toNum(price);
+  } catch (error) {
+    console.error('[getOutstationVehiclePricingByDate] Error:', error);
+    return 0;
+  }
+}
+
+/**
+ * DEPRECATED - Old local pricing function (kept for reference)
+ * Use getLocalVehiclePricingByDate instead
  */
 export async function getLocalVehiclePricing(
   prisma: any,
@@ -511,8 +721,8 @@ export async function getLocalVehiclePricing(
 }
 
 /**
- * Get outstation vehicle pricing
- * PHP: vendor_vehicle_type table
+ * DEPRECATED - Old outstation pricing function (kept for reference)
+ * Use getOutstationVehiclePricingByDate instead
  */
 export async function getOutstationVehiclePricing(
   prisma: any,
@@ -789,15 +999,41 @@ export async function calculateRouteVehicleDetails(
   );
   const permit_charges = permitCharges;
 
+  // Extract day, month, year from route date
+  const routeDate = new Date(route.itinerary_route_date);
+  const day = routeDate.getDate(); // 1-31
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+  const month = monthNames[routeDate.getMonth()];
+  const year = routeDate.getFullYear().toString();
+
+  // Get kms_limit_id for outstation pricing
+  const kms_limit_id = await getKmsLimitId(prisma, vendor_id, vendor_vehicle_type_ID);
+
   // Calculate vehicle rental based on travel type
   if (travel_type === 1) {
-    // LOCAL - need time limit ID from route times
-    // For now, use default time limit (8hr/80km is common)
-    time_limit_id = 1; // TODO: Calculate based on route start/end times
+    // LOCAL - get time limit ID
+    time_limit_id = await getTimeLimitId(prisma, vendor_id, vendor_vehicle_type_ID);
     
-    // Simplified: use fixed LOCAL rate for now
-    vehicle_cost_for_the_day = 2400; // Default local rate
-    TOTAL_ALLOWED_LOCAL_KM = 80;
+    // Get LOCAL pricing from day-based pricebook
+    vehicle_cost_for_the_day = await getLocalVehiclePricingByDate(
+      prisma,
+      day,
+      year,
+      month,
+      vendor_id,
+      vendor_branch_id,
+      vendor_vehicle_type_ID,
+      time_limit_id
+    );
+    
+    // If no pricing found, fall back to 2400
+    if (vehicle_cost_for_the_day === 0) {
+      console.log(`[calculateRouteVehicleDetails] Using fallback LOCAL pricing 2400 for route ${route.itinerary_route_ID}`);
+      vehicle_cost_for_the_day = 2400;
+    }
+    
+    TOTAL_ALLOWED_LOCAL_KM = 80; // TODO: Get from time limit
 
     // Calculate extra KM charges for LOCAL
     if (totalKmNum > TOTAL_ALLOWED_LOCAL_KM) {
@@ -805,14 +1041,29 @@ export async function calculateRouteVehicleDetails(
       TOTAL_LOCAL_EXTRA_KM_CHARGES = TOTAL_LOCAL_EXTRA_KM * ctx.extra_km_charge;
     }
   } else {
-    // OUTSTATION - use fixed rate per day
+    // OUTSTATION - use day-based pricebook
     time_limit_id = 0;
     TOTAL_LOCAL_EXTRA_KM = 0;
     TOTAL_LOCAL_EXTRA_KM_CHARGES = 0;
     TOTAL_ALLOWED_LOCAL_KM = 0;
 
-    // Simplified: use fixed OUTSTATION rate
-    vehicle_cost_for_the_day = 3200; // Default outstation rate per day
+    // Get OUTSTATION pricing from day-based pricebook
+    vehicle_cost_for_the_day = await getOutstationVehiclePricingByDate(
+      prisma,
+      day,
+      year,
+      month,
+      vendor_id,
+      vendor_branch_id,
+      vendor_vehicle_type_ID,
+      kms_limit_id
+    );
+    
+    // If no pricing found, fall back to 3200
+    if (vehicle_cost_for_the_day === 0) {
+      console.log(`[calculateRouteVehicleDetails] Using fallback OUTSTATION pricing 3200 for route ${route.itinerary_route_ID}`);
+      vehicle_cost_for_the_day = 3200;
+    }
   }
 
   // Calculate driver charges (simplified - PHP has complex batta logic)
