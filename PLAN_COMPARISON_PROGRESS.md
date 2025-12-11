@@ -1,10 +1,16 @@
-# Plan ID 2 vs Plan ID 5 Comparison Results
-**Date**: December 11, 2025  
-**After**: Integration of vendor eligible list generation
+# Plan ID 2 vs Plan ID 5 Comparison Results  
+**Date**: Updated - Latest Progress  
+**Branch**: hotspot-optimise  
+**After**: Hotel selection implementation + GST/margin calculations
 
 ## Summary
 
-✅ **MAJOR PROGRESS**: Vendor eligible list and vendor vehicle details are now being created!
+✅ **MAJOR PROGRESS**: 
+- Vendor eligible list ✅ FIXED (0→2 rows)
+- Vendor vehicle details ✅ FIXED (0→3 rows)
+- GST calculations ✅ IMPLEMENTED
+- Vendor margins ✅ IMPLEMENTED
+- Hotel selection ✅ IMPLEMENTED (needs testing)
 
 ### Tables Status
 
@@ -101,36 +107,55 @@ The `ItineraryVehiclesEngine.rebuildEligibleVendorList` is running but missing:
 
 ## Next Steps
 
-### Priority 1: Fix Vendor Calculations
-1. Debug why toll/parking/permit charges are 0
-2. Add GST calculation logic
-3. Add vendor margin calculation
-4. Fix KM aggregation to include hotspot travel
-5. Add time duration calculations
+### ✅ COMPLETED
+1. ✅ Vendor eligible list - integrated into main flow
+2. ✅ Vendor vehicle details - populated via rebuildEligibleVendorList
+3. ✅ GST calculations - added to vehicle engine
+4. ✅ Vendor margin calculations - added with nested GST
+5. ✅ Hotel selection logic - fully implemented
 
-### Priority 2: Implement Hotel Selection
-1. Search PHP code for hotel selection algorithm
-2. Implement hotel search based on location + category
-3. Calculate room rates and meal costs
-4. Populate hotel_id, room_type_id, room_id fields
+### ⚠️ NEEDS TESTING
+1. Test hotel selection implementation
+2. Run full comparison after hotel test
+3. Verify hotel_id, room_id, room_rate are now populated
 
-### Priority 3: Investigate Row Count Differences
-1. Check if vendor_vehicle_details should include unassigned vendors
-2. Verify hotel_room_details should have 8 or 12 rows (different routes?)
+### ❌ REMAINING WORK
+1. Toll/parking/permit charges - aggregate from hotspot data
+2. Time duration calculations - implement timeline aggregation
+3. Row count differences - investigate after hotel test
+
+### Git Commits Made
+```bash
+feat: call rebuildEligibleVendorList after transaction
+feat: add GST and vendor margin calculations to vehicles  
+feat: implement hotel selection in HotelEngineService
+fix: remove duplicate code in HotelEngineService
+docs: hotel implementation status
+```
 
 ---
 
-## Commands to Retest
+## Commands to Test
 
-```bash
-# Regenerate plan 5
+```powershell
+# Start server
+npm run start:dev
+
+# Regenerate plan 5 (after server starts)
 node tmp/trigger_optimization.js
 
-# Compare results
+# Quick check
+node tmp/quick_compare.js
+
+# Full comparison
 node tmp/compare_plan_data.js
 ```
 
 ---
+
+## Documentation
+- See `HOTEL_IMPLEMENTATION_STATUS.md` for detailed hotel selection docs
+- See git commits for implementation details
 
 ## Files Changed
 - [x] `src/modules/itineraries/itineraries.service.ts` - Added vendor eligible list call
