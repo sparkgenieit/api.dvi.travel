@@ -135,7 +135,7 @@ export class HotelEngineService {
         let roomTypeId = 0;
         if (roomId > 0) {
           const roomMaster = await (tx as any).dvi_hotel_rooms.findFirst({
-            where: { room_id: roomId },
+            where: { room_ID: roomId },
             select: { room_type_id: true },
           });
           roomTypeId = roomMaster?.room_type_id || 0;
