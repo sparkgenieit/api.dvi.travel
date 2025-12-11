@@ -898,31 +898,23 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category  
-      // PHP BEHAVIOR: Priority DESC (higher number = higher priority), then multi-location, then matches-both, then distance
+      // PHP SQL: ORDER BY CASE WHEN hotspot_priority = 0 THEN 1 ELSE 0 END, hotspot_priority ASC
       const sortHotspots = (hotspots: any[], sourceLocation: string = '', destLocation: string = '') => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
           
-          // Priority-0 hotspots go last
+          // Priority-0 hotspots go last (PHP: CASE WHEN priority = 0 THEN 1 ELSE 0 END)
           if (aPriority === 0 && bPriority !== 0) return 1;
           if (aPriority !== 0 && bPriority === 0) return -1;
           
-          // Then by priority DESC (higher number = higher priority, comes first)
-          if (aPriority !== bPriority) return bPriority - aPriority;
+          // Then by priority ASC (PHP: hotspot_priority ASC)
+          if (aPriority !== bPriority) return aPriority - bPriority;
           
           // For same priority, prefer hotspots with multiple locations
           const aLocCount = (a.hotspot_location || '').split('|').length;
           const bLocCount = (b.hotspot_location || '').split('|').length;
-          if (aLocCount !== bLocCount) return bLocCount - aLocCount; // More locations first
-          
-          // For same location count, prefer hotspots matching BOTH source and destination
-          if (sourceLocation && destLocation) {
-            const aMatchesBoth = containsLocation(a.hotspot_location, sourceLocation) && containsLocation(a.hotspot_location, destLocation);
-            const bMatchesBoth = containsLocation(b.hotspot_location, sourceLocation) && containsLocation(b.hotspot_location, destLocation);
-            if (aMatchesBoth && !bMatchesBoth) return -1;
-            if (!aMatchesBoth && bMatchesBoth) return 1;
-          }
+          if (aLocCount !== bLocCount) return bLocCount - aLocCount;
           
           // Finally by distance (ASC - closer first)
           return a.hotspot_distance - b.hotspot_distance;
