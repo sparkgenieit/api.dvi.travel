@@ -848,18 +848,24 @@ export class TimelineBuilder {
         // PHP containsLocation() - exact match in pipe-delimited list, not substring
         const matchesSource = containsLocation(h.hotspot_location as string, targetLocation);
         const matchesDestination = containsLocation(h.hotspot_location as string, nextLocation);
+        
+        // Check if location is PRIMARY (first in pipe-delimited list)
+        const locationParts = (h.hotspot_location || '').split('|').map(p => p.trim().toLowerCase());
+        const primaryLocation = locationParts[0] || '';
+        const isPrimarySource = primaryLocation === (targetLocation || '').trim().toLowerCase();
+        const isPrimaryDestination = primaryLocation === (nextLocation || '').trim().toLowerCase();
 
         if (matchesSource) {
-          sourceLocationHotspots.push(hotspotWithDistance);
+          sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource });
           this.log(
-            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}")`,
+            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}"${isPrimarySource ? ' - PRIMARY' : ''})`,
           );
         }
         
         if (matchesDestination) {
-          destinationHotspots.push(hotspotWithDistance);
+          destinationHotspots.push({ ...hotspotWithDistance, isPrimaryDestination });
           this.log(
-            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → DESTINATION (matches "${nextLocation}")`,
+            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → DESTINATION (matches "${nextLocation}"${isPrimaryDestination ? ' - PRIMARY' : ''})`,
           );
         }
 
@@ -867,8 +873,18 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category
-      const sortHotspots = (hotspots: any[]) => {
+      // CRITICAL: Prioritize hotspots where the target location is the PRIMARY (first) location
+      // This ensures Route 2 (Chennai → Pondicherry) selects hotspots with "Pondicherry" as primary
+      // and saves hotspots with "Pondicherry Airport" as primary for Route 3 (Pondicherry → Airport)
+      const sortHotspots = (hotspots: any[], isPrimaryDestinationSort: boolean = false) => {
         hotspots.sort((a: any, b: any) => {
+          // For destination hotspots, prefer PRIMARY location matches first
+          if (isPrimaryDestinationSort) {
+            const aIsPrimary = a.isPrimaryDestination ? 1 : 0;
+            const bIsPrimary = b.isPrimaryDestination ? 1 : 0;
+            if (aIsPrimary !== bIsPrimary) return bIsPrimary - aIsPrimary; // Primary first
+          }
+          
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
           
@@ -879,9 +895,9 @@ export class TimelineBuilder {
         });
       };
 
-      sortHotspots(sourceLocationHotspots);
-      sortHotspots(destinationHotspots);
-      sortHotspots(viaRouteHotspots);
+      sortHotspots(sourceLocationHotspots, false);
+      sortHotspots(destinationHotspots, true); // Prioritize primary destination matches
+      sortHotspots(viaRouteHotspots, false);
 
       // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
       // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
