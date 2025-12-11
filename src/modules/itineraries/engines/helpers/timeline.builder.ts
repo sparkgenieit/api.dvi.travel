@@ -133,11 +133,22 @@ export class TimelineBuilder {
       return false;
     }
 
-    // Filter out closed records (hotspot_closed=1)
-    const openRecords = timingRecords.filter((t: any) => t.hotspot_closed !== 1);
+    // PHP BEHAVIOR: hotspot_closed=1 with null times means "no timing restrictions" (open all day)
+    // Only filter out hotspot_closed=1 if it has actual times specified
+    const openRecords = timingRecords.filter((t: any) => {
+      if (t.hotspot_closed === 1) {
+        // If closed but no times specified, treat as open all day (PHP behavior)
+        if (!t.hotspot_start_time && !t.hotspot_end_time) {
+          return true; // Include this record
+        }
+        // If closed with times, exclude it
+        return false;
+      }
+      return true; // Not closed, include it
+    });
     
     if (openRecords.length === 0) {
-      // All timing records are closed
+      // All timing records are closed (with times)
       this.log(`[Timeline] Hotspot ${hotspotId} is closed on day ${dayOfWeek}`);
       return false;
     }
