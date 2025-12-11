@@ -867,7 +867,7 @@ export class TimelineBuilder {
         const matchesDestination = containsLocation(h.hotspot_location as string, nextLocation);
         
         // Check if location is PRIMARY (first in pipe-delimited list) and if ONLY location
-        const locationParts = (h.hotspot_location || '').split('|').map(p => p.trim().toLowerCase());
+        const locationParts = (h.hotspot_location || '').split('|').map((p: string) => p.trim().toLowerCase());
         const primaryLocation = locationParts[0] || '';
         const isOnlyLocation = locationParts.length === 1;
         const isPrimarySource = primaryLocation === (targetLocation || '').trim().toLowerCase();
