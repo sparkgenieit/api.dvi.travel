@@ -983,7 +983,7 @@ export class TimelineBuilder {
         );
       }
 
-      // De-duplicate by hotspot_ID and keep original order (priority first)
+      // De-duplicate by hotspot_ID and keep first occurrence
       const seen = new Set<number>();
       const uniqueHotspots: any[] = [];
       for (const h of matchingHotspots) {
@@ -992,6 +992,10 @@ export class TimelineBuilder {
         seen.add(id);
         uniqueHotspots.push(h);
       }
+
+      // PHP BEHAVIOR: Re-sort the combined list by priority and distance
+      // This ensures proper ordering when source and destination hotspots are mixed
+      sortHotspots(uniqueHotspots, true);
 
       this.log(
         `[fetchSelectedHotspots] Matched ${uniqueHotspots.length} hotspots for route ${routeId}`,
