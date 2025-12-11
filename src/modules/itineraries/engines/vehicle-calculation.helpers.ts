@@ -949,12 +949,38 @@ export async function calculateRouteVehicleDetails(
   const TOTAL_KM = totalKmNum.toFixed(2);
 
   // Calculate toll charges
-  const tollCharges = await calculateRouteTollCharges(
+  let tollCharges = await calculateRouteTollCharges(
     prisma,
     vehicle_type_id,
     route.location_name,
     route.next_visiting_location
   );
+
+  // For OUTSTATION trips, add tolls for vehicle origin segments
+  if (travel_type === 2) {
+    // Day 1: Add toll from vehicle origin to source location
+    if (route_count === 1) {
+      const originToSourceToll = await calculateRouteTollCharges(
+        prisma,
+        vehicle_type_id,
+        ctx.vehicle_origin,
+        route.location_name
+      );
+      tollCharges += originToSourceToll;
+    }
+    
+    // Last day: Add toll from destination back to vehicle origin (return journey)
+    if (route_count === total_routes) {
+      const destToOriginToll = await calculateRouteTollCharges(
+        prisma,
+        vehicle_type_id,
+        route.next_visiting_location,
+        ctx.vehicle_origin
+      );
+      tollCharges += destToOriginToll;
+    }
+  }
+  
   const VEHICLE_TOLL_CHARGE = tollCharges;
 
   // Calculate parking charges
