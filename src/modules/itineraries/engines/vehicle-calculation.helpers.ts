@@ -377,7 +377,7 @@ export async function getVehicleLocationDetails(
 
 /**
  * Calculate permit charges based on route state boundaries
- * This is a simplified version - full implementation would need state permit logic
+ * Queries the permit charge table populated by route planning
  */
 export async function calculatePermitCharges(
   prisma: any,
@@ -388,12 +388,12 @@ export async function calculatePermitCharges(
 ): Promise<number> {
   try {
     const result = await prisma.$queryRaw<any[]>`
-      SELECT COALESCE(SUM(permit_price), 0) as total_permit
+      SELECT COALESCE(SUM(permit_cost), 0) as total_permit
       FROM dvi_itinerary_plan_route_permit_charge
       WHERE itinerary_plan_ID = ${itinerary_plan_ID}
       AND itinerary_route_ID = ${itinerary_route_ID}
       AND vendor_id = ${vendor_id}
-      AND vendor_vehicle_type_ID = ${vendor_vehicle_type_ID}
+      AND vendor_vehicle_type_id = ${vendor_vehicle_type_ID}
       AND status = 1
       AND deleted = 0
     `;
