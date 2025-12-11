@@ -898,8 +898,8 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category  
-      // PHP BEHAVIOR: Sort by priority first, then prefer "multi-location" hotspots, then by distance
-      const sortHotspots = (hotspots: any[]) => {
+      // PHP BEHAVIOR: Priority DESC (higher number = higher priority), then multi-location, then matches-both, then distance
+      const sortHotspots = (hotspots: any[], sourceLocation: string = '', destLocation: string = '') => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
@@ -908,22 +908,30 @@ export class TimelineBuilder {
           if (aPriority === 0 && bPriority !== 0) return 1;
           if (aPriority !== 0 && bPriority === 0) return -1;
           
-          // Then by priority (ASC)
-          if (aPriority !== bPriority) return aPriority - bPriority;
+          // Then by priority DESC (higher number = higher priority, comes first)
+          if (aPriority !== bPriority) return bPriority - aPriority;
           
-          // For same priority, prefer hotspots with multiple locations (appears in both source and dest)
+          // For same priority, prefer hotspots with multiple locations
           const aLocCount = (a.hotspot_location || '').split('|').length;
           const bLocCount = (b.hotspot_location || '').split('|').length;
           if (aLocCount !== bLocCount) return bLocCount - aLocCount; // More locations first
+          
+          // For same location count, prefer hotspots matching BOTH source and destination
+          if (sourceLocation && destLocation) {
+            const aMatchesBoth = containsLocation(a.hotspot_location, sourceLocation) && containsLocation(a.hotspot_location, destLocation);
+            const bMatchesBoth = containsLocation(b.hotspot_location, sourceLocation) && containsLocation(b.hotspot_location, destLocation);
+            if (aMatchesBoth && !bMatchesBoth) return -1;
+            if (!aMatchesBoth && bMatchesBoth) return 1;
+          }
           
           // Finally by distance (ASC - closer first)
           return a.hotspot_distance - b.hotspot_distance;
         });
       };
 
-      sortHotspots(sourceLocationHotspots);
-      sortHotspots(destinationHotspots);
-      sortHotspots(viaRouteHotspots);
+      sortHotspots(sourceLocationHotspots, targetLocation, nextLocation);
+      sortHotspots(destinationHotspots, targetLocation, nextLocation);
+      sortHotspots(viaRouteHotspots, targetLocation, nextLocation);
 
       // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
       // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
