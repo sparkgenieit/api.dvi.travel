@@ -845,7 +845,34 @@ export class ItineraryVehiclesEngine {
           if (!rentalPerDayNum || rentalPerDayNum === 0) continue;
 
           const totalRentalNum = rentalPerDayNum * noOfDays;
-          const vehicleGrandTotalNum = totalRentalNum + totalExtraKmsChargeNum;
+          // Calculate toll, parking, permit charges (will aggregate from route hotspots later)
+          const totalTollCharges = 0;
+          const totalParkingCharges = 0;
+          const totalDriverCharges = 0;
+          const totalPermitCharges = 0;
+
+          const vehicleBaseTotal = totalRentalNum + totalExtraKmsChargeNum + 
+                                   totalTollCharges + totalParkingCharges + 
+                                   totalDriverCharges + totalPermitCharges;
+
+          // GST calculation (default to 5% GST type 2)
+          const vehicleGstType = 2; // 1=excluded, 2=included
+          const vehicleGstPercentage = 5;
+          const vehicleGstAmount = vehicleGstType === 2 ? 
+            (vehicleBaseTotal * vehicleGstPercentage / 100) : 0;
+          
+          const vehicleTotalAmount = vehicleBaseTotal;
+
+          // Vendor margin calculation (default 10% with 5% GST)
+          const vendorMarginPercentage = 10;
+          const vendorMarginGstType = 2;
+          const vendorMarginGstPercentage = 5;
+          const vendorMarginAmount = vehicleTotalAmount * vendorMarginPercentage / 100;
+          const vendorMarginGstAmount = vendorMarginGstType === 2 ?
+            (vendorMarginAmount * vendorMarginGstPercentage / 100) : 0;
+
+          const vehicleGrandTotalNum = vehicleTotalAmount + vehicleGstAmount + 
+                                       vendorMarginAmount + vendorMarginGstAmount;
 
           const vehicleOrigin = branchNameById.get(vendorBranchId) || "";
 
@@ -865,11 +892,23 @@ export class ItineraryVehiclesEngine {
             total_outstation_km: String(totalOutstationKmNum),
             total_time: String(totalTimeStr),
             total_rental_charges: totalRentalNum,
+            total_toll_charges: totalTollCharges,
+            total_parking_charges: totalParkingCharges,
+            total_driver_charges: totalDriverCharges,
+            total_permit_charges: totalPermitCharges,
             extra_km_rate: String(extraKmRateNum),
             total_allowed_kms: String(totalAllowedKmsNum),
             total_extra_kms: String(totalExtraKmsNum),
             total_extra_kms_charge: totalExtraKmsChargeNum,
-            vehicle_total_amount: vehicleGrandTotalNum,
+            vehicle_gst_type: vehicleGstType,
+            vehicle_gst_percentage: vehicleGstPercentage,
+            vehicle_gst_amount: vehicleGstAmount,
+            vehicle_total_amount: vehicleTotalAmount,
+            vendor_margin_percentage: vendorMarginPercentage,
+            vendor_margin_gst_type: vendorMarginGstType,
+            vendor_margin_gst_percentage: vendorMarginGstPercentage,
+            vendor_margin_amount: vendorMarginAmount,
+            vendor_margin_gst_amount: vendorMarginGstAmount,
             vehicle_grand_total: vehicleGrandTotalNum,
             createdby: createdBy,
             createdon: new Date(),
