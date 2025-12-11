@@ -97,8 +97,13 @@ export class TimelineBuilder {
 
   /**
    * Check if hotspot operating hours allow visit during the specified time window.
-   * PHP: checkHOTSPOTOPERATINGHOURS() in sql_functions.php line 10388
-   * Returns true if BOTH start AND end time fall within ANY operating hours window.
+   * PHP: checkHOTSPOTOPERATINGHOURS() in sql_functions.php line 10388-10429
+   * 
+   * PHP Logic (line 10419-10423):
+   * if (($start_timestamp >= $operating_start_timestamp) && ($end_timestamp <= $operating_end_timestamp))
+   * 
+   * Returns true if BOTH start AND end time fall within THE SAME operating hours window.
+   * Does NOT allow waiting - wait logic is handled separately in includeHotspotInItinerary (lines 15169-15240)
    */
   private async checkHotspotOperatingHours(
     tx: any,
@@ -137,7 +142,8 @@ export class TimelineBuilder {
     const visitStartSeconds = timeToSeconds(visitStartTime);
     const visitEndSeconds = timeToSeconds(visitEndTime);
 
-    // Check if visit window falls within ANY operating hours window
+    // PHP Logic: Loop through each set of operating hours
+    // Check if BOTH start AND end fall within THE SAME window (no waiting allowed here)
     for (const timing of timingRecords) {
       if (!timing.hotspot_start_time || !timing.hotspot_end_time) continue;
 
@@ -152,17 +158,18 @@ export class TimelineBuilder {
       const openSeconds = timeToSeconds(openTime);
       const closeSeconds = timeToSeconds(closeTime);
 
-      this.log(`[Timeline] Hotspot ${hotspotId} timing window: ${openTime}-${closeTime} (${openSeconds}s-${closeSeconds}s), visit: ${visitStartTime}-${visitEndTime} (${visitStartSeconds}s-${visitEndSeconds}s)`);
+      this.log(`[Timeline] Hotspot ${hotspotId} check window: ${openTime}-${closeTime}, visit: ${visitStartTime}-${visitEndTime}`);
 
-      // PHP behavior: Check if visit START time is within operating hours
-      // Observed: PHP allows visits that START within hours even if they END after closing
-      if (visitStartSeconds >= openSeconds && visitStartSeconds <= closeSeconds) {
-        this.log(`[Timeline] Hotspot ${hotspotId} MATCH on day ${dayOfWeek} (visit starts within operating hours)`);
+      // PHP line 10419-10423: Both start >= open AND end <= close
+      if (visitStartSeconds >= openSeconds && visitEndSeconds <= closeSeconds) {
+        this.log(`[Timeline] Hotspot ${hotspotId} operating hours OK - entire visit ${visitStartTime}-${visitEndTime} fits in ${openTime}-${closeTime}`);
         return true;
       }
     }
 
-    // Visit times don't fall within any operating hours
+    // Visit doesn't fit in any single operating window
+    // PHP handles waiting separately (not in this function)
+    this.log(`[Timeline] Hotspot ${hotspotId} operating hours check FAILED - visit ${visitStartTime}-${visitEndTime} doesn't fit in any window`);
     return false;
   }
 
@@ -765,7 +772,7 @@ export class TimelineBuilder {
 
       // PHP LINE 1003-1011: Filter includes source location when direct_to_next_visiting_place != 1
       // Categorize hotspots like PHP does (lines 1197-1210)
-      const sourceLocationHotspots: any[] = [];
+      let sourceLocationHotspots: any[] = [];
       const destinationHotspots: any[] = [];
       const viaRouteHotspots: any[] = [];
 
@@ -849,6 +856,23 @@ export class TimelineBuilder {
       sortHotspots(sourceLocationHotspots);
       sortHotspots(destinationHotspots);
       sortHotspots(viaRouteHotspots);
+
+      // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
+      // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
+      // This prevents low-value attractions from being added when traveling between cities
+      if (directToNextVisitingPlace === 0) {
+        const beforeFilter = sourceLocationHotspots.length;
+        sourceLocationHotspots = sourceLocationHotspots.filter((h: any) => {
+          const priority = Number(h.hotspot_priority ?? 0);
+          return priority > 0;
+        });
+        const afterFilter = sourceLocationHotspots.length;
+        if (beforeFilter > afterFilter) {
+          this.log(
+            `[fetchSelectedHotspots] Filtered ${beforeFilter - afterFilter} priority-0 SOURCE hotspots (${beforeFilter} → ${afterFilter})`,
+          );
+        }
+      }
 
       this.log(
         `[fetchSelectedHotspots] Categorized: source=${sourceLocationHotspots.length}, destination=${destinationHotspots.length}, via=${viaRouteHotspots.length}`,
@@ -1061,3 +1085,4 @@ export class TimelineBuilder {
   }
 }
 
+// --- RECENT EDITS BELOW --- //

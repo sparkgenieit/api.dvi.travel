@@ -1,3 +1,7 @@
 node_modules/
 dist/
 .env
+front_end/
+legacy_php/
+src/stable-dvi_backend.zip
+tmp/

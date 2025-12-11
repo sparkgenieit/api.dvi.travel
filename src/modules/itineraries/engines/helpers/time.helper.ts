@@ -7,9 +7,10 @@ export function timeToSeconds(value: TimeLike): number {
 
   if (value instanceof Date) {
     // Interpret as time-of-day: HH:MM:SS from that Date
-    const h = value.getHours();
-    const m = value.getMinutes();
-    const s = value.getSeconds();
+    // IMPORTANT: Use UTC to match database TIME field storage
+    const h = value.getUTCHours();
+    const m = value.getUTCMinutes();
+    const s = value.getUTCSeconds();
     return h * 3600 + m * 60 + s;
   }
 
