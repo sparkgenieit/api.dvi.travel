@@ -187,8 +187,8 @@ export class RouteEngineService {
       anyPlan.pickUpDateAndTime;
 
     const base = startIso ? new Date(startIso) : new Date();
-    // date-only in local time
-    return new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    // Extract date components in UTC to avoid timezone shifts
+    return new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()));
   }
 
   /**
