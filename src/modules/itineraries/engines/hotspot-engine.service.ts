@@ -3,6 +3,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { PrismaService } from "../../../prisma/prisma.service";
 import { TimelineBuilder } from "./helpers/timeline.builder";
 
 type Tx = Prisma.TransactionClient;
@@ -13,6 +14,8 @@ export class HotspotEngineService {
 
   // We don't use Nest DI for helpers so you don't have to touch the module.
   private readonly timelineBuilder = new TimelineBuilder();
+
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Main entry called from ItinerariesService inside a prisma.$transaction.
@@ -74,4 +77,52 @@ export class HotspotEngineService {
       `Hotspot timeline rebuilt for plan=${planId} (hotspots=${hotspotRows.length}, parking=${parkingRows.length})`,
     );
   }
-}
+
+  /**
+   * Rebuild ONLY parking charges for a plan (called after vendor vehicles are created).
+   * This is needed because parking charge builder requires vendor vehicle details.
+   */
+  async rebuildParkingCharges(planId: number, userId: number): Promise<void> {
+    this.logger.log(`Rebuilding parking charges for itinerary_plan_ID=${planId}`);
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete existing parking charges
+      await (tx as any).dvi_itinerary_route_hotspot_parking_charge.deleteMany({
+        where: { itinerary_plan_ID: planId },
+      });
+
+      // Get all route hotspot details for this plan
+      const hotspotDetails = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
+        where: {
+          itinerary_plan_ID: planId,
+          item_type: 4, // Only actual hotspot visits (not travel segments)
+          deleted: 0,
+          status: 1,
+        },
+        orderBy: { itinerary_route_hotspot_details_ID: 'asc' },
+      });
+
+      const parkingRows = [];
+      for (const detail of hotspotDetails) {
+        const parking = await this.timelineBuilder.parkingBuilder.buildForHotspot(tx, {
+          planId,
+          routeId: detail.itinerary_route_ID,
+          hotspotId: detail.hotspot_ID,
+          userId,
+        });
+
+        if (parking) {
+          parkingRows.push(parking);
+        }
+      }
+
+      // Insert parking charges
+      if (parkingRows.length) {
+        await (tx as any).dvi_itinerary_route_hotspot_parking_charge.createMany({
+          data: parkingRows,
+        });
+      }
+
+      this.logger.log(`Rebuilt ${parkingRows.length} parking charges for plan=${planId}`);
+    }, { timeout: 30000 });
+  }

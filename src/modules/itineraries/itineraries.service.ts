@@ -98,6 +98,10 @@ export class ItinerariesService {
       createdBy: userId,
     });
 
+    // Rebuild parking charges AFTER vendor vehicles are created
+    // (parking charge builder needs vendor vehicle details)
+    await this.hotspotEngine.rebuildParkingCharges(result.planId, userId);
+
     return result;
   }
 }

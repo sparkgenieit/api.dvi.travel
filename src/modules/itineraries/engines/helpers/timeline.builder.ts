@@ -73,7 +73,8 @@ export class TimelineBuilder {
   private readonly hotspotBuilder = new HotspotSegmentBuilder();
   private readonly hotelBuilder = new HotelTravelBuilder();
   private readonly returnBuilder = new ReturnSegmentBuilder();
-  private readonly parkingBuilder = new ParkingChargeBuilder();
+  // Make parkingBuilder public so HotspotEngineService can use it for rebuilding parking charges
+  public readonly parkingBuilder = new ParkingChargeBuilder();
   private readonly distanceHelper = new DistanceHelper();
   private logFilePath: string;
 
