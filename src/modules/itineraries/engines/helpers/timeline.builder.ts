@@ -873,25 +873,30 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category
-      // CRITICAL: Prioritize hotspots where the target location is the PRIMARY (first) location
-      // This ensures Route 2 (Chennai → Pondicherry) selects hotspots with "Pondicherry" as primary
-      // and saves hotspots with "Pondicherry Airport" as primary for Route 3 (Pondicherry → Airport)
+      // PHP BEHAVIOR: Sort by priority first, then by whether location is PRIMARY, then by distance
+      // This ensures hotspots with better priority come first, but among same priority,
+      // prefer those where the target location is PRIMARY (first in pipe-delimited list)
       const sortHotspots = (hotspots: any[], isPrimaryDestinationSort: boolean = false) => {
         hotspots.sort((a: any, b: any) => {
-          // For destination hotspots, prefer PRIMARY location matches first
-          if (isPrimaryDestinationSort) {
+          const aPriority = Number(a.hotspot_priority ?? 0);
+          const bPriority = Number(b.hotspot_priority ?? 0);
+          
+          // Priority-0 hotspots go last
+          if (aPriority === 0 && bPriority !== 0) return 1;
+          if (aPriority !== 0 && bPriority === 0) return -1;
+          
+          // Among same priority, prefer PRIMARY location matches for destination hotspots
+          if (aPriority === bPriority && isPrimaryDestinationSort) {
             const aIsPrimary = a.isPrimaryDestination ? 1 : 0;
             const bIsPrimary = b.isPrimaryDestination ? 1 : 0;
             if (aIsPrimary !== bIsPrimary) return bIsPrimary - aIsPrimary; // Primary first
           }
           
-          const aPriority = Number(a.hotspot_priority ?? 0);
-          const bPriority = Number(b.hotspot_priority ?? 0);
+          // Then by priority
+          if (aPriority !== bPriority) return aPriority - bPriority;
           
-          if (aPriority === 0 && bPriority !== 0) return 1;
-          if (aPriority !== 0 && bPriority === 0) return -1;
-          if (aPriority === bPriority) return a.hotspot_distance - b.hotspot_distance;
-          return aPriority - bPriority;
+          // Finally by distance
+          return a.hotspot_distance - b.hotspot_distance;
         });
       };
 
