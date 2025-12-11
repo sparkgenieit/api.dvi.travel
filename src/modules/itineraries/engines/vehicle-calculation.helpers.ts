@@ -866,7 +866,7 @@ export async function calculateRouteVehicleDetails(
   total_routes: number,
   previous_destination_city: string
 ): Promise<RouteCalculationResult> {
-  const { prisma, itinerary_plan_ID, vehicle_type_id, vendor_id, vendor_vehicle_type_ID } = ctx;
+  const { prisma, itinerary_plan_ID, vehicle_type_id, vendor_id, vendor_vehicle_type_ID, vendor_branch_id } = ctx;
 
   // Get route location details
   const sourceLocationId = await getLocationIdFromSourceDest(
