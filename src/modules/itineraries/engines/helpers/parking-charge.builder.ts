@@ -35,26 +35,27 @@ export class ParkingChargeBuilder {
     const { planId, routeId, hotspotId, userId } = opts;
 
     try {
-      // Get vehicle info from confirmed itinerary vehicle details table
-      const vehiclesTable = (tx as any).dvi_accounts_itinerary_vehicle_details;
-      if (!vehiclesTable) {
+      // Get vehicle info from VENDOR vehicle details (for the plan, not confirmed)
+      const vendorVehiclesTable = (tx as any).dvi_itinerary_plan_vendor_vehicle_details;
+      if (!vendorVehiclesTable) {
         console.log(
-          "[ParkingChargeBuilder] dvi_accounts_itinerary_vehicle_details table not available in transaction",
+          "[ParkingChargeBuilder] dvi_itinerary_plan_vendor_vehicle_details table not available",
         );
         return null;
       }
 
-      const vehicle = await vehiclesTable.findFirst({
-        where: { itinerary_plan_ID: planId, deleted: 0, status: 1 },
+      const vehicle = await vendorVehiclesTable.findFirst({
+        where: { itinerary_plan_id: planId, deleted: 0, status: 1 },
       });
 
       if (!vehicle) {
-        console.log(`[ParkingChargeBuilder] No vehicles found for plan ${planId}`);
+        console.log(`[ParkingChargeBuilder] No vendor vehicles found for plan ${planId}`);
         return null;
       }
 
-      // Use total_vehicle_qty from accounts table or default to 1
-      const vehicleQty = vehicle.total_vehicle_qty ?? 1;
+      // Use vehicle_qty from vendor vehicle details
+      const vehicleQty = vehicle.vehicle_qty ?? 1;
+      const vehicleTypeId = vehicle.vehicle_type_id ?? 0;
 
       // Get parking charges from vehicle parking charges table
       const parkingChargesTable = (tx as any).dvi_hotspot_vehicle_parking_charges;
@@ -89,7 +90,7 @@ export class ParkingChargeBuilder {
         itinerary_plan_ID: planId,
         itinerary_route_ID: routeId,
         hotspot_ID: hotspotId,
-        vehicle_type: 0,
+        vehicle_type: vehicleTypeId,
         vehicle_qty: vehicleQty,
         parking_charges_amt: parkingAmount,
         createdby: userId,
