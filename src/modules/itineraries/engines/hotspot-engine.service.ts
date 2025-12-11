@@ -125,4 +125,4 @@ export class HotspotEngineService {
 
       this.logger.log(`Rebuilt ${parkingRows.length} parking charges for plan=${planId}`);
     }, { timeout: 30000 });
-  }
+  }}
