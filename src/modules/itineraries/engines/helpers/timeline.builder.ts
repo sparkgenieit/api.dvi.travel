@@ -892,8 +892,8 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category
-      // PHP BEHAVIOR: Sort by priority first, then by distance
-      const sortHotspots = (hotspots: any[]) => {
+      // PHP BEHAVIOR: Sort by priority first, then by PRIMARY location match, then by distance
+      const sortHotspots = (hotspots: any[], preferPrimary: boolean = false) => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
@@ -905,13 +905,21 @@ export class TimelineBuilder {
           // Then by priority
           if (aPriority !== bPriority) return aPriority - bPriority;
           
+          // For same priority (especially priority 0), prefer PRIMARY location match
+          if (preferPrimary && aPriority === bPriority) {
+            const aIsPrimary = a.isPrimaryDestination || a.isPrimarySource;
+            const bIsPrimary = b.isPrimaryDestination || b.isPrimarySource;
+            if (aIsPrimary && !bIsPrimary) return -1;
+            if (!aIsPrimary && bIsPrimary) return 1;
+          }
+          
           // Finally by distance
           return a.hotspot_distance - b.hotspot_distance;
         });
       };
 
       sortHotspots(sourceLocationHotspots);
-      sortHotspots(destinationHotspots);
+      sortHotspots(destinationHotspots, true); // Prefer PRIMARY for destination hotspots
       sortHotspots(viaRouteHotspots);
 
       // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
