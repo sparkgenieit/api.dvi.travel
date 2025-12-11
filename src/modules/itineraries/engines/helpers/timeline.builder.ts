@@ -218,7 +218,8 @@ export class TimelineBuilder {
         route.itinerary_route_ID,
       );
       
-      let order = 1;
+      // PHP BEHAVIOR: Last route starts at order 2 (no refreshment, order starts at 2)
+      let order = isLastRoute ? 2 : 1;
       
       // Convert Date objects to HH:MM:SS time strings
       // IMPORTANT: Use UTC methods because database stores times as UTC timestamps
@@ -283,7 +284,8 @@ export class TimelineBuilder {
 
       // 1) ADD REFRESHMENT BREAK (PHP line 969-993)
       // PHP adds 1-hour refreshment at route start EXCEPT for last route
-      // Last route starts directly with hotspots (order 2) and skips refreshment
+      // Last route starts directly with hotspots (order 2) and skips refreshment ROW
+      // BUT PHP still advances currentTime by buffer amount for last route (without creating row)
       if (!isLastRoute) {
         const globalSettings = await (tx as any).dvi_global_settings?.findFirst({
           where: { status: 1, deleted: 0 },
@@ -302,24 +304,24 @@ export class TimelineBuilder {
         
         // Only add refreshment if it fits within route time
         if (refreshmentEndSeconds <= routeEndSeconds) {
-        // PHP line 978: refreshment fields - use TimeConverter to match other builders
-        hotspotRows.push({
-          itinerary_plan_ID: planId,
-          itinerary_route_ID: route.itinerary_route_ID,
-          item_type: 1,
-          hotspot_order: order++,
-          hotspot_traveling_time: TimeConverter.toDate(bufferTime),
-          hotspot_start_time: TimeConverter.toDate(currentTime),
-          hotspot_end_time: TimeConverter.toDate(refreshmentEndTime),
-          createdby: createdByUserId,
-          status: 1,
-          deleted: 0,
-        });
-        
-        this.log(
-          `[Timeline] Route ${route.itinerary_route_ID} - Added refreshment break: ${currentTime} - ${refreshmentEndTime}`,
-        );
-        
+          // PHP line 978: refreshment fields - use TimeConverter to match other builders
+          hotspotRows.push({
+            itinerary_plan_ID: planId,
+            itinerary_route_ID: route.itinerary_route_ID,
+            item_type: 1,
+            hotspot_order: order++,
+            hotspot_traveling_time: TimeConverter.toDate(bufferTime),
+            hotspot_start_time: TimeConverter.toDate(currentTime),
+            hotspot_end_time: TimeConverter.toDate(refreshmentEndTime),
+            createdby: createdByUserId,
+            status: 1,
+            deleted: 0,
+          });
+          
+          this.log(
+            `[Timeline] Route ${route.itinerary_route_ID} - Added refreshment break: ${currentTime} - ${refreshmentEndTime}`,
+          );
+          
           // Update current time after refreshment
           currentTime = refreshmentEndTime;
         } else {
@@ -328,10 +330,23 @@ export class TimelineBuilder {
           );
         }
       } else {
+        // PHP BEHAVIOR: Last route doesn't create refreshment ROW but still advances time
+        const globalSettings = await (tx as any).dvi_global_settings?.findFirst({
+          where: { status: 1, deleted: 0 },
+          select: { itinerary_common_buffer_time: true },
+        });
+        
+        const bufferTime = globalSettings?.itinerary_common_buffer_time
+          ? (globalSettings.itinerary_common_buffer_time instanceof Date
+            ? `${String(globalSettings.itinerary_common_buffer_time.getUTCHours()).padStart(2, '0')}:${String(globalSettings.itinerary_common_buffer_time.getUTCMinutes()).padStart(2, '0')}:${String(globalSettings.itinerary_common_buffer_time.getUTCSeconds()).padStart(2, '0')}`
+            : String(globalSettings.itinerary_common_buffer_time))
+          : '01:00:00';
+        
+        const bufferSeconds = timeToSeconds(bufferTime);
+        currentTime = addSeconds(currentTime, bufferSeconds);
+        
         this.log(
-          `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment (last route - PHP behavior)`,
-        );
-      }
+          `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment row (last route) but advancing time by ${bufferTime} to ${currentTime}`,
 
       // 2) SELECTED HOTSPOTS FOR THIS ROUTE
       const selectedHotspots = await this.fetchSelectedHotspotsForRoute(
