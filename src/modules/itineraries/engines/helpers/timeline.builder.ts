@@ -892,8 +892,7 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category
-      // PHP BEHAVIOR: Sort by priority first, then by whether location is ONLY or PRIMARY, then by distance
-      // Prefer hotspots that ONLY have the target location (not shared with other locations)
+      // PHP BEHAVIOR: Sort by priority first, then by distance
       const sortHotspots = (hotspots: any[]) => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
@@ -905,11 +904,6 @@ export class TimelineBuilder {
           
           // Then by priority
           if (aPriority !== bPriority) return aPriority - bPriority;
-          
-          // Among same priority, prefer ONLY location (single location in list)
-          const aIsOnly = a.isOnlyLocation ? 1 : 0;
-          const bIsOnly = b.isOnlyLocation ? 1 : 0;
-          if (aIsOnly !== bIsOnly) return bIsOnly - aIsOnly; // ONLY first
           
           // Finally by distance
           return a.hotspot_distance - b.hotspot_distance;
