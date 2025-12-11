@@ -7,6 +7,7 @@ import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
 import { HotelEngineService } from './engines/hotel-engine.service';
+import { HotelPricingService } from './hotels/hotel-pricing.service';
 
 import { PrismaService } from '../../prisma.service';
 import { ItineraryHotspotsEngine } from './engines/itinerary-hotspots.engine';
@@ -30,6 +31,7 @@ import { VehiclesEngineService } from './engines/vehicles-engine.service';
 
     // existing engines you already had
     HotelEngineService,
+    HotelPricingService,
     ItineraryHotspotsEngine,
     ItineraryVehiclesEngine,
 
