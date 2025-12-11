@@ -897,9 +897,9 @@ export class TimelineBuilder {
         // TODO: via_route_hotspots matching via locations (for future implementation)
       }
 
-      // PHP sortHotspots() for each category
-      // PHP BEHAVIOR: Sort by priority first, then by PRIMARY location match, then by distance
-      const sortHotspots = (hotspots: any[], preferPrimary: boolean = false) => {
+      // PHP sortHotspots() for each category  
+      // PHP BEHAVIOR: Sort by priority first, then prefer "multi-location" hotspots, then by distance
+      const sortHotspots = (hotspots: any[]) => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
@@ -908,24 +908,21 @@ export class TimelineBuilder {
           if (aPriority === 0 && bPriority !== 0) return 1;
           if (aPriority !== 0 && bPriority === 0) return -1;
           
-          // Then by priority
+          // Then by priority (ASC)
           if (aPriority !== bPriority) return aPriority - bPriority;
           
-          // For same priority (especially priority 0), prefer PRIMARY location match
-          if (preferPrimary && aPriority === bPriority) {
-            const aIsPrimary = a.isPrimaryDestination || a.isPrimarySource;
-            const bIsPrimary = b.isPrimaryDestination || b.isPrimarySource;
-            if (aIsPrimary && !bIsPrimary) return -1;
-            if (!aIsPrimary && bIsPrimary) return 1;
-          }
+          // For same priority, prefer hotspots with multiple locations (appears in both source and dest)
+          const aLocCount = (a.hotspot_location || '').split('|').length;
+          const bLocCount = (b.hotspot_location || '').split('|').length;
+          if (aLocCount !== bLocCount) return bLocCount - aLocCount; // More locations first
           
-          // Finally by distance
+          // Finally by distance (ASC - closer first)
           return a.hotspot_distance - b.hotspot_distance;
         });
       };
 
       sortHotspots(sourceLocationHotspots);
-      sortHotspots(destinationHotspots, true); // Prefer PRIMARY for destination hotspots
+      sortHotspots(destinationHotspots);
       sortHotspots(viaRouteHotspots);
 
       // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
