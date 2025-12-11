@@ -71,8 +71,12 @@ export class HotelEngineService {
 
       // PHP picks a DIFFERENT hotel for EACH group_type!
       for (const groupType of [1, 2, 3, 4]) {
-        // Pick hotel for this location + group
-        const hotel = await this.hotelPricing.pickHotelByCategory(preferredCategory, city);
+        // Pick hotel for this location + group, filtering by valid rates for this date
+        const hotel = await this.hotelPricing.pickHotelByCategory(
+          preferredCategory, 
+          city,
+          new Date(r.itinerary_route_date)
+        );
         
         if (!hotel) {
           // No hotel found, create placeholder
