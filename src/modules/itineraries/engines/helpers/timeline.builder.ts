@@ -873,18 +873,19 @@ export class TimelineBuilder {
         const isPrimarySource = primaryLocation === (targetLocation || '').trim().toLowerCase();
         const isPrimaryDestination = primaryLocation === (nextLocation || '').trim().toLowerCase();
 
-        // PHP BEHAVIOR: If hotspot matches BOTH source and destination, only add to destination
-        // This prevents duplicates and ensures proper ordering
+        // PHP BEHAVIOR: Add to source and/or destination based on location match
+        // Hotspots can be in BOTH lists (will be deduplicated later)
+        if (matchesSource) {
+          sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource, isOnlyLocation });
+          this.log(
+            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}"${isPrimarySource ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
+          );
+        }
+        
         if (matchesDestination) {
           destinationHotspots.push({ ...hotspotWithDistance, isPrimaryDestination, isOnlyLocation });
           this.log(
             `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → DESTINATION (matches "${nextLocation}"${isPrimaryDestination ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
-          );
-        } else if (matchesSource) {
-          // Only add to source if it doesn't match destination
-          sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource, isOnlyLocation });
-          this.log(
-            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}"${isPrimarySource ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
           );
         }
 
