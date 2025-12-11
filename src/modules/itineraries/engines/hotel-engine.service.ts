@@ -66,7 +66,17 @@ export class HotelEngineService {
 
     /* ---------------- PHASE 1: INSERT ROOMS WITH HOTEL SELECTION ---------------- */
 
-    for (const r of routes) {
+    const totalRoutes = routes.length;
+    
+    for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+      const r = routes[routeIndex];
+      const isLastRoute = (routeIndex === totalRoutes - 1);
+      
+      // PHP skips hotel creation for the LAST route (departure leg to airport/station)
+      if (isLastRoute) {
+        continue; // No overnight stay needed on departure day
+      }
+      
       const routeDate = r.itinerary_route_date ? new Date(r.itinerary_route_date) : new Date();
       // PHP uses next_visiting_location for hotels, not location_name!
       const city = r.next_visiting_location;
@@ -196,7 +206,15 @@ export class HotelEngineService {
 
     /* ---------------- PHASE 2: CREATE HEADERS FROM ROOMS ---------------- */
 
-    for (const r of routes) {
+    for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+      const r = routes[routeIndex];
+      const isLastRoute = (routeIndex === totalRoutes - 1);
+      
+      // Skip last route (same as Phase 1)
+      if (isLastRoute) {
+        continue;
+      }
+      
       for (const groupType of [1, 2, 3, 4]) {
 
         const agg = await (tx as any)
