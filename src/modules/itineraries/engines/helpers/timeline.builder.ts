@@ -866,23 +866,25 @@ export class TimelineBuilder {
         const matchesSource = containsLocation(h.hotspot_location as string, targetLocation);
         const matchesDestination = containsLocation(h.hotspot_location as string, nextLocation);
         
-        // Check if location is PRIMARY (first in pipe-delimited list)
+        // Check if location is PRIMARY (first in pipe-delimited list) and if ONLY location
         const locationParts = (h.hotspot_location || '').split('|').map(p => p.trim().toLowerCase());
         const primaryLocation = locationParts[0] || '';
+        const isOnlyLocation = locationParts.length === 1;
         const isPrimarySource = primaryLocation === (targetLocation || '').trim().toLowerCase();
         const isPrimaryDestination = primaryLocation === (nextLocation || '').trim().toLowerCase();
 
-        if (matchesSource) {
-          sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource });
-          this.log(
-            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}"${isPrimarySource ? ' - PRIMARY' : ''})`,
-          );
-        }
-        
+        // PHP BEHAVIOR: If hotspot matches BOTH source and destination, only add to destination
+        // This prevents duplicates and ensures proper ordering
         if (matchesDestination) {
-          destinationHotspots.push({ ...hotspotWithDistance, isPrimaryDestination });
+          destinationHotspots.push({ ...hotspotWithDistance, isPrimaryDestination, isOnlyLocation });
           this.log(
-            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → DESTINATION (matches "${nextLocation}"${isPrimaryDestination ? ' - PRIMARY' : ''})`,
+            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → DESTINATION (matches "${nextLocation}"${isPrimaryDestination ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
+          );
+        } else if (matchesSource) {
+          // Only add to source if it doesn't match destination
+          sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource, isOnlyLocation });
+          this.log(
+            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}"${isPrimarySource ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
           );
         }
 
@@ -890,10 +892,9 @@ export class TimelineBuilder {
       }
 
       // PHP sortHotspots() for each category
-      // PHP BEHAVIOR: Sort by priority first, then by whether location is PRIMARY, then by distance
-      // This ensures hotspots with better priority come first, but among same priority,
-      // prefer those where the target location is PRIMARY (first in pipe-delimited list)
-      const sortHotspots = (hotspots: any[], isPrimaryDestinationSort: boolean = false) => {
+      // PHP BEHAVIOR: Sort by priority first, then by whether location is ONLY or PRIMARY, then by distance
+      // Prefer hotspots that ONLY have the target location (not shared with other locations)
+      const sortHotspots = (hotspots: any[]) => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
@@ -902,24 +903,22 @@ export class TimelineBuilder {
           if (aPriority === 0 && bPriority !== 0) return 1;
           if (aPriority !== 0 && bPriority === 0) return -1;
           
-          // Among same priority, prefer PRIMARY location matches for destination hotspots
-          if (aPriority === bPriority && isPrimaryDestinationSort) {
-            const aIsPrimary = a.isPrimaryDestination ? 1 : 0;
-            const bIsPrimary = b.isPrimaryDestination ? 1 : 0;
-            if (aIsPrimary !== bIsPrimary) return bIsPrimary - aIsPrimary; // Primary first
-          }
-          
           // Then by priority
           if (aPriority !== bPriority) return aPriority - bPriority;
+          
+          // Among same priority, prefer ONLY location (single location in list)
+          const aIsOnly = a.isOnlyLocation ? 1 : 0;
+          const bIsOnly = b.isOnlyLocation ? 1 : 0;
+          if (aIsOnly !== bIsOnly) return bIsOnly - aIsOnly; // ONLY first
           
           // Finally by distance
           return a.hotspot_distance - b.hotspot_distance;
         });
       };
 
-      sortHotspots(sourceLocationHotspots, false);
-      sortHotspots(destinationHotspots, true); // Prioritize primary destination matches
-      sortHotspots(viaRouteHotspots, false);
+      sortHotspots(sourceLocationHotspots);
+      sortHotspots(destinationHotspots);
+      sortHotspots(viaRouteHotspots);
 
       // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
       // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
