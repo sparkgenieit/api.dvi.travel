@@ -233,6 +233,7 @@ export async function calculateRouteTollCharges(
 /**
  * Calculate parking charges for hotspots in a route
  * PHP: getITINERARY_HOTSPOT_VEHICLE_PARKING_CHARGES_DETAILS
+ * Uses the parking charge timeline table populated by hotspot-engine
  */
 export async function calculateHotspotParkingCharges(
   prisma: any,
@@ -242,17 +243,13 @@ export async function calculateHotspotParkingCharges(
 ): Promise<number> {
   try {
     const result = await prisma.$queryRaw<any[]>`
-      SELECT COALESCE(SUM(parking.parking_price), 0) as total_parking
-      FROM dvi_itinerary_hotspot_details hotspot
-      INNER JOIN dvi_parking_pricebook parking 
-        ON hotspot.hotspot_id = parking.hotspot_id 
-        AND parking.vehicle_type_id = ${vehicle_type_id}
-      WHERE hotspot.itinerary_plan_id = ${itinerary_plan_ID}
-      AND hotspot.itinerary_route_id = ${itinerary_route_ID}
-      AND hotspot.status = 1
-      AND hotspot.deleted = 0
-      AND parking.status = 1
-      AND parking.deleted = 0
+      SELECT COALESCE(SUM(parking_charges_amt), 0) as total_parking
+      FROM dvi_itinerary_route_hotspot_parking_charge
+      WHERE itinerary_plan_ID = ${itinerary_plan_ID}
+      AND itinerary_route_ID = ${itinerary_route_ID}
+      AND vehicle_type = ${vehicle_type_id}
+      AND status = 1
+      AND deleted = 0
     `;
     return Number(result[0]?.total_parking ?? 0);
   } catch (error) {
@@ -754,7 +751,8 @@ export async function getOutstationVehiclePricing(
 
 /**
  * Calculate sightseeing KMs for hotspots in a route
- * Gets total distance between all hotspots
+ * PHP: getITINEARY_ROUTE_HOTSPOT_DETAILS('', $plan_id, $route_id, 'SIGHT_SEEING_TRAVELLING_DISTANCE')
+ * Sums travel distances from hotspot timeline where item_type = 3 (SiteSeeingTravel)
  */
 export async function calculateSightseeingKm(
   prisma: any,
@@ -762,46 +760,25 @@ export async function calculateSightseeingKm(
   itinerary_route_ID: number
 ): Promise<{ km: string; time: string | null }> {
   try {
-    // Get all hotspots with their locations
-    const hotspots = await prisma.$queryRaw<any[]>`
+    // Sum travel distances from hotspot timeline (item_type=3 is SiteSeeingTravel)
+    const result = await prisma.$queryRaw<any[]>`
       SELECT 
-        h.hotspot_id,
-        h.itinerary_hotspot_details_ID,
-        l.latitude,
-        l.longitude
-      FROM dvi_itinerary_hotspot_details h
-      LEFT JOIN dvi_hotspots l ON h.hotspot_id = l.hotspot_id
-      WHERE h.itinerary_plan_id = ${itinerary_plan_ID}
-      AND h.itinerary_route_id = ${itinerary_route_ID}
-      AND h.status = 1
-      AND h.deleted = 0
-      ORDER BY h.itinerary_hotspot_details_ID ASC
+        COALESCE(SUM(CAST(hotspot_travelling_distance AS DECIMAL(10,2))), 0) as total_sightseeing_km,
+        SEC_TO_TIME(COALESCE(SUM(TIME_TO_SEC(hotspot_traveling_time)), 0)) as total_sightseeing_time
+      FROM dvi_itinerary_route_hotspot_details
+      WHERE itinerary_plan_ID = ${itinerary_plan_ID}
+      AND itinerary_route_ID = ${itinerary_route_ID}
+      AND item_type = 3
+      AND status = 1
+      AND deleted = 0
     `;
 
-    if (hotspots.length === 0) {
-      return { km: '0', time: null };
-    }
-
-    // Calculate distance between consecutive hotspots
-    let totalKm = 0;
-    for (let i = 0; i < hotspots.length - 1; i++) {
-      const current = hotspots[i];
-      const next = hotspots[i + 1];
-      
-      if (current.latitude && current.longitude && next.latitude && next.longitude) {
-        const distance = calculateDistance(
-          toNum(current.latitude),
-          toNum(current.longitude),
-          toNum(next.latitude),
-          toNum(next.longitude)
-        );
-        totalKm += distance;
-      }
-    }
+    const totalKm = Number(result[0]?.total_sightseeing_km ?? 0);
+    const totalTime = result[0]?.total_sightseeing_time;
 
     return {
       km: totalKm.toFixed(2),
-      time: null // Would need time calculation based on distance
+      time: totalTime || null
     };
   } catch (error) {
     console.error('[calculateSightseeingKm] Error:', error);
