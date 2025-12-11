@@ -751,6 +751,7 @@ export class TimelineBuilder {
         const timingRows = await (tx as any).dvi_hotspot_timing?.findMany({
           where: {
             hotspot_timing_day: phpDow,
+            hotspot_closed: 0, // PHP filters out closed hotspots
             deleted: 0,
             status: 1,
           },
@@ -779,6 +780,7 @@ export class TimelineBuilder {
         ? await (tx as any).dvi_hotspot_timing?.findMany({
             where: {
               hotspot_timing_day: phpDow,
+              hotspot_closed: 0, // Exclude closed hotspots
               deleted: 0,
               status: 1,
             },
