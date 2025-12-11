@@ -76,24 +76,9 @@ export class TimelineBuilder {
   // Make parkingBuilder public so HotspotEngineService can use it for rebuilding parking charges
   public readonly parkingBuilder = new ParkingChargeBuilder();
   private readonly distanceHelper = new DistanceHelper();
-  private logFilePath: string;
 
   constructor() {
-    // Create logs directory if it doesn't exist
-    const logDir = path.join(process.cwd(), 'tmp');
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-    this.logFilePath = path.join(logDir, `hotspot_optimization_${Date.now()}.log`);
-    this.log(`=== HOTSPOT OPTIMIZATION LOG ===`);
-    this.log(`Started at: ${new Date().toISOString()}\n`);
-  }
-
-  private log(message: string) {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] ${message}\n`;
-    fs.appendFileSync(this.logFilePath, logMessage);
-    console.log(message); // Also log to console for real-time monitoring
+    // Logging removed for performance
   }
 
   /**
@@ -150,7 +135,6 @@ export class TimelineBuilder {
     
     if (openRecords.length === 0) {
       // All timing records are closed (with times)
-      this.log(`[Timeline] Hotspot ${hotspotId} is closed on day ${dayOfWeek}`);
       return false;
     }
 
@@ -180,18 +164,14 @@ export class TimelineBuilder {
       const openSeconds = timeToSeconds(openTime);
       const closeSeconds = timeToSeconds(closeTime);
 
-      this.log(`[Timeline] Hotspot ${hotspotId} check window: ${openTime}-${closeTime}, visit: ${visitStartTime}-${visitEndTime}`);
-
       // PHP line 10419-10423: Both start >= open AND end <= close
       if (visitStartSeconds >= openSeconds && visitEndSeconds <= closeSeconds) {
-        this.log(`[Timeline] Hotspot ${hotspotId} operating hours OK - entire visit ${visitStartTime}-${visitEndTime} fits in ${openTime}-${closeTime}`);
         return true;
       }
     }
 
     // Visit doesn't fit in any single operating window
     // PHP handles waiting separately (not in this function)
-    this.log(`[Timeline] Hotspot ${hotspotId} operating hours check FAILED - visit ${visitStartTime}-${visitEndTime} doesn't fit in any window`);
     return false;
   }
 
@@ -257,8 +237,6 @@ export class TimelineBuilder {
         ? `${String((route.route_end_time as any).getUTCHours()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCMinutes()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCSeconds()).padStart(2, '0')}`
         : '18:00:00';
       
-      this.log(`[Timeline] Route ${route.itinerary_route_ID} (${route.location_name} → ${route.next_visiting_location}): routeStartTime=${routeStartTime}, routeEndTime=${routeEndTime}, direct_to_next=${(route as any).direct_to_next_visiting_place || 0}`);
-      
       let currentTime = routeStartTime;
       let routeEndSeconds = timeToSeconds(routeEndTime);
       
@@ -294,13 +272,6 @@ export class TimelineBuilder {
             lat: Number(storedLoc.source_location_lattitude ?? 0),
             lon: Number(storedLoc.source_location_longitude ?? 0),
           };
-          this.log(
-            `[Timeline] Route ${route.itinerary_route_ID} starting coords from location_id ${route.location_id}: (${currentCoords.lat}, ${currentCoords.lon})`,
-          );
-        } else {
-          this.log(
-            `[Timeline] Route ${route.itinerary_route_ID} location_id ${route.location_id} not found in stored_locations`,
-          );
         }
       }
 
@@ -340,16 +311,8 @@ export class TimelineBuilder {
             deleted: 0,
           });
           
-          this.log(
-            `[Timeline] Route ${route.itinerary_route_ID} - Added refreshment break: ${currentTime} - ${refreshmentEndTime}`,
-          );
-          
           // Update current time after refreshment
           currentTime = refreshmentEndTime;
-        } else {
-          this.log(
-            `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment (not enough time): ${refreshmentEndTime} > ${routeEndTime}`,
-          );
         }
       } else {
         // PHP BEHAVIOR: Last route doesn't create refreshment ROW but still advances time
@@ -366,10 +329,6 @@ export class TimelineBuilder {
         
         const bufferSeconds = timeToSeconds(bufferTime);
         currentTime = addSeconds(currentTime, bufferSeconds);
-        
-        this.log(
-          `[Timeline] Route ${route.itinerary_route_ID} - Skipping refreshment row (last route) but advancing time by ${bufferTime} to ${currentTime}`,
-        );
       }
 
       // 2) SELECTED HOTSPOTS FOR THIS ROUTE
@@ -377,14 +336,6 @@ export class TimelineBuilder {
         tx,
         planId,
         route.itinerary_route_ID,
-      );
-
-      this.log(
-        `[Timeline] Route ${route.itinerary_route_ID}: Selected ${selectedHotspots.length} hotspots`,
-      );
-
-      this.log(
-        `[Timeline] Route ${route.itinerary_route_ID} - currentTime: ${currentTime}, routeEndTime: ${routeEndTime}, routeEndSeconds: ${routeEndSeconds}`,
       );
 
       // Build travel + hotspot segments in order.
@@ -396,27 +347,13 @@ export class TimelineBuilder {
           currentSeconds += 86400;
         }
         
-        this.log(
-          `[Timeline] Hotspot ${sh.hotspot_ID} - currentSeconds: ${currentSeconds}, routeEndSeconds: ${routeEndSeconds}`,
-        );
-        
         if (currentSeconds >= routeEndSeconds) {
-          this.log(
-            `[Timeline] Stopping hotspots for route ${route.itinerary_route_ID} because currentTime ${currentTime} (${currentSeconds}s) >= route_end_time ${routeEndTime} (${routeEndSeconds}s)`,
-          );
           break;
         }
-
-        this.log(
-          `[Timeline] Processing hotspot ${sh.hotspot_ID} for route ${route.itinerary_route_ID}`,
-        );
 
         // PHP CHECK: Skip if hotspot already added to THIS PLAN (any previous route in this rebuild)
         // Line 15159 in sql_functions.php: check_hotspot_already_added_the_itineary_plan
         if (addedHotspotIds.has(sh.hotspot_ID)) {
-          this.log(
-            `[Timeline] Skipping hotspot ${sh.hotspot_ID} - already added to plan ${planId}`,
-          );
           continue;
         }
 
@@ -432,7 +369,6 @@ export class TimelineBuilder {
         });
 
         if (!hotspotData) {
-          this.log(`[Timeline] Hotspot ${sh.hotspot_ID} not found, skipping`);
           continue;
         }
 
@@ -442,17 +378,10 @@ export class TimelineBuilder {
           lat: Number(hotspotData.hotspot_latitude ?? 0),
           lon: Number(hotspotData.hotspot_longitude ?? 0),
         };
-
-        this.log(
-          `[Timeline] Hotspot ${sh.hotspot_ID} coords: lat=${destCoords.lat}, lon=${destCoords.lon}`,
-        );
         
         // If this is the first hotspot and we don't have starting coords,
         // assume minimal travel time (starting near the first hotspot)
         if (!currentCoords) {
-          this.log(
-            `[Timeline] First hotspot ${sh.hotspot_ID} - assuming starting near this location`,
-          );
           // Set currentCoords to first hotspot location for subsequent calculations
           currentCoords = destCoords;
         }
@@ -481,10 +410,6 @@ export class TimelineBuilder {
           ? ((new Date(route.itinerary_route_date).getDay() + 6) % 7)
           : 0;
         
-        this.log(
-          `[Timeline] Checking operating hours for hotspot ${sh.hotspot_ID}: visit window ${timeAfterTravel}-${timeAfterHotspot} on day ${phpDow}`,
-        );
-        
         const operatingHoursOk = await this.checkHotspotOperatingHours(
           tx,
           sh.hotspot_ID,
@@ -494,15 +419,8 @@ export class TimelineBuilder {
         );
         
         if (!operatingHoursOk) {
-          this.log(
-            `[Timeline] Hotspot ${sh.hotspot_ID} not open during visit window ${timeAfterTravel}-${timeAfterHotspot} on day ${phpDow}, skipping`,
-          );
           continue; // Skip this hotspot, try next one
         }
-        
-        this.log(
-          `[Timeline] Hotspot ${sh.hotspot_ID} operating hours OK`,
-        );
 
         // PHP CHECK: If hotspot END time exceeds route_end_time significantly, skip
         // PHP allows some buffer (observed: hotspots can extend 2-3 hours past route end)
@@ -514,9 +432,6 @@ export class TimelineBuilder {
         
         const bufferSeconds = 4 * 3600; // Allow 4 hours buffer past route_end_time (PHP behavior observed)
         if (hotspotEndSeconds > routeEndSeconds + bufferSeconds) {
-          this.log(
-            `[Timeline] Hotspot ${sh.hotspot_ID} would end at ${timeAfterHotspot} (${hotspotEndSeconds}s) (exceeds route_end_time ${routeEndTime} (${routeEndSeconds}s) + buffer), skipping`,
-          );
           continue; // Try next hotspot instead of breaking
         }
 
@@ -527,9 +442,6 @@ export class TimelineBuilder {
         const travelLocationType = this.getTravelLocationType(
           currentLocationName,
           hotspotLocationName,
-        );
-        this.log(
-          `[Timeline] Travel type for "${currentLocationName}" -> "${hotspotLocationName}": ${travelLocationType} (1=local, 2=outstation)`,
         );
         const { row: travelRow, nextTime: tToHotspot } =
           await this.travelBuilder.buildTravelSegment(tx, {
@@ -553,9 +465,6 @@ export class TimelineBuilder {
         currentCoords = destCoords; // Update to hotspot coordinates
 
         // 2.d) Build HOTSPOT STAY SEGMENT (item_type = 4)
-        this.log(
-          `[Timeline] Building hotspot row for hotspot_ID=${sh.hotspot_ID}`,
-        );
         const { row: hotspotRow, nextTime: tAfterHotspot } =
           await this.hotspotBuilder.build(tx, {
             planId,
@@ -570,10 +479,6 @@ export class TimelineBuilder {
             nationality: plan.nationality,
             itineraryPreference: plan.itinerary_preference,
           });
-
-        this.log(
-          `[Timeline] Built hotspot row: item_type=${hotspotRow.item_type}, hotspot_ID=${hotspotRow.hotspot_ID}, order=${hotspotRow.hotspot_order}`,
-        );
 
         hotspotRows.push(hotspotRow);
         
@@ -646,10 +551,6 @@ export class TimelineBuilder {
         order++; // Increment order after both hotel rows added
         currentTime = tClose;
         // currentLocationName stays at hotel.
-      } else {
-        this.log(
-          `[Timeline] Route ${route.itinerary_route_ID} - Skipping hotel rows (last route - PHP behavior)`,
-        );
       }
 
       // 5) LAST ROUTE ONLY → RETURN TO DEPARTURE LOCATION (item_type = 7)
@@ -671,18 +572,6 @@ export class TimelineBuilder {
         currentLocationName = plan.departure_location as string;
       }
     }
-
-    this.log(
-      `[Timeline] Returning ${hotspotRows.length} hotspot rows and ${parkingRows.length} parking rows`,
-    );
-    this.log(
-      `[Timeline] Hotspot rows item_types: ${hotspotRows.map((r) => r.item_type).join(", ")}`,
-    );
-    this.log(
-      `[Timeline] Hotspot rows hotspot_IDs: ${hotspotRows.map((r) => r.hotspot_ID).join(", ")}`,
-    );
-
-    this.log(`\n=== LOG FILE SAVED TO: ${this.logFilePath} ===\n`);
 
     return { hotspotRows, parkingRows };
   }
@@ -739,9 +628,6 @@ export class TimelineBuilder {
       })) as RouteRow | null;
 
       if (!route) {
-        this.log(
-          `[fetchSelectedHotspots] Route not found for plan ${planId}, route ${routeId}`,
-        );
         return [];
       }
 
@@ -749,9 +635,6 @@ export class TimelineBuilder {
       const nextLocation = (route.next_visiting_location as string) || "";
 
       if (!targetLocation && !nextLocation) {
-        this.log(
-          `[fetchSelectedHotspots] No location name found for route ${routeId}`,
-        );
         return [];
       }
 
@@ -762,10 +645,6 @@ export class TimelineBuilder {
       const phpDow = routeDate
         ? ((routeDate.getDay() + 6) % 7) // JS: Sunday=0; PHP: Monday=0, Sunday=6
         : undefined;
-
-      this.log(
-        `[fetchSelectedHotspots] route ${routeId} target="${targetLocation}" next="${nextLocation}" dow=${phpDow}`,
-      );
 
       // 2) Preload hotspot timings for this day (if available)
       // PHP uses LEFT JOIN without filtering hotspot_closed - includes all hotspots with timing records
@@ -792,10 +671,6 @@ export class TimelineBuilder {
           },
         })) || [];
 
-      this.log(
-        `[fetchSelectedHotspots] Found ${allHotspots.length} total active hotspots`,
-      );
-
       // 3b) Fetch operating hours for all hotspots to enable time-aware sorting
       // PHP behavior: sortHotspots() re-orders to prioritize time-critical hotspots
       // Include all timing records (even closed) - checkHotspotOperatingHours will filter later
@@ -821,20 +696,9 @@ export class TimelineBuilder {
         }
       }
 
-      this.log(
-        `[fetchSelectedHotspots] Loaded operating hours for ${closingTimeMap.size} hotspots`,
-      );
-
       const targetLower = targetLocation.toLowerCase();
       const nextLower = nextLocation.toLowerCase();
       const directToNextVisitingPlace = (route as any).direct_to_next_visiting_place || 0;
-
-      this.log(
-        `[fetchSelectedHotspots] direct_to_next_visiting_place=${directToNextVisitingPlace}`,
-      );
-      this.log(
-        `[fetchSelectedHotspots] source="${targetLocation}", destination="${nextLocation}"`,
-      );
 
       // Get starting location coordinates from dvi_stored_locations (like PHP)
       let startLat = 0;
@@ -856,13 +720,6 @@ export class TimelineBuilder {
         // Use source coordinates (PHP uses source for starting point)
         startLat = Number(storedLocation.source_location_lattitude ?? 0);
         startLon = Number(storedLocation.source_location_longitude ?? 0);
-        this.log(
-          `[fetchSelectedHotspots] Starting coords from stored_locations: (${startLat}, ${startLon})`,
-        );
-      } else {
-        this.log(
-          `[fetchSelectedHotspots] No stored_locations found for "${targetLocation}", distances will be 0`,
-        );
       }
 
       // PHP LINE 1003-1011: Filter includes source location when direct_to_next_visiting_place != 1
@@ -887,9 +744,6 @@ export class TimelineBuilder {
       for (const h of allHotspots) {
         // Check if timing allows this hotspot on this day
         if (allowedHotspotIds && !allowedHotspotIds.has(Number(h.hotspot_ID ?? 0))) {
-          this.log(
-            `[fetchSelectedHotspots] Skipping hotspot ${h.hotspot_ID} (${h.hotspot_name}) - not open on day ${phpDow}`,
-          );
           continue;
         }
 
@@ -934,16 +788,10 @@ export class TimelineBuilder {
 
         if (shouldAddToSource) {
           sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource, isOnlyLocation });
-          this.log(
-            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}"${isPrimarySource ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
-          );
         }
         
         if (shouldAddToDestination) {
           destinationHotspots.push({ ...hotspotWithDistance, isPrimaryDestination, isOnlyLocation });
-          this.log(
-            `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → DESTINATION (matches "${nextLocation}"${isPrimaryDestination ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
-          );
         }
 
         // TODO: via_route_hotspots matching via locations (for future implementation)
@@ -994,65 +842,32 @@ export class TimelineBuilder {
       sortHotspots(sourceLocationHotspots, targetLocation, nextLocation);
       sortHotspots(destinationHotspots, targetLocation, nextLocation);
       sortHotspots(viaRouteHotspots, targetLocation, nextLocation);
-
-      // PHP BEHAVIOR: For direct=0 routes, filter out priority-0 SOURCE hotspots
       // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
       // This prevents low-value attractions from being added when traveling between cities
       if (directToNextVisitingPlace === 0) {
-        const beforeFilter = sourceLocationHotspots.length;
         sourceLocationHotspots = sourceLocationHotspots.filter((h: any) => {
           const priority = Number(h.hotspot_priority ?? 0);
           return priority > 0;
         });
-        const afterFilter = sourceLocationHotspots.length;
-        if (beforeFilter > afterFilter) {
-          this.log(
-            `[fetchSelectedHotspots] Filtered ${beforeFilter - afterFilter} priority-0 SOURCE hotspots (${beforeFilter} → ${afterFilter})`,
-          );
-        }
       }
-
-      this.log(
-        `[fetchSelectedHotspots] Categorized: source=${sourceLocationHotspots.length}, destination=${destinationHotspots.length}, via=${viaRouteHotspots.length}`,
-      );
 
       // Detect airport arrival routes: Airport → City
       const isAirportArrival = targetLocation.toLowerCase().includes('airport') && 
                                !nextLocation.toLowerCase().includes('airport');
-      
-      if (isAirportArrival) {
-        this.log(`[fetchSelectedHotspots] AIRPORT ARRIVAL DETECTED: "${targetLocation}" → "${nextLocation}"`);
-      }
 
       // PHP LINE 1261 or 1338: Process hotspots based on direct_to_next_visiting_place
       let matchingHotspots: any[] = [];
       
       if (directToNextVisitingPlace === 1) {
         // PHP LINE 1262-1336: Process via_route_hotspots, then destination_hotspots
-        this.log(`[fetchSelectedHotspots] direct_to_next_visiting_place=1: Processing VIA → DESTINATION`);
         matchingHotspots = [...viaRouteHotspots, ...destinationHotspots];
       } else if (isAirportArrival) {
         // SPECIAL CASE: Airport arrival routes should use DESTINATION hotspots (city), not SOURCE (airport)
-        this.log(`[fetchSelectedHotspots] direct_to_next_visiting_place=0 + AIRPORT ARRIVAL: Processing DESTINATION → VIA`);
         matchingHotspots = [...destinationHotspots, ...viaRouteHotspots];
       } else {
         // PHP BEHAVIOR: For city-to-city routes with direct=0, use SOURCE + DESTINATION hotspots
         // Route 179 (Chennai → Pondicherry) selects hotspots from BOTH locations
-        this.log(`[fetchSelectedHotspots] direct_to_next_visiting_place=0: Processing SOURCE → DESTINATION → VIA`);
         matchingHotspots = [...sourceLocationHotspots, ...destinationHotspots, ...viaRouteHotspots];
-      }
-
-      this.log(
-        `[fetchSelectedHotspots] Matched ${matchingHotspots.length} hotspots after PHP ordering`,
-      );
-
-      // Log first few matched hotspots with their priorities and distances
-      if (matchingHotspots.length > 0) {
-        this.log(
-          `[fetchSelectedHotspots] First 5 hotspots (sorted): ${matchingHotspots.slice(0, 5).map((h: any) => 
-            `ID=${h.hotspot_ID} "${h.hotspot_name}" priority=${h.hotspot_priority || 0} distance=${h.hotspot_distance.toFixed(2)}km`
-          ).join(', ')}`,
-        );
       }
 
       // De-duplicate by hotspot_ID and keep first occurrence
@@ -1064,10 +879,6 @@ export class TimelineBuilder {
         seen.add(id);
         uniqueHotspots.push(h);
       }
-
-      this.log(
-        `[fetchSelectedHotspots] Matched ${uniqueHotspots.length} hotspots for route ${routeId}`,
-      );
 
       return uniqueHotspots.map((h: any, index: number) => ({
         hotspot_ID: Number(h.hotspot_ID ?? 0) || 0,

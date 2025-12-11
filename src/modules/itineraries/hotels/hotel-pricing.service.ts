@@ -79,7 +79,7 @@ export class HotelPricingService {
     if (cityTrim) {
       const cityCandidates = [cityTrim, cityTrim.toUpperCase(), cityTrim.toLowerCase()];
       for (const c of cityCandidates) {
-        const hotel = await this.prisma.dvi_hotel.findFirst({
+        const hotels = await this.prisma.dvi_hotel.findMany({
           where: { ...whereBase, hotel_city: c },
           select: {
             hotel_id: true,
@@ -89,17 +89,17 @@ export class HotelPricingService {
             hotel_hotspot_status: true,
             hotel_city: true,
           },
-          orderBy: { hotel_id: "asc" },
         });
 
-        this.log.debug(
-          `pickHotelByCategory(cat=${hotelCategory}, city='${c}') -> ${hotel ? hotel.hotel_id : "null"}`,
-        );
-        if (hotel) return hotel;
+        if (hotels.length > 0) {
+          // Pick random hotel to match PHP behavior
+          const hotel = hotels[Math.floor(Math.random() * hotels.length)];
+          return hotel;
+        }
       }
     }
 
-    const fallback = await this.prisma.dvi_hotel.findFirst({
+    const fallbacks = await this.prisma.dvi_hotel.findMany({
       where: whereBase,
       select: {
         hotel_id: true,
@@ -109,12 +109,12 @@ export class HotelPricingService {
         hotel_hotspot_status: true,
         hotel_city: true,
       },
-      orderBy: { hotel_id: "asc" },
     });
 
-    this.log.debug(
-      `pickHotelByCategory(fallback, cat=${hotelCategory}, city='${cityTrim}') -> ${fallback ? fallback.hotel_id : "null"}`,
-    );
+    const fallback = fallbacks.length > 0 
+      ? fallbacks[Math.floor(Math.random() * fallbacks.length)] 
+      : null;
+
     return fallback;
   }
 

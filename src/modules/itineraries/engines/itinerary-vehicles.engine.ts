@@ -241,8 +241,6 @@ export class ItineraryVehiclesEngine {
       }
     }
 
-    this.log("ROUTE_KM_MAP_BUILT", Object.fromEntries(routeKmMap));
-
     return routeKmMap;
   }
 
@@ -263,8 +261,6 @@ export class ItineraryVehiclesEngine {
     if (!Number.isFinite(planId) || planId <= 0) {
       return { planId, inserted: 0, reason: "Invalid planId" };
     }
-
-    this.log("INPUT_ARGS", { planId, createdBy });
 
     // use plain client (no $transaction) for now
     const tx: any = this.prisma;
@@ -293,7 +289,6 @@ export class ItineraryVehiclesEngine {
         no_of_days: true,
       },
     });
-    this.log("PLAN_FETCHED", plan);
 
     if (!plan) return { planId, inserted: 0, reason: "Plan not found" };
 
@@ -322,7 +317,6 @@ export class ItineraryVehiclesEngine {
       },
       orderBy: { itinerary_route_ID: "asc" },
     });
-    this.log("ROUTES_FETCHED", { count: routes.length, routes });
 
     const locationTokens = Array.from(
       new Set(
@@ -334,7 +328,6 @@ export class ItineraryVehiclesEngine {
           .filter((v: string) => v.length > 0),
       ),
     );
-    this.log("ROUTE_LOCATION_TOKENS", locationTokens);
 
     // ---------------------------------------------------------------------
     // 1.1) Build eligible cities from dvi_stored_locations (PHP UNION parity)
@@ -362,7 +355,6 @@ export class ItineraryVehiclesEngine {
           source_location_city: true,
         },
       });
-      this.log("STORED_LOCATIONS_SRC_FETCHED", storedSrcRows);
 
       // 2️⃣ destination_location side
       const storedDestWhere = {
@@ -385,7 +377,6 @@ export class ItineraryVehiclesEngine {
           destination_location_city: true,
         },
       });
-      this.log("STORED_LOCATIONS_DEST_FETCHED", storedDestRows);
 
       const citySet = new Set<string>();
 
@@ -401,8 +392,6 @@ export class ItineraryVehiclesEngine {
 
       eligibleCities = Array.from(citySet);
     }
-
-    this.log("ELIGIBLE_CITIES", eligibleCities);
 
     const eligibleCityTokensLower = eligibleCities.map((c) => c.toLowerCase());
 
@@ -446,7 +435,6 @@ export class ItineraryVehiclesEngine {
       where: reqWhere,
       select: { vehicle_type_id: true, vehicle_count: true },
     });
-    this.log("PLAN_VEHICLE_DETAILS_FETCHED", reqRows);
 
     if (!reqRows.length) {
       return { planId, inserted: 0, reason: "No vehicle requirements in plan" };
@@ -464,16 +452,6 @@ export class ItineraryVehiclesEngine {
       return { planId, inserted: 0, reason: "No positive vehicle counts" };
     }
 
-    this.log("REQUIRED_SUMMARY", {
-      planId,
-      totalKmsNum,
-      totalOutstationKmNum,
-      totalTimeStr,
-      noOfDays,
-      required: Array.from(requiredCountByType.entries()),
-      eligibleCities,
-    });
-
     // ---------------------------------------------------------------------
     // 3) Clear existing vendor data for this plan
     // ---------------------------------------------------------------------
@@ -487,7 +465,6 @@ export class ItineraryVehiclesEngine {
       await tx.dvi_itinerary_plan_vendor_eligible_list.deleteMany({
         where: delEligibleWhere,
       });
-    this.log("ELIGIBLE_DELETED", delEligibleRes);
 
     if (tAny?.dvi_itinerary_plan_vendor_vehicle_details) {
       const delDetailsWhere: any = { itinerary_plan_id: planId };
@@ -500,7 +477,6 @@ export class ItineraryVehiclesEngine {
         await tAny.dvi_itinerary_plan_vendor_vehicle_details.deleteMany({
           where: delDetailsWhere,
         });
-      this.log("VENDOR_VEHICLE_DETAILS_DELETED", delDetailsRes);
     }
 
     const kmsLimitCache = new Map<string, { kmsLimitId: number; allowedKmPerDayNum: number }>();
@@ -531,7 +507,6 @@ export class ItineraryVehiclesEngine {
           vehicle_type_id: true,
         },
       });
-      this.log("VENDOR_VEHICLE_TYPES_ROWS_1", mappings);
 
       if (!mappings.length) {
         mappingsWhere = { vendor_vehicle_type_ID: planVehicleTypeId, status: 1 };
@@ -549,7 +524,6 @@ export class ItineraryVehiclesEngine {
             vehicle_type_id: true,
           },
         });
-        this.log("VENDOR_VEHICLE_TYPES_ROWS_2", mappings);
       }
 
       if (!mappings.length) continue;
@@ -559,13 +533,6 @@ export class ItineraryVehiclesEngine {
         const vendorId = Number(map.vendor_id ?? 0);
         const masterVehicleTypeId = Number(map.vehicle_type_id ?? 0);
         if (!vendorVehicleTypeId || !vendorId) continue;
-
-        this.log("VENDOR_VVT_PAIR", {
-          planVehicleTypeId,
-          vendorVehicleTypeId,
-          vendorId,
-          masterVehicleTypeId,
-        });
 
         let allowedBranches: {
           vendor_branch_id: number;
@@ -598,7 +565,6 @@ export class ItineraryVehiclesEngine {
               vendor_branch_location: true,
             },
           });
-          this.log("VENDOR_BRANCHES_FETCHED_FILTERED", allowedBranches);
         } else {
           const branchWhere = {
             vendor_id: vendorId,
@@ -619,13 +585,11 @@ export class ItineraryVehiclesEngine {
               vendor_branch_location: true,
             },
           });
-          this.log("VENDOR_BRANCHES_FETCHED_NO_FILTER", allowedBranches);
         }
 
         const allowedBranchIds = allowedBranches
           .map((b) => Number(b.vendor_branch_id ?? 0))
           .filter((id) => id > 0);
-        this.log("ALLOWED_BRANCH_IDS", { vendorId, allowedBranchIds });
 
         if (!allowedBranchIds.length) continue;
 
@@ -655,12 +619,6 @@ export class ItineraryVehiclesEngine {
             extra_km_charge: true,
           },
           orderBy: { vehicle_id: "asc" },
-        });
-        this.log("VEHICLES_FETCHED", {
-          vendorId,
-          vendorVehicleTypeId,
-          count: vehicles.length,
-          vehicles,
         });
 
         if (!vehicles.length) continue;
@@ -703,7 +661,6 @@ export class ItineraryVehiclesEngine {
 
             currentQty = await getPhpTotalVehicleQty(tx, qtyWhere);
             existingQtyCache.set(comboKey, currentQty);
-            this.log("CURRENT_QTY_COMPUTED", { comboKey, currentQty });
           }
 
           const kmsKey = `${vendorId}:${vendorVehicleTypeId}`;
@@ -730,7 +687,6 @@ export class ItineraryVehiclesEngine {
               select: { kms_limit_id: true, kms_limit: true },
               orderBy: { kms_limit_id: "desc" },
             });
-            this.log("KMS_LIMIT_ROW_1", kmsLimit);
 
             if (!kmsLimit) {
               const kmsWhere2 = {
@@ -753,7 +709,6 @@ export class ItineraryVehiclesEngine {
                 select: { kms_limit_id: true, kms_limit: true },
                 orderBy: { kms_limit_id: "desc" },
               });
-              this.log("KMS_LIMIT_ROW_2", kmsLimit);
             }
 
             kms = {
@@ -762,7 +717,6 @@ export class ItineraryVehiclesEngine {
             };
             kmsLimitCache.set(kmsKey, kms);
           }
-          this.log("KMS_LIMIT_CACHE", { kmsKey, kms });
 
           const allowedKmPerDayNum = kms.allowedKmPerDayNum;
           const totalAllowedKmsNum =
@@ -802,7 +756,6 @@ export class ItineraryVehiclesEngine {
               let pb = await tx.dvi_vehicle_outstation_price_book.findFirst({
                 where: pbWhere1,
               });
-              this.log("OUTSTATION_PRICE_BOOK_ROW_1", pb);
 
               if (!pb) {
                 const pbWhere2 = {
@@ -827,16 +780,10 @@ export class ItineraryVehiclesEngine {
                 pb = await tx.dvi_vehicle_outstation_price_book.findFirst({
                   where: pbWhere2,
                 });
-                this.log("OUTSTATION_PRICE_BOOK_ROW_2", pb);
               }
 
               const col = `day_${dayOfMonth}`;
               rentalPerDayNum = toNum((pb as any)?.[col]);
-              this.log("OUTSTATION_PRICE_BOOK_VALUE", {
-                pbKey,
-                col,
-                rentalPerDayNum,
-              });
             }
 
             priceBookCache.set(pbKey, rentalPerDayNum);
@@ -931,13 +878,6 @@ export class ItineraryVehiclesEngine {
             deleted: 0,
           };
 
-          this.log("ELIGIBLE_ROW_BASEDATA", {
-            comboKey,
-            currentQty,
-            requiredCount,
-            baseData,
-          });
-
           if (currentQty < requiredCount) {
             this.logSql(
               "ELIGIBLE_INSERT",
@@ -953,21 +893,12 @@ export class ItineraryVehiclesEngine {
                 data: baseData,
                 select: { itinerary_plan_vendor_eligible_ID: true },
               });
-            this.log("ELIGIBLE_CREATED", {
-              planId,
-              comboKey,
-              createdEligible,
-            });
 
             inserted++;
             vendorIdsUsed.add(vendorId);
 
             currentQty += 1;
             existingQtyCache.set(comboKey, currentQty);
-            this.log("ELIGIBLE_QTY_AFTER_INSERT", {
-              comboKey,
-              currentQty,
-            });
           } else {
             const updateWhere = {
               itinerary_plan_id: planId,
@@ -992,14 +923,12 @@ export class ItineraryVehiclesEngine {
                 where: updateWhere,
                 data: updateData,
               });
-            this.log("ELIGIBLE_UPDATED", { updateWhere, updRes });
           }
         }
       }
     }
 
     const vendorIdList = Array.from(vendorIdsUsed);
-    this.log("VENDORS_USED", vendorIdList);
 
     if (vendorIdList.length > 0) {
       const delWhere = {
@@ -1015,7 +944,6 @@ export class ItineraryVehiclesEngine {
         await tx.dvi_itinerary_plan_vendor_eligible_list.deleteMany({
           where: delWhere,
         });
-      this.log("ELIGIBLE_UNUSED_VENDORS_DELETED", delRes);
     } else {
       const delAllWhere = { itinerary_plan_id: planId };
       this.logSql(
@@ -1027,7 +955,6 @@ export class ItineraryVehiclesEngine {
         await tx.dvi_itinerary_plan_vendor_eligible_list.deleteMany({
           where: delAllWhere },
       );
-      this.log("ELIGIBLE_ALL_DELETED", delAllRes);
     }
 
     const resetWhere = { itinerary_plan_id: planId };
@@ -1046,7 +973,6 @@ export class ItineraryVehiclesEngine {
         where: resetWhere,
         data: resetData,
       });
-    this.log("ELIGIBLE_RESET_ASSIGNED_RESULT", resetRes);
 
     for (const [planVehicleTypeId, requiredCount] of requiredCountByType.entries()) {
       const picksWhere = {
@@ -1079,11 +1005,6 @@ export class ItineraryVehiclesEngine {
           take: Math.max(0, requiredCount),
           select: { itinerary_plan_vendor_eligible_ID: true },
         });
-      this.log("ELIGIBLE_CHEAPEST_PICKS", {
-        vehicle_type_id: planVehicleTypeId,
-        requiredCount,
-        picks,
-      });
 
       const ids = picks
         .map((p: any) => Number(p.itinerary_plan_vendor_eligible_ID ?? 0))
@@ -1109,7 +1030,6 @@ export class ItineraryVehiclesEngine {
             where: markWhere,
             data: markData },
         );
-        this.log("ELIGIBLE_MARK_ASSIGNED_RESULT", markRes);
       }
     }
 
@@ -1126,7 +1046,6 @@ export class ItineraryVehiclesEngine {
       await tx.dvi_itinerary_plan_vendor_eligible_list.deleteMany({
         where: cleanWhere },
     );
-    this.log("ELIGIBLE_UNUSED_TYPES_DELETED", cleanRes);
 
     // ---------------------------------------------------------------------
     // BUILD dvi_itinerary_plan_vendor_vehicle_details
@@ -1143,7 +1062,6 @@ export class ItineraryVehiclesEngine {
         await tAny.dvi_itinerary_plan_vendor_vehicle_details.deleteMany({
           where: delDetailsWhere2 },
       );
-      this.log("VENDOR_VEHICLE_DETAILS_DELETED_2", delDetRes2);
 
       const eligiblesWhere = {
         itinerary_plan_id: planId,
@@ -1164,13 +1082,11 @@ export class ItineraryVehiclesEngine {
         await tx.dvi_itinerary_plan_vendor_eligible_list.findMany({
           where: eligiblesWhere },
       );
-      this.log("ELIGIBLES_FOR_DETAILS", eligibles);
 
       const travelType = Number(plan.itinerary_type ?? 0) || 2; // 1=local, 2=outstation
 
       // keep helper call for logging / debugging (no hotspot override)
       const routeKmMap = await this.buildRouteKmMap(tx, planId, routes);
-      this.log("ROUTE_KM_MAP_FOR_DETAILS", Object.fromEntries(routeKmMap));
 
       for (const e of eligibles) {
         const eligibleId = Number(e.itinerary_plan_vendor_eligible_ID ?? 0);
@@ -1190,16 +1106,6 @@ export class ItineraryVehiclesEngine {
         const vehicleGrandTotalNum = toNum(
           e.vehicle_grand_total || e.vehicle_total_amount,
         );
-
-        this.log("DETAILS_ELIGIBLE_ROW", {
-          eligibleId,
-          vehicleTypeId,
-          vendorId,
-          vvtId,
-          vehicleId,
-          vendorBranchId,
-          qty,
-        });
 
         const planExtraKmNum = totalExtraKmsNum;
         // PHP: extra km duplicated per route
@@ -1289,22 +1195,15 @@ export class ItineraryVehiclesEngine {
             ),
             { data: detailsData },
           );
-          this.log("VENDOR_VEHICLE_DETAILS_INSERT_DATA", detailsData);
 
           const createdDetails =
             await tAny.dvi_itinerary_plan_vendor_vehicle_details.create({
               data: detailsData,
             });
-          this.log("VENDOR_VEHICLE_DETAILS_CREATED", {
-            eligibleId,
-            routeId,
-            createdDetails,
-          });
         }
       }
     }
 
-    this.log("FINAL_RESULT", { planId, inserted });
     return { planId, inserted };
   }
 }
