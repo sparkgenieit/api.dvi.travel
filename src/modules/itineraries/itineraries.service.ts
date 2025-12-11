@@ -89,7 +89,7 @@ export class ItinerariesService {
         message:
           "Plan created/updated with routes, vehicles, travellers, hotspots, and hotels.",
       };
-    }, { timeout: 30000, maxWait: 5000 });
+    }, { timeout: 60000, maxWait: 10000 });
 
     // Rebuild vendor eligible list and vendor vehicle details AFTER transaction completes
     // (requires committed routes & hotspots data)
