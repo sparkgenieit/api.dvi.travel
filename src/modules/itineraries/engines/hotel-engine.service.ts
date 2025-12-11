@@ -69,12 +69,13 @@ export class HotelEngineService {
       const routeDate = r.itinerary_route_date ? new Date(r.itinerary_route_date) : new Date();
       const city = r.location_name;
 
-      // Pick hotel for this location
-      const hotel = await this.hotelPricing.pickHotelByCategory(preferredCategory, city);
-      
-      if (!hotel) {
-        // No hotel found, create placeholder
-        for (const groupType of [1, 2, 3, 4]) {
+      // PHP picks a DIFFERENT hotel for EACH group_type!
+      for (const groupType of [1, 2, 3, 4]) {
+        // Pick hotel for this location + group
+        const hotel = await this.hotelPricing.pickHotelByCategory(preferredCategory, city);
+        
+        if (!hotel) {
+          // No hotel found, create placeholder
           await (tx as any).dvi_itinerary_plan_hotel_room_details.create({
             data: {
               itinerary_plan_id: planId,
@@ -111,20 +112,17 @@ export class HotelEngineService {
               deleted: 0,
             },
           });
+          continue;
         }
-        continue;
-      }
 
-      const hotelId = hotel.hotel_id;
+        const hotelId = hotel.hotel_id;
 
-      // Get room prices for this hotel and date
-      const roomPrices = await this.hotelPricing.getRoomPrices(hotelId, routeDate);
-      
-      // Get meal prices
-      const mealPrices = await this.hotelPricing.getMealPrice(hotelId, routeDate);
+        // Get room prices for this hotel and date
+        const roomPrices = await this.hotelPricing.getRoomPrices(hotelId, routeDate);
+        
+        // Get meal prices
+        const mealPrices = await this.hotelPricing.getMealPrice(hotelId, routeDate);
 
-      // For each group type, create room details
-      for (const groupType of [1, 2, 3, 4]) {
         // Pick first available room with a rate (PHP behavior)
         const roomPrice = roomPrices.find(rp => rp.rate > 0) || roomPrices[0] || { room_id: 0, rate: 0 };
         
