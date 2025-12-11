@@ -845,9 +845,23 @@ export class ItineraryVehiclesEngine {
           if (!rentalPerDayNum || rentalPerDayNum === 0) continue;
 
           const totalRentalNum = rentalPerDayNum * noOfDays;
-          // Calculate toll, parking, permit charges (will aggregate from route hotspots later)
+          
+          // Aggregate parking charges from hotspot parking charge table
+          const parkingAgg = await (tx as any).dvi_itinerary_route_hotspot_parking_charge.aggregate({
+            where: {
+              itinerary_plan_ID: planId,
+              vehicle_type: planVehicleTypeId,
+              status: 1,
+              deleted: 0,
+            },
+            _sum: {
+              parking_charges_amt: true,
+            },
+          });
+          const totalParkingCharges = Number(parkingAgg._sum?.parking_charges_amt || 0);
+          
+          // TODO: Add toll and permit charge aggregation when available
           const totalTollCharges = 0;
-          const totalParkingCharges = 0;
           const totalDriverCharges = 0;
           const totalPermitCharges = 0;
 
