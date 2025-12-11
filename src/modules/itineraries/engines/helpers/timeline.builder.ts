@@ -468,6 +468,9 @@ export class TimelineBuilder {
         }
 
         // 2.c) Build TRAVEL SEGMENT (item_type = 3)
+        // PHP BEHAVIOR: Travel and Visit segments share the SAME hotspot_order
+        const currentOrder = order;
+        
         const travelLocationType = this.getTravelLocationType(
           currentLocationName,
           hotspotLocationName,
@@ -479,7 +482,7 @@ export class TimelineBuilder {
           await this.travelBuilder.buildTravelSegment(tx, {
             planId,
             routeId: route.itinerary_route_ID,
-            order: order++,
+            order: currentOrder, // Use current order without incrementing
             item_type: 3, // Site Seeing Traveling
             travelLocationType,
             startTime: currentTime,
@@ -504,7 +507,7 @@ export class TimelineBuilder {
           await this.hotspotBuilder.build(tx, {
             planId,
             routeId: route.itinerary_route_ID,
-            order: order++,
+            order: currentOrder, // Use same order as travel segment
             hotspotId: sh.hotspot_ID,
             startTime: currentTime,
             userId: createdByUserId,
@@ -524,6 +527,9 @@ export class TimelineBuilder {
         // Mark this hotspot as added to prevent duplicates in subsequent routes
         addedHotspotIds.add(sh.hotspot_ID);
         
+        // NOW increment order after both travel and visit are added
+        order++;
+        
         currentTime = tAfterHotspot;
         // currentLocationName remains at the hotspot.
 
@@ -542,6 +548,9 @@ export class TimelineBuilder {
 
       // 3) TRAVEL TO HOTEL (item_type = 5)
       // In PHP this uses the chosen hotel for that route/date.
+      // PHP BEHAVIOR: Hotel travel (type 5) and hotel closing (type 6) share the same order
+      const hotelOrder = order;
+      
       const hotelLocationName =
         (await this.getHotelLocationNameForRoute(
           tx,
@@ -555,7 +564,7 @@ export class TimelineBuilder {
         await this.hotelBuilder.buildToHotel(tx, {
           planId,
           routeId: route.itinerary_route_ID,
-          order: order++,
+          order: hotelOrder,
           startTime: currentTime,
           travelLocationType: 1, // TODO: local vs outstation if needed
           userId: createdByUserId,
@@ -573,12 +582,13 @@ export class TimelineBuilder {
         await this.hotelBuilder.buildReturnToHotel(tx, {
           planId,
           routeId: route.itinerary_route_ID,
-          order: order++,
+          order: hotelOrder, // Use same order as hotel travel
           startTime: currentTime,
           userId: createdByUserId,
         });
 
       hotspotRows.push(closeHotelRow);
+      order++; // Increment order after both hotel rows added
       currentTime = tClose;
       // currentLocationName stays at hotel.
 
