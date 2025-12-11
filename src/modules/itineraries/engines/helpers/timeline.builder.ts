@@ -874,15 +874,20 @@ export class TimelineBuilder {
         const isPrimaryDestination = primaryLocation === (nextLocation || '').trim().toLowerCase();
 
         // PHP BEHAVIOR: Add to source and/or destination based on location match
-        // Hotspots can be in BOTH lists (will be deduplicated later)
-        if (matchesSource) {
+        // CRITICAL PHP LOGIC: Hotspots can be in BOTH lists (will be deduplicated later)
+        // However, if a hotspot matches destination as PRIMARY, prefer adding it to DESTINATION only
+        // to maintain proper concatenation order (SOURCE + DESTINATION)
+        const shouldAddToSource = matchesSource && !(matchesDestination && isPrimaryDestination);
+        const shouldAddToDestination = matchesDestination;
+
+        if (shouldAddToSource) {
           sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource, isOnlyLocation });
           this.log(
             `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → SOURCE (matches "${targetLocation}"${isPrimarySource ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
           );
         }
         
-        if (matchesDestination) {
+        if (shouldAddToDestination) {
           destinationHotspots.push({ ...hotspotWithDistance, isPrimaryDestination, isOnlyLocation });
           this.log(
             `[fetchSelectedHotspots] Hotspot ${h.hotspot_ID} "${h.hotspot_name}" → DESTINATION (matches "${nextLocation}"${isPrimaryDestination ? ' - PRIMARY' : ''}${isOnlyLocation ? ' - ONLY' : ''})`,
@@ -992,31 +997,6 @@ export class TimelineBuilder {
         seen.add(id);
         uniqueHotspots.push(h);
       }
-
-      // PHP BEHAVIOR: After merging and de-duplication, re-sort by priority and distance
-      // This ensures proper priority ordering across all categories (SOURCE + DESTINATION + VIA)
-      uniqueHotspots.sort((a: any, b: any) => {
-        const aPriority = Number(a.hotspot_priority ?? 0);
-        const bPriority = Number(b.hotspot_priority ?? 0);
-        
-        // Priority-0 hotspots go last
-        if (aPriority === 0 && bPriority !== 0) return 1;
-        if (aPriority !== 0 && bPriority === 0) return -1;
-        
-        // Then by priority
-        if (aPriority !== bPriority) return aPriority - bPriority;
-        
-        // For same priority, prefer PRIMARY location match
-        const aIsPrimary = a.isPrimaryDestination || a.isPrimarySource;
-        const bIsPrimary = b.isPrimaryDestination || b.isPrimarySource;
-        if (aIsPrimary && !bIsPrimary) return -1;
-        if (!aIsPrimary && bIsPrimary) return 1;
-        
-        // Finally by distance (with safety check for undefined/NaN)
-        const aDist = Number(a.hotspot_distance) || 0;
-        const bDist = Number(b.hotspot_distance) || 0;
-        return aDist - bDist;
-      });
 
       this.log(
         `[fetchSelectedHotspots] Matched ${uniqueHotspots.length} hotspots for route ${routeId}`,
