@@ -874,33 +874,6 @@ export class TimelineBuilder {
         }
       }
 
-      // PHP BEHAVIOR: Filter destination hotspots whose FIRST location contains "Airport"
-      // when the target destination (next_visiting_location) does not contain "Airport"
-      // Example: Route "Chennai → Pondicherry" should NOT include hotspot with location "Pondicherry Airport|Pondicherry"
-      // because the first location mentions Airport but the route ends at Pondicherry (not airport)
-      if (!nextLocation.toLowerCase().includes('airport')) {
-        const beforeFilter = destinationHotspots.length;
-        destinationHotspots = destinationHotspots.filter((h: any) => {
-          const locations = h.hotspot_location?.split('|') || [];
-          const firstLocation = locations[0]?.trim() || '';
-          const includesAirport = firstLocation.toLowerCase().includes('airport');
-          
-          if (includesAirport) {
-            this.log(
-              `[fetchSelectedHotspots] Filtered destination H${h.hotspot_ID} "${h.hotspot_name}" - first location "${firstLocation}" contains Airport but route ends at "${nextLocation}"`,
-            );
-            return false;
-          }
-          return true;
-        });
-        const afterFilter = destinationHotspots.length;
-        if (beforeFilter > afterFilter) {
-          this.log(
-            `[fetchSelectedHotspots] Filtered ${beforeFilter - afterFilter} Airport-prefixed DESTINATION hotspots (${beforeFilter} → ${afterFilter})`,
-          );
-        }
-      }
-
       this.log(
         `[fetchSelectedHotspots] Categorized: source=${sourceLocationHotspots.length}, destination=${destinationHotspots.length}, via=${viaRouteHotspots.length}`,
       );
