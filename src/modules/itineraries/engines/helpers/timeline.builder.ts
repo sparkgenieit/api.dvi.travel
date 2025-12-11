@@ -124,6 +124,7 @@ export class TimelineBuilder {
         hotspot_start_time: true,
         hotspot_end_time: true,
         hotspot_open_all_time: true,
+        hotspot_closed: true,
       },
     });
 
@@ -132,8 +133,17 @@ export class TimelineBuilder {
       return false;
     }
 
+    // Filter out closed records (hotspot_closed=1)
+    const openRecords = timingRecords.filter((t: any) => t.hotspot_closed !== 1);
+    
+    if (openRecords.length === 0) {
+      // All timing records are closed
+      this.log(`[Timeline] Hotspot ${hotspotId} is closed on day ${dayOfWeek}`);
+      return false;
+    }
+
     // Check if open all time
-    const openAllTime = timingRecords.some((t: any) => t.hotspot_open_all_time === 1);
+    const openAllTime = openRecords.some((t: any) => t.hotspot_open_all_time === 1);
     if (openAllTime) {
       return true;
     }
@@ -144,7 +154,7 @@ export class TimelineBuilder {
 
     // PHP Logic: Loop through each set of operating hours
     // Check if BOTH start AND end fall within THE SAME window (no waiting allowed here)
-    for (const timing of timingRecords) {
+    for (const timing of openRecords) {
       if (!timing.hotspot_start_time || !timing.hotspot_end_time) continue;
 
       // IMPORTANT: Convert to UTC like route times (database stores as UTC timestamps)
@@ -746,12 +756,12 @@ export class TimelineBuilder {
       );
 
       // 2) Preload hotspot timings for this day (if available)
+      // PHP uses LEFT JOIN without filtering hotspot_closed - includes all hotspots with timing records
       let allowedHotspotIds: Set<number> | null = null;
       if (phpDow !== undefined) {
         const timingRows = await (tx as any).dvi_hotspot_timing?.findMany({
           where: {
             hotspot_timing_day: phpDow,
-            hotspot_closed: 0, // PHP filters out closed hotspots
             deleted: 0,
             status: 1,
           },
@@ -776,11 +786,11 @@ export class TimelineBuilder {
 
       // 3b) Fetch operating hours for all hotspots to enable time-aware sorting
       // PHP behavior: sortHotspots() re-orders to prioritize time-critical hotspots
+      // Include all timing records (even closed) - checkHotspotOperatingHours will filter later
       const hotspotTimings = phpDow !== undefined
         ? await (tx as any).dvi_hotspot_timing?.findMany({
             where: {
               hotspot_timing_day: phpDow,
-              hotspot_closed: 0, // Exclude closed hotspots
               deleted: 0,
               status: 1,
             },
