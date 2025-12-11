@@ -993,10 +993,6 @@ export class TimelineBuilder {
         uniqueHotspots.push(h);
       }
 
-      // PHP BEHAVIOR: Re-sort the combined list by priority and distance
-      // This ensures proper ordering when source and destination hotspots are mixed
-      sortHotspots(uniqueHotspots, true);
-
       this.log(
         `[fetchSelectedHotspots] Matched ${uniqueHotspots.length} hotspots for route ${routeId}`,
       );
