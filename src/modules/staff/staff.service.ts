@@ -284,82 +284,84 @@ export class StaffService {
   }
 
   async create(input: {
-    agentId: number;
-    staffName: string;
-    staffMobile: string;
-    staffEmail: string;
-    roleId: number;
-    status?: number;
-    loginEmail?: string;
-    password?: string;
-    createdBy?: number;
-  }): Promise<StaffView> {
-    const {
-      agentId,
-      staffName,
-      staffMobile,
-      staffEmail,
-      roleId,
-      status = 1,
-      loginEmail,
-      password,
-      createdBy = 1,
-    } = input;
+  agentId: number;
+  staffName: string;
+  staffMobile: string;
+  staffEmail: string;
+  roleId: number;
+  status?: number;
+  loginEmail?: string;
+  password?: string;
+  createdBy?: number;
+}): Promise<StaffView> {
+  const {
+    agentId,
+    staffName,
+    staffMobile,
+    staffEmail,
+    roleId,
+    status = 1,
+    loginEmail,
+    password,
+    createdBy = 1,
+  } = input;
 
-    await this.assertUniqueEmailMobile(agentId, staffEmail, staffMobile);
+  await this.assertUniqueEmailMobile(agentId, staffEmail, staffMobile);
 
-    if (loginEmail || password) {
-      if (!loginEmail) throw new BadRequestException('loginEmail required when creating a login');
-      if (!password) throw new BadRequestException('password required when creating a login');
-      await this.assertUniqueLoginEmail(loginEmail);
-    }
+  if (loginEmail || password) {
+    if (!loginEmail) throw new BadRequestException('loginEmail required when creating a login');
+    if (!password) throw new BadRequestException('password required when creating a login');
+    await this.assertUniqueLoginEmail(loginEmail);
+  }
 
-    const now = new Date();
+  const now = new Date();
 
-    const { staff, login } = await this.prisma.$transaction(async (tx: Tx) => {
-      const staff = await tx.dvi_staff_details.create({
+  const { staff, login } = await this.prisma.$transaction(async (tx: Tx) => {
+    // ⬇️ Do NOT set updatedon here (omit the field) so it becomes NULL
+    const staff = await tx.dvi_staff_details.create({
+      data: {
+        agent_id: agentId,
+        staff_name: staffName,
+        staff_mobile: staffMobile,
+        staff_email: staffEmail,
+        roleID: roleId,
+        status,
+        deleted: 0,
+        createdby: createdBy || 1,
+        createdon: now as any,
+        // updatedon: null ← removed to satisfy TS and let DB store NULL
+      },
+    });
+
+    let login: any = null;
+    if (loginEmail && password) {
+      const hash = await bcrypt.hash(password, 10);
+      // ⬇️ Same: omit updatedon on create so it’s NULL
+      login = await tx.dvi_users.create({
         data: {
+          staff_id: staff.staff_id,
           agent_id: agentId,
-          staff_name: staffName,
-          staff_mobile: staffMobile,
-          staff_email: staffEmail,
+          useremail: loginEmail,
+          password: hash,
           roleID: roleId,
           status,
           deleted: 0,
-          createdby: createdBy || 1,
+          createdby: BigInt(createdBy || 1),
           createdon: now as any,
-          updatedon: null, // ✅ NULL until edited
+          // updatedon: null ← removed
         },
       });
+    }
 
-      let login: any = null;
-      if (loginEmail && password) {
-        const hash = await bcrypt.hash(password, 10);
-        login = await tx.dvi_users.create({
-          data: {
-            staff_id: staff.staff_id,
-            agent_id: agentId,
-            useremail: loginEmail,
-            password: hash,
-            roleID: roleId,
-            status,
-            deleted: 0,
-            createdby: BigInt(createdBy || 1),
-            createdon: now as any,
-            updatedon: null, // ✅ NULL until edited
-          },
-        });
-      }
+    return { staff, login };
+  });
 
-      return { staff, login };
-    });
-
-    const [roleName, agentName] = await Promise.all([
-      this.getRoleName(Number(staff.roleID)),
-      this.getAgentFullName(Number(staff.agent_id)),
-    ]);
-    return this.mapStaff({ ...staff, login, roleName, agentName });
-  }
+  const [roleName, agentName] = await Promise.all([
+    this.getRoleName(Number(staff.roleID)),
+    this.getAgentFullName(Number(staff.agent_id)),
+  ]);
+  return this.mapStaff({ ...staff, login, roleName, agentName });
+}
 
   async update(
     staffId: number,
