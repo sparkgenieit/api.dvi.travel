@@ -950,14 +950,24 @@ export async function calculateRouteVehicleDetails(
 
   // Calculate total travelling time from route start and end times
   if (route.route_start_time && route.route_end_time) {
-    const startTime = new Date(route.route_start_time);
-    const endTime = new Date(route.route_end_time);
-    const diffMs = endTime.getTime() - startTime.getTime();
-    if (diffMs > 0) {
-      const hours = Math.floor(diffMs / (1000 * 60 * 60));
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-      TOTAL_TRAVELLING_TIME = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    try {
+      // Times come from DB as Date objects or strings like '11:00:00'
+      // We need to create full Date objects for today with these times
+      const today = new Date().toISOString().split('T')[0]; // Get today's date YYYY-MM-DD
+      const startTime = new Date(`${today}T${route.route_start_time}`);
+      const endTime = new Date(`${today}T${route.route_end_time}`);
+      
+      if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+        const diffMs = endTime.getTime() - startTime.getTime();
+        if (diffMs > 0) {
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+          TOTAL_TRAVELLING_TIME = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+      }
+    } catch (e) {
+      // Ignore date parsing errors
     }
   }
 
