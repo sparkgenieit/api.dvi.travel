@@ -951,14 +951,6 @@ export async function calculateRouteVehicleDetails(
   // Calculate total travelling time from route start and end times
   if (route.route_start_time && route.route_end_time) {
     try {
-      console.log('DEBUG TIME CALC:', {
-        routeId: route.itinerary_route_ID,
-        start_time: route.route_start_time,
-        start_type: typeof route.route_start_time,
-        end_time: route.route_end_time,
-        end_type: typeof route.route_end_time
-      });
-      
       // Times come from DB as Date objects or strings like '11:00:00'
       // We need to create full Date objects for today with these times
       const today = new Date().toISOString().split('T')[0]; // Get today's date YYYY-MM-DD
@@ -977,13 +969,6 @@ export async function calculateRouteVehicleDetails(
       const startTime = new Date(`${today}T${startTimeStr}`);
       const endTime = new Date(`${today}T${endTimeStr}`);
       
-      console.log('DEBUG TIME CALC 2:', {
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        startValid: !isNaN(startTime.getTime()),
-        endValid: !isNaN(endTime.getTime())
-      });
-      
       if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
         const diffMs = endTime.getTime() - startTime.getTime();
         if (diffMs > 0) {
@@ -991,19 +976,11 @@ export async function calculateRouteVehicleDetails(
           const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
           TOTAL_TRAVELLING_TIME = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-          console.log('DEBUG TIME RESULT:', TOTAL_TRAVELLING_TIME);
         }
       }
     } catch (e) {
-      console.error('DEBUG TIME ERROR:', e);
       // Ignore date parsing errors
     }
-  } else {
-    console.log('DEBUG TIME MISSING:', {
-      routeId: route.itinerary_route_ID,
-      hasStart: !!route.route_start_time,
-      hasEnd: !!route.route_end_time
-    });
   }
 
   // Calculate toll charges
