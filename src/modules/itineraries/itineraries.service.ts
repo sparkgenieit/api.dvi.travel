@@ -47,8 +47,12 @@ export class ItinerariesService {
         userId,
       );
 
+      console.log('[ItinerariesService] Routes rebuilt, now rebuilding permit charges...');
+      
       // Rebuild permit charges after routes are created
       await this.routeEngine.rebuildPermitCharges(tx, planId, userId);
+      
+      console.log('[ItinerariesService] Permit charges rebuilt');
 
       await this.planEngine.updateNoOfRoutes(planId, tx);
 

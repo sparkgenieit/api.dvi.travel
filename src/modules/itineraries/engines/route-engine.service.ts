@@ -302,6 +302,8 @@ export class RouteEngineService {
   // PERMIT CHARGES POPULATION (PHP PARITY)
   // ---------------------------------------------------------------------------
   async rebuildPermitCharges(tx: Tx, planId: number, userId: number): Promise<void> {
+    console.log(`[rebuildPermitCharges] Starting for plan ${planId}`);
+    
     // Delete existing permit charges for this plan
     await (tx as any).dvi_itinerary_plan_route_permit_charge.deleteMany({
       where: { itinerary_plan_ID: planId },
@@ -322,45 +324,127 @@ export class RouteEngineService {
       },
     });
 
+    console.log(`[rebuildPermitCharges] Found ${routes.length} routes`);
+
+    // Get all eligible vendors/vehicles for this plan
+    const eligibleVehicles = await (tx as any).dvi_itinerary_plan_vendor_eligible_list.findMany({
+      where: {
+        itinerary_plan_id: planId,
+        status: 1,
+        deleted: 0,
+      },
+      select: {
+        vendor_id: true,
+        vendor_vehicle_type_id: true,
+        vehicle_id: true,
+      },
+    });
+
+    console.log(`[rebuildPermitCharges] Found ${eligibleVehicles.length} eligible vehicles`);
+
     const permitRows = [];
+    // Track vendor/state pairs to avoid duplicates (PHP parity: one permit per vendor per state pair)
+    const addedPermits = new Set<string>();
 
     for (const route of routes) {
-      // Get state IDs for source and destination
-      const sourceState = await this.getLocationState(tx, route.location_name);
+      console.log(`[rebuildPermitCharges] Route ${route.itinerary_route_ID}: ${route.location_name} → ${route.next_visiting_location}`);
+      
+      // Get destination state for this route
       const destState = await this.getLocationState(tx, route.next_visiting_location);
 
-      if (!sourceState || !destState || sourceState === destState) {
-        // No state crossing, no permit needed
+      if (!destState) {
+        console.log(`[rebuildPermitCharges] Skipping - no destination state found`);
         continue;
       }
 
-      // Find all permit costs for this state pair
-      const permitCosts = await (tx as any).dvi_permit_cost.findMany({
-        where: {
-          source_state_id: sourceState,
-          destination_state_id: destState,
-          status: 1,
-          deleted: 0,
-        },
-        select: {
-          vendor_id: true,
-          vehicle_type_id: true,
-          permit_cost: true,
-        },
-      });
+      console.log(`[rebuildPermitCharges] Destination state: ${destState}`);
 
-      // Insert permit charges for this route
-      for (const cost of permitCosts) {
+      // PHP parity: For each eligible vehicle, check if vehicle's registration state != destination state
+      for (const eligibleVehicle of eligibleVehicles) {
+        // Get vehicle details including registration number
+        const vehicle = await (tx as any).dvi_vehicle.findUnique({
+          where: { vehicle_id: eligibleVehicle.vehicle_id },
+          select: {
+            registration_number: true,
+          },
+        });
+
+        if (!vehicle?.registration_number) {
+          console.log(`[rebuildPermitCharges] Skipping vehicle ${eligibleVehicle.vehicle_id} - no registration`);
+          continue;
+        }
+
+        // Extract state code from registration (first 2 characters)
+        // PHP: $state_code = substr($registration_number, 0, 2);
+        const stateCode = vehicle.registration_number.substring(0, 2);
+
+        // Get vehicle's registration state from permit_state table
+        const vehicleState = await (tx as any).dvi_permit_state.findFirst({
+          where: {
+            state_code: stateCode,
+            deleted: 0,
+            status: 1,
+          },
+          select: { permit_state_id: true },
+        });
+
+        if (!vehicleState) {
+          console.log(`[rebuildPermitCharges] Skipping vehicle ${vehicle.registration_number} - state code "${stateCode}" not found`);
+          continue;
+        }
+
+        const vehicleStateId = Number(vehicleState.permit_state_id);
+
+        console.log(`[rebuildPermitCharges] Vehicle ${vehicle.registration_number}: state=${vehicleStateId}, dest=${destState}`);
+
+        // PHP parity: If vehicle state == destination state, permit cost = 0 (no permit needed)
+        if (vehicleStateId === destState) {
+          console.log(`[rebuildPermitCharges] Same state - no permit needed`);
+          continue;
+        }
+
+        // PHP parity: source_state_id = vehicle registration state, destination_state_id = route destination
+        // SELECT * FROM dvi_permit_cost WHERE vendor_id=... AND vehicle_type_id=... 
+        //   AND source_state_id='$vehicle_state_id' AND destination_state_id='$destination_state_id'
+        const permitCost = await (tx as any).dvi_permit_cost.findFirst({
+          where: {
+            vendor_id: eligibleVehicle.vendor_id,
+            vehicle_type_id: eligibleVehicle.vendor_vehicle_type_id,
+            source_state_id: vehicleStateId,
+            destination_state_id: destState,
+            status: 1,
+            deleted: 0,
+          },
+          select: {
+            permit_cost: true,
+          },
+        });
+
+        if (!permitCost) {
+          console.log(`[rebuildPermitCharges] No permit cost found for vendor ${eligibleVehicle.vendor_id}, vehicle type ${eligibleVehicle.vendor_vehicle_type_id}, ${vehicleStateId}→${destState}`);
+          continue;
+        }
+
+        console.log(`[rebuildPermitCharges] ✓ Permit cost: ${permitCost.permit_cost}`);
+
+        // PHP parity: Only create one permit per vendor per state pair
+        const permitKey = `${eligibleVehicle.vendor_id}-${vehicleStateId}-${destState}`;
+        if (addedPermits.has(permitKey)) {
+          console.log(`[rebuildPermitCharges] Skipping duplicate permit for vendor ${eligibleVehicle.vendor_id}`);
+          continue;
+        }
+        addedPermits.add(permitKey);
+
         permitRows.push({
           itinerary_plan_ID: planId,
           itinerary_route_ID: route.itinerary_route_ID,
           itinerary_route_date: route.itinerary_route_date,
-          vendor_id: cost.vendor_id,
-          vendor_branch_id: 0, // TODO: Get actual vendor branch
-          vendor_vehicle_type_id: cost.vehicle_type_id,
-          source_state_id: sourceState,
+          vendor_id: eligibleVehicle.vendor_id,
+          vendor_branch_id: 0,
+          vendor_vehicle_type_id: eligibleVehicle.vendor_vehicle_type_id,
+          source_state_id: vehicleStateId,
           destination_state_id: destState,
-          permit_cost: cost.permit_cost,
+          permit_cost: permitCost.permit_cost,
           createdby: userId,
           createdon: new Date(),
           updatedon: null,
@@ -370,6 +454,8 @@ export class RouteEngineService {
       }
     }
 
+    console.log(`[rebuildPermitCharges] Total permit rows to insert: ${permitRows.length}`);
+
     // Insert permit charges
     if (permitRows.length) {
       await (tx as any).dvi_itinerary_plan_route_permit_charge.createMany({
@@ -378,10 +464,13 @@ export class RouteEngineService {
     }
   }
 
-  // Helper to get state ID from location name
+  // Helper to get permit state ID from location name (PHP parity)
   private async getLocationState(tx: Tx, locationName: string): Promise<number | null> {
     try {
-      // First, try to find the location in stored_locations to get the city name
+      console.log(`[getLocationState] Looking up permit state for location: "${locationName}"`);
+
+      // Step 1: Get state NAME from stored_locations (PHP parity)
+      // PHP uses source_location_state and destination_location_state fields
       const stored = await (tx as any).dvi_stored_locations.findFirst({
         where: {
           OR: [
@@ -393,63 +482,77 @@ export class RouteEngineService {
         },
         select: {
           source_location: true,
-          source_location_city: true,
+          source_location_state: true,
           destination_location: true,
-          destination_location_city: true,
+          destination_location_state: true,
         },
       });
 
-      let cityName = null;
+      let stateName = null;
       if (stored) {
-        // Use the appropriate city based on whether this location is source or destination
-        if (stored.source_location === locationName && stored.source_location_city) {
-          cityName = stored.source_location_city;
-        } else if (stored.destination_location === locationName && stored.destination_location_city) {
-          cityName = stored.destination_location_city;
+        // Use the appropriate state based on whether this location is source or destination
+        if (stored.source_location === locationName && stored.source_location_state) {
+          stateName = stored.source_location_state;
+          console.log(`[getLocationState] Found state from source_location_state: "${stateName}"`);
+        } else if (stored.destination_location === locationName && stored.destination_location_state) {
+          stateName = stored.destination_location_state;
+          console.log(`[getLocationState] Found state from destination_location_state: "${stateName}"`);
         }
       }
 
-      // If no city found from stored_locations, try using the location name itself
-      if (!cityName) {
-        cityName = locationName;
+      if (!stateName) {
+        console.log(`[getLocationState] State name not found in stored_locations for: "${locationName}"`);
+        return null;
       }
 
-      // Look up state_id from dvi_cities using the city name
-      // Note: cities table may have status=0, so don't filter by status
-      // Also handle Puducherry/Pondicherry spelling variations
-      let city = await (tx as any).dvi_cities.findFirst({
+      // Step 2: Get permit_state_id from dvi_permit_state table (PHP parity)
+      // PHP: SELECT permit_state_id FROM dvi_permit_state WHERE state_name='...'
+      let permitState = await (tx as any).dvi_permit_state.findFirst({
         where: {
-          name: cityName,
+          state_name: stateName,
           deleted: 0,
+          status: 1,
         },
-        select: { state_id: true },
+        select: { permit_state_id: true },
       });
 
-      // If not found and city name is "Puducherry", try "Pondicherry"
-      if (!city && cityName === 'Puducherry') {
-        city = await (tx as any).dvi_cities.findFirst({
+      // If not found and state is "Pondicherry", try "Puducherry" (spelling variation)
+      if (!permitState && stateName.toLowerCase() === 'pondicherry') {
+        console.log(`[getLocationState] Trying Puducherry spelling variant...`);
+        permitState = await (tx as any).dvi_permit_state.findFirst({
           where: {
-            name: 'Pondicherry',
+            state_name: 'Puducherry',
             deleted: 0,
+            status: 1,
           },
-          select: { state_id: true },
+          select: { permit_state_id: true },
         });
       }
 
-      // If not found and city name is "Pondicherry", try "Puducherry"
-      if (!city && cityName === 'Pondicherry') {
-        city = await (tx as any).dvi_cities.findFirst({
+      // If not found and state is "Puducherry", try "Pondicherry"
+      if (!permitState && stateName.toLowerCase() === 'puducherry') {
+        console.log(`[getLocationState] Trying Pondicherry spelling variant...`);
+        permitState = await (tx as any).dvi_permit_state.findFirst({
           where: {
-            name: 'Puducherry',
+            state_name: 'Pondicherry',
             deleted: 0,
+            status: 1,
           },
-          select: { state_id: true },
+          select: { permit_state_id: true },
         });
       }
 
-      return city?.state_id || null;
+      if (!permitState?.permit_state_id) {
+        console.log(`[getLocationState] Permit state ID not found for state name: "${stateName}"`);
+        return null;
+      }
+
+      const stateId = Number(permitState.permit_state_id);
+      console.log(`[getLocationState] ✓ Result: location="${locationName}" → state_name="${stateName}" → permit_state_id=${stateId}`);
+      return stateId;
+
     } catch (error) {
-      console.error('[getLocationState] Error:', error);
+      console.error(`[getLocationState] Error looking up state for "${locationName}":`, error);
       return null;
     }
   }
