@@ -416,13 +416,36 @@ export class RouteEngineService {
 
       // Look up state_id from dvi_cities using the city name
       // Note: cities table may have status=0, so don't filter by status
-      const city = await (tx as any).dvi_cities.findFirst({
+      // Also handle Puducherry/Pondicherry spelling variations
+      let city = await (tx as any).dvi_cities.findFirst({
         where: {
           name: cityName,
           deleted: 0,
         },
         select: { state_id: true },
       });
+
+      // If not found and city name is "Puducherry", try "Pondicherry"
+      if (!city && cityName === 'Puducherry') {
+        city = await (tx as any).dvi_cities.findFirst({
+          where: {
+            name: 'Pondicherry',
+            deleted: 0,
+          },
+          select: { state_id: true },
+        });
+      }
+
+      // If not found and city name is "Pondicherry", try "Puducherry"
+      if (!city && cityName === 'Pondicherry') {
+        city = await (tx as any).dvi_cities.findFirst({
+          where: {
+            name: 'Puducherry',
+            deleted: 0,
+          },
+          select: { state_id: true },
+        });
+      }
 
       return city?.state_id || null;
     } catch (error) {
