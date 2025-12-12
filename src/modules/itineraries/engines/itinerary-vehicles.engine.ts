@@ -824,10 +824,10 @@ export class ItineraryVehiclesEngine {
               deleted: 0,
             },
             _sum: {
-              toll_charges: true,
+              vehicle_toll_charges: true,
             },
           });
-          const totalTollCharges = Number(tollAgg._sum?.toll_charges || 0);
+          const totalTollCharges = Number(tollAgg._sum?.vehicle_toll_charges || 0);
           
           // Aggregate permit charges from vehicle_details
           const permitAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
@@ -838,10 +838,10 @@ export class ItineraryVehiclesEngine {
               deleted: 0,
             },
             _sum: {
-              permit_charges: true,
+              vehicle_permit_charges: true,
             },
           });
-          const totalPermitCharges = Number(permitAgg._sum?.permit_charges || 0);
+          const totalPermitCharges = Number(permitAgg._sum?.vehicle_permit_charges || 0);
           
           const totalDriverCharges = 0;
 
