@@ -381,10 +381,43 @@ export class RouteEngineService {
   // Helper to get state ID from location name
   private async getLocationState(tx: Tx, locationName: string): Promise<number | null> {
     try {
-      // Try to find city and get its state
+      // First, try to find the location in stored_locations to get the city name
+      const stored = await (tx as any).dvi_stored_locations.findFirst({
+        where: {
+          OR: [
+            { source_location: locationName },
+            { destination_location: locationName }
+          ],
+          status: 1,
+          deleted: 0,
+        },
+        select: {
+          source_location: true,
+          source_location_city: true,
+          destination_location: true,
+          destination_location_city: true,
+        },
+      });
+
+      let cityName = null;
+      if (stored) {
+        // Use the appropriate city based on whether this location is source or destination
+        if (stored.source_location === locationName && stored.source_location_city) {
+          cityName = stored.source_location_city;
+        } else if (stored.destination_location === locationName && stored.destination_location_city) {
+          cityName = stored.destination_location_city;
+        }
+      }
+
+      // If no city found from stored_locations, try using the location name itself
+      if (!cityName) {
+        cityName = locationName;
+      }
+
+      // Look up state_id from dvi_cities using the city name
       const city = await (tx as any).dvi_cities.findFirst({
         where: {
-          name: locationName,
+          name: cityName,
           status: 1,
           deleted: 0,
         },
