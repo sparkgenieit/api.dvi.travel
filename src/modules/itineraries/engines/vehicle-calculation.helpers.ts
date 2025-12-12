@@ -948,6 +948,19 @@ export async function calculateRouteVehicleDetails(
     toNum(TOTAL_DROP_KM);
   const TOTAL_KM = totalKmNum.toFixed(2);
 
+  // Calculate total travelling time from route start and end times
+  if (route.route_start_time && route.route_end_time) {
+    const startTime = new Date(route.route_start_time);
+    const endTime = new Date(route.route_end_time);
+    const diffMs = endTime.getTime() - startTime.getTime();
+    if (diffMs > 0) {
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+      TOTAL_TRAVELLING_TIME = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+  }
+
   // Calculate toll charges
   let tollCharges = await calculateRouteTollCharges(
     prisma,
