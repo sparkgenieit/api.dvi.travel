@@ -1079,7 +1079,7 @@ export async function calculateRouteVehicleDetails(
       vehicle_cost_for_the_day = 2400;
     }
     
-    TOTAL_ALLOWED_LOCAL_KM = 100; // PHP parity: local routes get 100km allowance
+    TOTAL_ALLOWED_LOCAL_KM = 0.1; // PHP parity: local routes get 0.1km allowance (not 100!)
 
     // Calculate extra KM charges for LOCAL
     if (totalKmNum > TOTAL_ALLOWED_LOCAL_KM) {
