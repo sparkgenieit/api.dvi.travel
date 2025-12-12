@@ -1196,8 +1196,8 @@ export class ItineraryVehiclesEngine {
             location_name: fromLoc,
             next_visiting_location: toLoc,
             no_of_km: r.no_of_km,
-            route_start_time: undefined,
-            route_end_time: undefined
+            route_start_time: r.route_start_time,
+            route_end_time: r.route_end_time
           };
 
           // Calculate all route details using PHP-parity logic
