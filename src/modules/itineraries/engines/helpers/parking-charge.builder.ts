@@ -39,21 +39,28 @@ export class ParkingChargeBuilder {
 
     const rows: ParkingChargeRow[] = [];
     try {
-      // Get ALL vendor vehicles for the plan (not just the first)
-      const vendorVehiclesTable = (tx as any).dvi_itinerary_plan_vendor_vehicle_details;
-      if (!vendorVehiclesTable) {
+      // 1. Get all required vehicle types and total quantities for the plan (PHP parity)
+      const planVehiclesTable = (tx as any).dvi_itinerary_plan_vehicle_details;
+      if (!planVehiclesTable) {
         console.log(
-          "[ParkingChargeBuilder] dvi_itinerary_plan_vendor_vehicle_details table not available",
+          "[ParkingChargeBuilder] dvi_itinerary_plan_vehicle_details table not available",
         );
         return rows;
       }
 
-      const vehicles = await vendorVehiclesTable.findMany({
-        where: { itinerary_plan_id: planId, deleted: 0, status: 1 },
+      // Group by vehicle_type_id, sum vehicle_count for the whole plan (not just this route)
+      const vehicleTypeAgg = await planVehiclesTable.groupBy({
+        by: ["vehicle_type_id"],
+        where: {
+          itinerary_plan_id: planId,
+          deleted: 0,
+          status: 1,
+        },
+        _sum: { vehicle_count: true },
       });
 
-      if (!vehicles || vehicles.length === 0) {
-        console.log(`[ParkingChargeBuilder] No vendor vehicles found for plan ${planId}`);
+      if (!vehicleTypeAgg || vehicleTypeAgg.length === 0) {
+        // No vehicles for this plan
         return rows;
       }
 
@@ -66,10 +73,11 @@ export class ParkingChargeBuilder {
         return rows;
       }
 
-      // For each vehicle, get the parking charge for this hotspot and vehicle type
-      for (const vehicle of vehicles) {
-        const vehicleQty = vehicle.vehicle_qty ?? 1;
-        const vehicleTypeId = vehicle.vehicle_type_id ?? 0;
+      // For each vehicle type required for this plan, get the parking charge for this hotspot and vehicle type
+      for (const vt of vehicleTypeAgg) {
+        const vehicleTypeId = vt.vehicle_type_id ?? 0;
+        const vehicleQty = vt._sum?.vehicle_count ?? 1;
+        if (!vehicleTypeId || vehicleQty <= 0) continue;
 
         // Find parking charge for this hotspot and vehicle type
         const parkingCharges = await parkingChargesTable.findFirst({

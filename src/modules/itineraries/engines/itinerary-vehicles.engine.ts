@@ -557,10 +557,37 @@ export class ItineraryVehiclesEngine {
         const masterVehicleTypeId = Number(map.vehicle_type_id ?? 0);
         if (!vendorVehicleTypeId || !vendorId) continue;
 
+        // Fetch vendor details for margin calculation (PHP parity)
+        const vendorDetailsWhere = {
+          vendor_id: vendorId,
+          status: 1,
+          deleted: 0,
+        };
+        this.logSql(
+          "VENDOR_DETAILS_FIND_UNIQUE",
+          this.buildSelectSql("dvi_vendor_details", { vendor_id: vendorId }, "LIMIT 1"),
+          { where: vendorDetailsWhere },
+        );
+
+        const vendorDetails = await tx.dvi_vendor_details.findUnique({
+          where: { vendor_id: vendorId },
+          select: {
+            vendor_margin: true,
+            vendor_margin_gst_type: true,
+            vendor_margin_gst_percentage: true,
+          },
+        });
+
+        const vendorMarginPercentage = Number(vendorDetails?.vendor_margin ?? 10);
+        const vendorMarginGstType = Number(vendorDetails?.vendor_margin_gst_type ?? 2);
+        const vendorMarginGstPercentage = Number(vendorDetails?.vendor_margin_gst_percentage ?? 5);
+
         let allowedBranches: {
           vendor_branch_id: number;
           vendor_branch_name: string | null;
           vendor_branch_location: string | null;
+          vendor_branch_gst_type: number | null;
+          vendor_branch_gst: number | null;
         }[] = [];
 
         if (eligibleCityTokensLower.length) {
@@ -586,6 +613,8 @@ export class ItineraryVehiclesEngine {
               vendor_branch_id: true,
               vendor_branch_name: true,
               vendor_branch_location: true,
+              vendor_branch_gst_type: true,
+              vendor_branch_gst: true,
             },
           });
         } else {
@@ -606,6 +635,8 @@ export class ItineraryVehiclesEngine {
               vendor_branch_id: true,
               vendor_branch_name: true,
               vendor_branch_location: true,
+              vendor_branch_gst_type: true,
+              vendor_branch_gst: true,
             },
           });
         }
@@ -639,6 +670,7 @@ export class ItineraryVehiclesEngine {
           select: {
             vehicle_id: true,
             vendor_branch_id: true,
+            vehicle_location_id: true,
             extra_km_charge: true,
           },
           orderBy: { vehicle_id: "asc" },
@@ -653,13 +685,39 @@ export class ItineraryVehiclesEngine {
           ]),
         );
 
+        // PHP parity: Store vendor_branch_gst_type and vendor_branch_gst by branch_id
+        const branchGstById = new Map<number, { type: number; percentage: number }>(
+          allowedBranches.map((b) => [
+            Number(b.vendor_branch_id),
+            {
+              type: Number(b.vendor_branch_gst_type ?? 2),
+              percentage: Number(b.vendor_branch_gst ?? 5),
+            },
+          ]),
+        );
+
         const maxToProcess = Math.min(vehicles.length, Math.max(requiredCount, 10));
 
         for (let idx = 0; idx < maxToProcess; idx++) {
           const vehicle = vehicles[idx];
           const vehicleId = Number(vehicle.vehicle_id ?? 0);
           const vendorBranchId = Number(vehicle.vendor_branch_id ?? 0);
+          const vehicleLocationId = Number(vehicle.vehicle_location_id ?? 0);
           if (!vehicleId || !vendorBranchId) continue;
+
+          // PHP parity: Fetch vehicle_origin from dvi_stored_locations.source_location
+          let vehicleOrigin = "";
+          if (vehicleLocationId) {
+            const storedLocation = await tx.dvi_stored_locations.findUnique({
+              where: { location_ID: vehicleLocationId },
+              select: { source_location: true },
+            });
+            vehicleOrigin = String(storedLocation?.source_location ?? "").trim();
+          }
+          // Fallback to branch name if no stored location
+          if (!vehicleOrigin) {
+            vehicleOrigin = branchNameById.get(vendorBranchId) || "";
+          }
 
           const comboKey = `${vendorId}:${vendorBranchId}:${vendorVehicleTypeId}`;
 
@@ -742,8 +800,39 @@ export class ItineraryVehiclesEngine {
           }
 
           const allowedKmPerDayNum = kms.allowedKmPerDayNum;
+          
+          // PHP parity: Count only OUTSTATION days (travel_type = 2) for allowed KMs calculation
+          // This happens AFTER vehicle_details records are created, so we need to count them
+          // For now during initial creation, we'll count based on route data when vehicle_details exists
+          // Since we don't have vehicle_details yet, we'll use a placeholder and update later
+          // PHP: SELECT COUNT(*) WHERE travel_type = '2'
+          let outstationDaysCount = 0;
+          
+          // Try to get outstation days from existing vehicle_details for this vendor
+          const existingDetailsWhere = {
+            itinerary_plan_id: planId,
+            vendor_id: vendorId,
+            vendor_vehicle_type_id: vendorVehicleTypeId,
+            vendor_branch_id: vendorBranchId,
+            travel_type: 2, // outstation
+            status: 1,
+            deleted: 0,
+          };
+          
+          if (tAny?.dvi_itinerary_plan_vendor_vehicle_details) {
+            outstationDaysCount = await tAny.dvi_itinerary_plan_vendor_vehicle_details.count({
+              where: existingDetailsWhere,
+            });
+          }
+          
+          // If no existing details yet, assume all days are outstation (will be updated later)
+          // This is a temporary value that will be corrected in the update phase
+          if (outstationDaysCount === 0) {
+            outstationDaysCount = noOfDays;
+          }
+          
           const totalAllowedKmsNum =
-            allowedKmPerDayNum > 0 ? allowedKmPerDayNum * noOfDays : 0;
+            allowedKmPerDayNum > 0 ? allowedKmPerDayNum * outstationDaysCount : 0;
 
           const extraKmRateNum = toNum(vehicle.extra_km_charge) || 0;
           const totalExtraKmsNum =
@@ -841,26 +930,23 @@ export class ItineraryVehiclesEngine {
                                    totalTollCharges + totalParkingCharges + 
                                    totalDriverCharges + totalPermitCharges;
 
-          // GST calculation (default to 5% GST type 2)
-          const vehicleGstType = 2; // 1=excluded, 2=included
-          const vehicleGstPercentage = 5;
+          // GST calculation - use vendor_branch GST settings (PHP parity)
+          const branchGst = branchGstById.get(vendorBranchId) || { type: 2, percentage: 5 };
+          const vehicleGstType = branchGst.type;
+          const vehicleGstPercentage = branchGst.percentage;
           const vehicleGstAmount = vehicleGstType === 2 ? 
             (vehicleBaseTotal * vehicleGstPercentage / 100) : 0;
           
           const vehicleTotalAmount = vehicleBaseTotal;
 
-          // Vendor margin calculation (default 10% with 5% GST)
-          const vendorMarginPercentage = 10;
-          const vendorMarginGstType = 2;
-          const vendorMarginGstPercentage = 5;
+          // Vendor margin calculation - use values from vendor_details table (PHP parity)
+          // Values fetched earlier in the loop from dvi_vendor_details
           const vendorMarginAmount = vehicleTotalAmount * vendorMarginPercentage / 100;
           const vendorMarginGstAmount = vendorMarginGstType === 2 ?
             (vendorMarginAmount * vendorMarginGstPercentage / 100) : 0;
 
           const vehicleGrandTotalNum = vehicleTotalAmount + vehicleGstAmount + 
                                        vendorMarginAmount + vendorMarginGstAmount;
-
-          const vehicleOrigin = branchNameById.get(vendorBranchId) || "";
 
           const baseData: any = {
             itinerary_plan_id: planId,
@@ -1353,6 +1439,8 @@ export class ItineraryVehiclesEngine {
         itinerary_plan_vendor_eligible_ID: true,
         vendor_vehicle_type_id: true,
         vehicle_type_id: true,
+        outstation_allowed_km_per_day: true,
+        extra_km_rate: true,
         total_rental_charges: true,
         total_parking_charges: true,
         total_extra_kms_charge: true,
@@ -1368,6 +1456,25 @@ export class ItineraryVehiclesEngine {
 
     for (const eligible of eligibleRecords) {
       this.writeLog(`[vehiclesEngine] Updating eligible ${eligible.itinerary_plan_vendor_eligible_ID} (vendor_veh_type=${eligible.vendor_vehicle_type_id}, veh_type=${eligible.vehicle_type_id})`);
+      
+      // Count outstation days (travel_type = 2) for this vendor/vehicle type (PHP parity)
+      const outstationDaysCount = await tx.dvi_itinerary_plan_vendor_vehicle_details.count({
+        where: {
+          itinerary_plan_id: planId,
+          vendor_vehicle_type_id: eligible.vendor_vehicle_type_id,
+          vehicle_type_id: eligible.vehicle_type_id,
+          travel_type: 2, // outstation only
+          status: 1,
+          deleted: 0,
+        },
+      });
+      this.writeLog(`[vehiclesEngine] Outstation days count: ${outstationDaysCount}`);
+      
+      // Recalculate total_allowed_kms based on outstation days (PHP parity)
+      // PHP: $TOTAL_ITINEARY_ALLOWED_KM = ($PER_DAY_KM_LIMIT * $total_outstation_day_available_count);
+      const allowedKmPerDay = Number(eligible.outstation_allowed_km_per_day || 250);
+      const totalAllowedKms = allowedKmPerDay * outstationDaysCount;
+      this.writeLog(`[vehiclesEngine] Allowed KM per day: ${allowedKmPerDay}, Total allowed KMs: ${totalAllowedKms}`);
       
       // Aggregate toll charges for this vendor's vehicle type
       const tollAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
@@ -1424,6 +1531,12 @@ export class ItineraryVehiclesEngine {
       const totalOutstationKm = totalKms; // PHP sets this equal to total_kms
       this.writeLog(`[vehiclesEngine] Total kms: ${totalKms}, records count: ${vehicleDetailsRecords.length}`);
       
+      // Recalculate extra kms based on corrected total_allowed_kms (PHP parity)
+      const extraKmRate = Number(eligible.extra_km_rate || 0);
+      const totalExtraKms = totalAllowedKms > 0 ? Math.max(0, totalOutstationKm - totalAllowedKms) : 0;
+      const totalExtraKmsCharge = totalExtraKms * extraKmRate;
+      this.writeLog(`[vehiclesEngine] Extra KMs: ${totalExtraKms}, Extra KM charge: ${totalExtraKmsCharge}`);
+      
       // Convert HH:MM:SS format to decimal hours and sum
       const totalTime = vehicleDetailsRecords.reduce((sum: number, record: any) => {
         const timeStr = record.total_travelled_time || '0';
@@ -1445,10 +1558,9 @@ export class ItineraryVehiclesEngine {
       // Recalculate totals with the aggregated toll/permit charges
       const totalRentalNum = Number(eligible.total_rental_charges || 0);
       const totalParkingCharges = Number(eligible.total_parking_charges || 0);
-      const totalExtraKmsChargeNum = Number(eligible.total_extra_kms_charge || 0);
       const totalDriverCharges = Number(eligible.total_driver_charges || 0);
 
-      const vehicleBaseTotal = totalRentalNum + totalExtraKmsChargeNum +
+      const vehicleBaseTotal = totalRentalNum + totalExtraKmsCharge +
                                totalTollCharges + totalParkingCharges +
                                totalDriverCharges + totalPermitCharges;
 
@@ -1478,6 +1590,9 @@ export class ItineraryVehiclesEngine {
           total_kms: String(totalKms),
           total_outstation_km: String(totalOutstationKm),
           total_time: String(totalTime),
+          total_allowed_kms: String(totalAllowedKms),
+          total_extra_kms: String(totalExtraKms),
+          total_extra_kms_charge: totalExtraKmsCharge,
           total_toll_charges: totalTollCharges,
           total_permit_charges: totalPermitCharges,
           vehicle_gst_amount: vehicleGstAmount,
@@ -1488,7 +1603,7 @@ export class ItineraryVehiclesEngine {
           updatedon: new Date(),
         },
       });
-      this.writeLog(`[vehiclesEngine] Updated eligible ${eligible.itinerary_plan_vendor_eligible_ID} with toll=${totalTollCharges}, permit=${totalPermitCharges}, kms=${totalKms}`);
+      this.writeLog(`[vehiclesEngine] Updated eligible ${eligible.itinerary_plan_vendor_eligible_ID} with toll=${totalTollCharges}, permit=${totalPermitCharges}, kms=${totalKms}, allowed_kms=${totalAllowedKms}, extra_kms=${totalExtraKms}`);
     }
 
     return { planId, inserted };

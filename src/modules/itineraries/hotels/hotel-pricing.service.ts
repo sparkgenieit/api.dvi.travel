@@ -1,5 +1,5 @@
 // FILE: src/modules/itineraries/services/hotel-pricing.service.ts
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../prisma.service";
 
 type DayCol =
@@ -24,7 +24,7 @@ function N(v: any) {
 
 @Injectable()
 export class HotelPricingService {
-  private readonly log = new Logger("HotelPricingService");
+  // Removed Logger for performance
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -195,9 +195,7 @@ export class HotelPricingService {
       gstType: 2,
     }));
 
-    this.log.debug(
-      `getRoomPrices(hotel=${hotel_id}, ${y}-${m}, ${dc}) rows=${mapped.length}`,
-    );
+    // Debug log removed for performance
     return mapped;
   }
 
@@ -218,9 +216,7 @@ export class HotelPricingService {
 
     const price = this.money(row?.[dc]);
 
-    this.log.debug(
-      `getMealPrice(hotel=${hotel_id}, ${y}-${m}, ${dc}) breakfastPrice=${price}`,
-    );
+    // Debug log removed for performance
 
     // Only breakfast used in your sample (lunch/dinner kept 0)
     return {
