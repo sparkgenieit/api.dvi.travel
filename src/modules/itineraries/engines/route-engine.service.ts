@@ -415,10 +415,10 @@ export class RouteEngineService {
       }
 
       // Look up state_id from dvi_cities using the city name
+      // Note: cities table may have status=0, so don't filter by status
       const city = await (tx as any).dvi_cities.findFirst({
         where: {
           name: cityName,
-          status: 1,
           deleted: 0,
         },
         select: { state_id: true },
