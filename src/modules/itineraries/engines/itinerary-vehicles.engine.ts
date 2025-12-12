@@ -1364,8 +1364,22 @@ export class ItineraryVehiclesEngine {
       }, 0);
       const totalOutstationKm = totalKms; // PHP sets this equal to total_kms
       
+      // Convert HH:MM:SS format to decimal hours and sum
       const totalTime = vehicleDetailsRecords.reduce((sum, record) => {
-        return sum + Number(record.total_travelled_time || 0);
+        const timeStr = record.total_travelled_time || '0';
+        // Handle both HH:MM:SS format and decimal format
+        if (timeStr.includes(':')) {
+          // Parse HH:MM:SS
+          const parts = timeStr.split(':');
+          const hours = Number(parts[0] || 0);
+          const minutes = Number(parts[1] || 0);
+          const seconds = Number(parts[2] || 0);
+          const decimalHours = hours + (minutes / 60) + (seconds / 3600);
+          return sum + decimalHours;
+        } else {
+          // Already in decimal format
+          return sum + Number(timeStr);
+        }
       }, 0);
 
       // Recalculate totals with the aggregated toll/permit charges
