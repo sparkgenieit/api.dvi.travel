@@ -956,15 +956,17 @@ export async function calculateRouteVehicleDetails(
       let startTimeStr: string;
       let endTimeStr: string;
       
-      if (route.route_start_time instanceof Date) {
+      if (route.route_start_time instanceof Date || typeof route.route_start_time === 'object') {
         // Extract time from Date object: get ISO string and take time part
-        startTimeStr = route.route_start_time.toISOString().split('T')[1].substring(0, 8);
+        const dateObj = route.route_start_time as Date;
+        startTimeStr = dateObj.toISOString().split('T')[1].substring(0, 8);
       } else {
         startTimeStr = String(route.route_start_time);
       }
       
-      if (route.route_end_time instanceof Date) {
-        endTimeStr = route.route_end_time.toISOString().split('T')[1].substring(0, 8);
+      if (route.route_end_time instanceof Date || typeof route.route_end_time === 'object') {
+        const dateObj = route.route_end_time as Date;
+        endTimeStr = dateObj.toISOString().split('T')[1].substring(0, 8);
       } else {
         endTimeStr = String(route.route_end_time);
       }

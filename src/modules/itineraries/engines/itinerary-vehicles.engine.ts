@@ -1361,13 +1361,13 @@ export class ItineraryVehiclesEngine {
         },
       });
       
-      const totalKms = vehicleDetailsRecords.reduce((sum, record) => {
+      const totalKms = vehicleDetailsRecords.reduce((sum: number, record: any) => {
         return sum + Number(record.total_travelled_km || 0);
       }, 0);
       const totalOutstationKm = totalKms; // PHP sets this equal to total_kms
       
       // Convert HH:MM:SS format to decimal hours and sum
-      const totalTime = vehicleDetailsRecords.reduce((sum, record) => {
+      const totalTime = vehicleDetailsRecords.reduce((sum: number, record: any) => {
         const timeStr = record.total_travelled_time || '0';
         // Handle both HH:MM:SS format and decimal format
         if (timeStr.includes(':')) {
