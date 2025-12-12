@@ -956,28 +956,29 @@ export async function calculateRouteVehicleDetails(
       let startTimeStr: string;
       let endTimeStr: string;
       
-      if (route.route_start_time instanceof Date || typeof route.route_start_time === 'object') {
-        // Extract time from Date object: get ISO string and take time part
-        const dateObj = route.route_start_time as Date;
-        startTimeStr = dateObj.toISOString().split('T')[1].substring(0, 8);
+      const startTime = route.route_start_time as any;
+      const endTime = route.route_end_time as any;
+      
+      if (typeof startTime === 'object' && startTime.toISOString) {
+        // It's a Date object - extract time from Date object
+        startTimeStr = startTime.toISOString().split('T')[1].substring(0, 8);
       } else {
-        startTimeStr = String(route.route_start_time);
+        startTimeStr = String(startTime);
       }
       
-      if (route.route_end_time instanceof Date || typeof route.route_end_time === 'object') {
-        const dateObj = route.route_end_time as Date;
-        endTimeStr = dateObj.toISOString().split('T')[1].substring(0, 8);
+      if (typeof endTime === 'object' && endTime.toISOString) {
+        endTimeStr = endTime.toISOString().split('T')[1].substring(0, 8);
       } else {
-        endTimeStr = String(route.route_end_time);
+        endTimeStr = String(endTime);
       }
       
       // Now calculate difference using today's date as base
       const today = new Date().toISOString().split('T')[0];
-      const startTime = new Date(`${today}T${startTimeStr}`);
-      const endTime = new Date(`${today}T${endTimeStr}`);
+      const startDate = new Date(`${today}T${startTimeStr}`);
+      const endDate = new Date(`${today}T${endTimeStr}`);
       
-      if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
-        const diffMs = endTime.getTime() - startTime.getTime();
+      if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+        const diffMs = endDate.getTime() - startDate.getTime();
         if (diffMs > 0) {
           const hours = Math.floor(diffMs / (1000 * 60 * 60));
           const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
