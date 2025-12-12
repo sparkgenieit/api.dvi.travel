@@ -1342,8 +1342,8 @@ export class ItineraryVehiclesEngine {
       });
       const totalPermitCharges = Number(permitAgg._sum?.vehicle_permit_charges || 0);
 
-      // Aggregate total travelled km from vehicle_details (PHP parity)
-      // Note: total_travelled_km is a string field, so we can't use _sum aggregate
+      // Aggregate total travelled km and time from vehicle_details (PHP parity)
+      // Note: total_travelled_km and total_travelled_time are string fields, so we can't use _sum aggregate
       // We need to query all records and sum manually
       const vehicleDetailsRecords = await tx.dvi_itinerary_plan_vendor_vehicle_details.findMany({
         where: {
@@ -1355,6 +1355,7 @@ export class ItineraryVehiclesEngine {
         },
         select: {
           total_travelled_km: true,
+          total_travelled_time: true,
         },
       });
       
@@ -1362,6 +1363,10 @@ export class ItineraryVehiclesEngine {
         return sum + Number(record.total_travelled_km || 0);
       }, 0);
       const totalOutstationKm = totalKms; // PHP sets this equal to total_kms
+      
+      const totalTime = vehicleDetailsRecords.reduce((sum, record) => {
+        return sum + Number(record.total_travelled_time || 0);
+      }, 0);
 
       // Recalculate totals with the aggregated toll/permit charges
       const totalRentalNum = Number(eligible.total_rental_charges || 0);
@@ -1398,6 +1403,7 @@ export class ItineraryVehiclesEngine {
         data: {
           total_kms: String(totalKms),
           total_outstation_km: String(totalOutstationKm),
+          total_time: String(totalTime),
           total_toll_charges: totalTollCharges,
           total_permit_charges: totalPermitCharges,
           vehicle_gst_amount: vehicleGstAmount,
