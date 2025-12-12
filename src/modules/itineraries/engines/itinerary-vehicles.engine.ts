@@ -815,11 +815,12 @@ export class ItineraryVehiclesEngine {
           });
           const totalParkingCharges = Number(parkingAgg._sum?.parking_charges_amt || 0);
           
-          // Aggregate toll charges from vehicle_details
+          // Aggregate toll charges from vehicle_details for this vendor's vehicle type
           const tollAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
             where: {
               itinerary_plan_id: planId,
               vendor_vehicle_type_id: vendorVehicleTypeId,
+              vehicle_type_id: planVehicleTypeId,
               status: 1,
               deleted: 0,
             },
@@ -829,11 +830,12 @@ export class ItineraryVehiclesEngine {
           });
           const totalTollCharges = Number(tollAgg._sum?.vehicle_toll_charges || 0);
           
-          // Aggregate permit charges from vehicle_details
+          // Aggregate permit charges from vehicle_details for this vendor's vehicle type
           const permitAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
             where: {
               itinerary_plan_id: planId,
               vendor_vehicle_type_id: vendorVehicleTypeId,
+              vehicle_type_id: planVehicleTypeId,
               status: 1,
               deleted: 0,
             },
