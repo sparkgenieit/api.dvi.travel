@@ -1522,6 +1522,9 @@ export class ItineraryVehiclesEngine {
         select: {
           total_travelled_km: true,
           total_travelled_time: true,
+          travel_type: true,
+          total_extra_km: true,
+          total_extra_km_charges: true,
         },
       });
       
@@ -1529,7 +1532,28 @@ export class ItineraryVehiclesEngine {
         return sum + Number(record.total_travelled_km || 0);
       }, 0);
       const totalOutstationKm = totalKms; // PHP sets this equal to total_kms
-      this.writeLog(`[vehiclesEngine] Total kms: ${totalKms}, records count: ${vehicleDetailsRecords.length}`);
+      
+      // PHP parity: Aggregate LOCAL route (travel_type = 1) KMs and extra charges
+      const localRecords = vehicleDetailsRecords.filter((r: any) => r.travel_type === 1);
+      const totalLocalKms = localRecords.reduce((sum: number, record: any) => {
+        return sum + Number(record.total_travelled_km || 0);
+      }, 0);
+      
+      // PHP parity: Local allowed KM is 100 if there are local routes, 0 otherwise
+      // PHP stores it as 0.1 (representing 100km in some odd format)
+      const totalAllowedLocalKms = localRecords.length > 0 ? 0.1 : 0;
+      
+      // PHP parity: Sum up total_extra_km from LOCAL routes only
+      const totalExtraLocalKms = localRecords.reduce((sum: number, record: any) => {
+        return sum + Number(record.total_extra_km || 0);
+      }, 0);
+      
+      // PHP parity: Sum up total_extra_km_charges from LOCAL routes only
+      const totalExtraLocalKmsCharge = localRecords.reduce((sum: number, record: any) => {
+        return sum + Number(record.total_extra_km_charges || 0);
+      }, 0);
+      
+      this.writeLog(`[vehiclesEngine] Total kms: ${totalKms}, Local kms: ${totalLocalKms}, Local extra: ${totalExtraLocalKms}, Local extra charge: ${totalExtraLocalKmsCharge}, records count: ${vehicleDetailsRecords.length}`);
       
       // Recalculate extra kms based on corrected total_allowed_kms (PHP parity)
       const extraKmRate = Number(eligible.extra_km_rate || 0);
@@ -1593,6 +1617,9 @@ export class ItineraryVehiclesEngine {
           total_allowed_kms: String(totalAllowedKms),
           total_extra_kms: String(totalExtraKms),
           total_extra_kms_charge: totalExtraKmsCharge,
+          total_allowed_local_kms: String(totalAllowedLocalKms),
+          total_extra_local_kms: String(totalExtraLocalKms),
+          total_extra_local_kms_charge: totalExtraLocalKmsCharge,
           total_toll_charges: totalTollCharges,
           total_permit_charges: totalPermitCharges,
           vehicle_gst_amount: vehicleGstAmount,
@@ -1603,7 +1630,7 @@ export class ItineraryVehiclesEngine {
           updatedon: new Date(),
         },
       });
-      this.writeLog(`[vehiclesEngine] Updated eligible ${eligible.itinerary_plan_vendor_eligible_ID} with toll=${totalTollCharges}, permit=${totalPermitCharges}, kms=${totalKms}, allowed_kms=${totalAllowedKms}, extra_kms=${totalExtraKms}`);
+      this.writeLog(`[vehiclesEngine] Updated eligible ${eligible.itinerary_plan_vendor_eligible_ID} with toll=${totalTollCharges}, permit=${totalPermitCharges}, kms=${totalKms}, allowed_kms=${totalAllowedKms}, extra_kms=${totalExtraKms}, local_allowed=${totalAllowedLocalKms}, local_extra=${totalExtraLocalKms}, local_extra_charge=${totalExtraLocalKmsCharge}`);
     }
 
     return { planId, inserted };
