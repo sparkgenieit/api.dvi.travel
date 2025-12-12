@@ -815,35 +815,10 @@ export class ItineraryVehiclesEngine {
           });
           const totalParkingCharges = Number(parkingAgg._sum?.parking_charges_amt || 0);
           
-          // Aggregate toll charges from vehicle_details for this vendor's vehicle type
-          const tollAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
-            where: {
-              itinerary_plan_id: planId,
-              vendor_vehicle_type_id: vendorVehicleTypeId,
-              vehicle_type_id: planVehicleTypeId,
-              status: 1,
-              deleted: 0,
-            },
-            _sum: {
-              vehicle_toll_charges: true,
-            },
-          });
-          const totalTollCharges = Number(tollAgg._sum?.vehicle_toll_charges || 0);
-          
-          // Aggregate permit charges from vehicle_details for this vendor's vehicle type
-          const permitAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
-            where: {
-              itinerary_plan_id: planId,
-              vendor_vehicle_type_id: vendorVehicleTypeId,
-              vehicle_type_id: planVehicleTypeId,
-              status: 1,
-              deleted: 0,
-            },
-            _sum: {
-              vehicle_permit_charges: true,
-            },
-          });
-          const totalPermitCharges = Number(permitAgg._sum?.vehicle_permit_charges || 0);
+          // NOTE: toll/permit charges set to 0 initially because vehicle_details doesn't exist yet
+          // They will be aggregated and updated AFTER vehicle_details records are created
+          const totalTollCharges = 0;
+          const totalPermitCharges = 0;
           
           const totalDriverCharges = 0;
 
@@ -1310,6 +1285,106 @@ export class ItineraryVehiclesEngine {
           previous_destination_city = await getStoredLocationCity(tx, toLoc);
         }
       }
+    }
+
+    // NOW update eligible_list with toll/permit charges from vehicle_details
+    // (this runs AFTER all vehicle_details records have been created above)
+    const eligibleRecords = await tx.dvi_itinerary_plan_vendor_eligible_list.findMany({
+      where: {
+        itinerary_plan_id: planId,
+        status: 1,
+        deleted: 0,
+      },
+      select: {
+        itinerary_plan_vendor_eligible_ID: true,
+        vendor_vehicle_type_id: true,
+        vehicle_type_id: true,
+        total_rental_charges: true,
+        total_parking_charges: true,
+        total_extra_kms_charge: true,
+        total_driver_charges: true,
+        vehicle_gst_type: true,
+        vehicle_gst_percentage: true,
+        vendor_margin_percentage: true,
+        vendor_margin_gst_type: true,
+        vendor_margin_gst_percentage: true,
+      },
+    });
+
+    for (const eligible of eligibleRecords) {
+      // Aggregate toll charges for this vendor's vehicle type
+      const tollAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
+        where: {
+          itinerary_plan_id: planId,
+          vendor_vehicle_type_id: eligible.vendor_vehicle_type_id,
+          vehicle_type_id: eligible.vehicle_type_id,
+          status: 1,
+          deleted: 0,
+        },
+        _sum: {
+          vehicle_toll_charges: true,
+        },
+      });
+      const totalTollCharges = Number(tollAgg._sum?.vehicle_toll_charges || 0);
+
+      // Aggregate permit charges for this vendor's vehicle type
+      const permitAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
+        where: {
+          itinerary_plan_id: planId,
+          vendor_vehicle_type_id: eligible.vendor_vehicle_type_id,
+          vehicle_type_id: eligible.vehicle_type_id,
+          status: 1,
+          deleted: 0,
+        },
+        _sum: {
+          vehicle_permit_charges: true,
+        },
+      });
+      const totalPermitCharges = Number(permitAgg._sum?.vehicle_permit_charges || 0);
+
+      // Recalculate totals with the aggregated toll/permit charges
+      const totalRentalNum = Number(eligible.total_rental_charges || 0);
+      const totalParkingCharges = Number(eligible.total_parking_charges || 0);
+      const totalExtraKmsChargeNum = Number(eligible.total_extra_kms_charge || 0);
+      const totalDriverCharges = Number(eligible.total_driver_charges || 0);
+
+      const vehicleBaseTotal = totalRentalNum + totalExtraKmsChargeNum +
+                               totalTollCharges + totalParkingCharges +
+                               totalDriverCharges + totalPermitCharges;
+
+      const vehicleGstType = Number(eligible.vehicle_gst_type || 2);
+      const vehicleGstPercentage = Number(eligible.vehicle_gst_percentage || 5);
+      const vehicleGstAmount = vehicleGstType === 2 ?
+        (vehicleBaseTotal * vehicleGstPercentage / 100) : 0;
+
+      const vehicleTotalAmount = vehicleBaseTotal;
+
+      const vendorMarginPercentage = Number(eligible.vendor_margin_percentage || 10);
+      const vendorMarginGstType = Number(eligible.vendor_margin_gst_type || 2);
+      const vendorMarginGstPercentage = Number(eligible.vendor_margin_gst_percentage || 5);
+      const vendorMarginAmount = vehicleTotalAmount * vendorMarginPercentage / 100;
+      const vendorMarginGstAmount = vendorMarginGstType === 2 ?
+        (vendorMarginAmount * vendorMarginGstPercentage / 100) : 0;
+
+      const vehicleGrandTotalNum = vehicleTotalAmount + vehicleGstAmount +
+                                   vendorMarginAmount + vendorMarginGstAmount;
+
+      // Update eligible_list record with correct toll/permit charges and recalculated totals
+      await tx.dvi_itinerary_plan_vendor_eligible_list.update({
+        where: {
+          itinerary_plan_vendor_eligible_ID: eligible.itinerary_plan_vendor_eligible_ID,
+        },
+        data: {
+          total_toll_charges: totalTollCharges,
+          total_permit_charges: totalPermitCharges,
+          vehicle_gst_amount: vehicleGstAmount,
+          vehicle_total_amount: vehicleTotalAmount,
+          vendor_margin_amount: vendorMarginAmount,
+          vendor_margin_gst_amount: vendorMarginGstAmount,
+          vehicle_grand_total: vehicleGrandTotalNum,
+          updatedon: new Date(),
+        },
+      });
     }
 
     return { planId, inserted };
