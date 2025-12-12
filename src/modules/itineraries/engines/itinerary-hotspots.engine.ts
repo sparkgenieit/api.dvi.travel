@@ -262,6 +262,9 @@ export class ItineraryHotspotsEngine {
         }
 
         // Add return travel to destination (item_type 5)
+        // TEMPORARILY DISABLED: No location coordinates table available in current schema
+        // TODO: Re-enable when dvi_location_master or equivalent is added
+        /*
         if (cursor && route.next_visiting_location) {
           const destLocation = await tx.dvi_location_master.findFirst({
             where: {
@@ -272,12 +275,14 @@ export class ItineraryHotspotsEngine {
           });
 
           if (destLocation?.latitude && destLocation?.longitude) {
-            const returnTravel = computeTravelParity(
-              cursor.lat,
-              cursor.lng,
-              toFloat(destLocation.latitude),
-              toFloat(destLocation.longitude),
-            );
+            const returnTravel = computeTravelParity({
+              prevLat: cursor.lat,
+              prevLng: cursor.lng,
+              prevLocation: 'current',
+              nextLat: toFloat(destLocation.latitude),
+              nextLng: toFloat(destLocation.longitude),
+              nextLocation: route.location_name || 'destination',
+            });
 
             order++;
             await tx.dvi_itinerary_route_hotspot_details.create({
@@ -327,6 +332,7 @@ export class ItineraryHotspotsEngine {
             });
           }
         }
+        */
 
         return { routeId: route.itinerary_route_ID, insertedVisits };
       });

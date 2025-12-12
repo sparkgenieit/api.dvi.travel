@@ -91,16 +91,15 @@ export class ItinerariesService {
       };
     }, { timeout: 60000, maxWait: 10000 });
 
+    // Rebuild parking charges AFTER routes and hotspots
+    await this.hotspotEngine.rebuildParkingCharges(result.planId, userId);
+
     // Rebuild vendor eligible list and vendor vehicle details AFTER transaction completes
     // (requires committed routes & hotspots data)
     await this.itineraryVehiclesEngine.rebuildEligibleVendorList({
       planId: result.planId,
       createdBy: userId,
     });
-
-    // Rebuild parking charges AFTER vendor vehicles are created
-    // (parking charge builder needs vendor vehicle details)
-    await this.hotspotEngine.rebuildParkingCharges(result.planId, userId);
 
     return result;
   }

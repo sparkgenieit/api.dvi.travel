@@ -491,16 +491,16 @@ export class TimelineBuilder {
         currentTime = tAfterHotspot;
         // currentLocationName remains at the hotspot.
 
-        // 2.d) PARKING CHARGE ROW for this hotspot (if a master row exists)
-        const parking = await this.parkingBuilder.buildForHotspot(tx, {
+        // 2.d) PARKING CHARGE ROWS for this hotspot (one per vendor vehicle)
+        const parkingRowsForHotspot = await this.parkingBuilder.buildForHotspot(tx, {
           planId,
           routeId: route.itinerary_route_ID,
           hotspotId: sh.hotspot_ID,
           userId: createdByUserId,
         });
 
-        if (parking) {
-          parkingRows.push(parking);
+        if (parkingRowsForHotspot && parkingRowsForHotspot.length > 0) {
+          parkingRows.push(...parkingRowsForHotspot);
         }
       }
 

@@ -13,6 +13,7 @@ import {
   getLocationIdFromSourceDest,
   getStoredLocationCity
 } from "./vehicle-calculation.helpers";
+import { timeStringToPrismaTime } from "../utils/itinerary.utils";
 
 function toNum(v: any) {
   const n = typeof v === "number" ? v : Number(String(v ?? "").trim());
@@ -85,14 +86,26 @@ export class ItineraryVehiclesEngine {
   // ---------------------------------------------------------------------------
   private writeLog(line: string) {
     if (!ENABLE_LOG) return;
+    let wrote = false;
     try {
       if (!fs.existsSync(this.LOG_DIR)) {
         fs.mkdirSync(this.LOG_DIR, { recursive: true });
       }
       fs.appendFileSync(this.LOG_FILE, line + "\n", { encoding: "utf8" });
+      wrote = true;
     } catch (err) {
       // fallback to console if file logging fails
       console.error("[vehiclesEngine] LOG FILE ERROR", err);
+    }
+    // Always also try to write to tmp/vehicles-engine-debug.log
+    try {
+      const tmpLog = path.resolve(process.cwd(), "tmp", "vehicles-engine-debug.log");
+      fs.appendFileSync(tmpLog, line + "\n", { encoding: "utf8" });
+    } catch (err2) {
+      if (!wrote) {
+        // If both fail, fallback to console
+        console.error("[vehiclesEngine] TMP LOG FILE ERROR", err2);
+      }
     }
   }
 
@@ -1155,6 +1168,7 @@ export class ItineraryVehiclesEngine {
         // Build calculation context
         const calcCtx: VehicleCalculationContext = {
           prisma: tx,
+          
           itinerary_plan_ID: planId,
           vehicle_type_id: vehicleTypeId,
           vendor_id: vendorId,
@@ -1211,9 +1225,46 @@ export class ItineraryVehiclesEngine {
             previous_destination_city
           );
 
+          // Debug: log calculation result for each route
+          this.log('VEHICLE_DETAIL_CALC', {
+            routeId,
+            vendorId,
+            vendorVehicleTypeId: vvtId,
+            vehicleId,
+            vehicle_cost_for_the_day: result.vehicle_cost_for_the_day,
+            travel_type: result.travel_type,
+            time_limit_id: result.time_limit_id,
+            total_km: result.TOTAL_KM,
+            pricebook_debug: {
+              total_allowed_local_km: result.TOTAL_ALLOWED_LOCAL_KM,
+              total_local_extra_km: result.TOTAL_LOCAL_EXTRA_KM,
+              total_local_extra_km_charges: result.TOTAL_LOCAL_EXTRA_KM_CHARGES
+            }
+          });
+
           // Skip if vehicle cost is 0 (PHP line 1771)
           if (result.vehicle_cost_for_the_day === 0) {
+            this.log('SKIP_ZERO_COST', { routeId, vendorId, vvtId, vehicleId });
             continue;
+          }
+
+          // Helper: convert "HH:MM:SS" to Date object for DateTime fields
+          function toTimeDate(val: any): Date | null {
+            if (!val) return null;
+            if (val instanceof Date) return val;
+            if (typeof val === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(val)) {
+              return new Date(`1970-01-01T${val}Z`);
+            }
+            return null;
+          }
+          // Helper: ensure string or null for varchar fields
+          function toTimeString(val: any): string | null {
+            if (!val) return null;
+            if (typeof val === 'string') return val;
+            if (val instanceof Date) {
+              return val.toISOString().split('T')[1].substring(0, 8);
+            }
+            return String(val);
           }
 
           const detailsData: any = {
@@ -1235,18 +1286,18 @@ export class ItineraryVehiclesEngine {
 
             // Distance fields (strings from calculation)
             total_running_km: result.TOTAL_RUNNING_KM,
-            total_running_time: result.TOTAL_TRAVELLING_TIME,
+            total_running_time: toTimeDate(result.TOTAL_TRAVELLING_TIME),
             total_siteseeing_km: result.SIGHT_SEEING_TRAVELLING_KM,
-            total_siteseeing_time: result.SIGHT_SEEING_TRAVELLING_TIME,
+            total_siteseeing_time: toTimeDate(result.SIGHT_SEEING_TRAVELLING_TIME),
             total_pickup_km: result.TOTAL_PICKUP_KM,
-            total_pickup_duration: result.TOTAL_PICKUP_DURATION,
+            total_pickup_duration: toTimeDate(result.TOTAL_PICKUP_DURATION),
             total_drop_km: result.TOTAL_DROP_KM,
-            total_drop_duration: result.TOTAL_DROP_DURATION,
+            total_drop_duration: toTimeDate(result.TOTAL_DROP_DURATION),
             total_extra_km: result.TOTAL_LOCAL_EXTRA_KM.toFixed(2),
             extra_km_rate: calcCtx.extra_km_charge,
             total_extra_km_charges: result.TOTAL_LOCAL_EXTRA_KM_CHARGES,
             total_travelled_km: result.TOTAL_KM,
-            total_travelled_time: result.TOTAL_TIME,
+            total_travelled_time: toTimeString(result.TOTAL_TIME),
 
             // Money fields (numbers from calculation)
             vehicle_rental_charges: result.vehicle_cost_for_the_day,
@@ -1254,8 +1305,8 @@ export class ItineraryVehiclesEngine {
             vehicle_parking_charges: result.VEHICLE_PARKING_CHARGE,
             vehicle_driver_charges: result.TOTAL_DRIVER_CHARGES,
             vehicle_permit_charges: result.permit_charges,
-            before_6_am_extra_time: result.morning_extra_time,
-            after_8_pm_extra_time: result.evening_extra_time,
+            before_6_am_extra_time: toTimeString(result.morning_extra_time),
+            after_8_pm_extra_time: toTimeString(result.evening_extra_time),
             before_6_am_charges_for_driver: result.DRIVER_MORINING_CHARGES,
             before_6_am_charges_for_vehicle: result.VENDOR_VEHICLE_MORNING_CHARGES,
             after_8_pm_charges_for_driver: result.DRIVER_EVEINING_CHARGES,
@@ -1291,6 +1342,7 @@ export class ItineraryVehiclesEngine {
 
     // NOW update eligible_list with toll/permit charges from vehicle_details
     // (this runs AFTER all vehicle_details records have been created above)
+    this.writeLog(`[vehiclesEngine] Starting eligible_list update for plan ${planId}`);
     const eligibleRecords = await tx.dvi_itinerary_plan_vendor_eligible_list.findMany({
       where: {
         itinerary_plan_id: planId,
@@ -1312,8 +1364,11 @@ export class ItineraryVehiclesEngine {
         vendor_margin_gst_percentage: true,
       },
     });
+    this.writeLog(`[vehiclesEngine] Found ${eligibleRecords.length} eligible records to update`);
 
     for (const eligible of eligibleRecords) {
+      this.writeLog(`[vehiclesEngine] Updating eligible ${eligible.itinerary_plan_vendor_eligible_ID} (vendor_veh_type=${eligible.vendor_vehicle_type_id}, veh_type=${eligible.vehicle_type_id})`);
+      
       // Aggregate toll charges for this vendor's vehicle type
       const tollAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
         where: {
@@ -1328,6 +1383,7 @@ export class ItineraryVehiclesEngine {
         },
       });
       const totalTollCharges = Number(tollAgg._sum?.vehicle_toll_charges || 0);
+      this.writeLog(`[vehiclesEngine] Total toll charges: ${totalTollCharges}`);
 
       // Aggregate permit charges for this vendor's vehicle type
       const permitAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
@@ -1343,6 +1399,7 @@ export class ItineraryVehiclesEngine {
         },
       });
       const totalPermitCharges = Number(permitAgg._sum?.vehicle_permit_charges || 0);
+      this.writeLog(`[vehiclesEngine] Total permit charges: ${totalPermitCharges}`);
 
       // Aggregate total travelled km and time from vehicle_details (PHP parity)
       // Note: total_travelled_km and total_travelled_time are string fields, so we can't use _sum aggregate
@@ -1365,6 +1422,7 @@ export class ItineraryVehiclesEngine {
         return sum + Number(record.total_travelled_km || 0);
       }, 0);
       const totalOutstationKm = totalKms; // PHP sets this equal to total_kms
+      this.writeLog(`[vehiclesEngine] Total kms: ${totalKms}, records count: ${vehicleDetailsRecords.length}`);
       
       // Convert HH:MM:SS format to decimal hours and sum
       const totalTime = vehicleDetailsRecords.reduce((sum: number, record: any) => {
@@ -1430,8 +1488,12 @@ export class ItineraryVehiclesEngine {
           updatedon: new Date(),
         },
       });
+      this.writeLog(`[vehiclesEngine] Updated eligible ${eligible.itinerary_plan_vendor_eligible_ID} with toll=${totalTollCharges}, permit=${totalPermitCharges}, kms=${totalKms}`);
     }
 
     return { planId, inserted };
   }
 }
+
+
+

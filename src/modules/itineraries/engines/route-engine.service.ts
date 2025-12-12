@@ -297,4 +297,108 @@ export class RouteEngineService {
 
     return created;
   }
+
+  // ---------------------------------------------------------------------------
+  // PERMIT CHARGES POPULATION (PHP PARITY)
+  // ---------------------------------------------------------------------------
+  async rebuildPermitCharges(tx: Tx, planId: number, userId: number): Promise<void> {
+    // Delete existing permit charges for this plan
+    await (tx as any).dvi_itinerary_plan_route_permit_charge.deleteMany({
+      where: { itinerary_plan_ID: planId },
+    });
+
+    // Get all routes for this plan
+    const routes = await (tx as any).dvi_itinerary_route_details.findMany({
+      where: {
+        itinerary_plan_ID: planId,
+        status: 1,
+        deleted: 0,
+      },
+      select: {
+        itinerary_route_ID: true,
+        location_name: true,
+        next_visiting_location: true,
+      },
+    });
+
+    const permitRows = [];
+
+    for (const route of routes) {
+      // Get state IDs for source and destination
+      const sourceState = await this.getLocationState(tx, route.location_name);
+      const destState = await this.getLocationState(tx, route.next_visiting_location);
+
+      if (!sourceState || !destState || sourceState === destState) {
+        // No state crossing, no permit needed
+        continue;
+      }
+
+      // Find all permit costs for this state pair
+      const permitCosts = await (tx as any).dvi_permit_cost.findMany({
+        where: {
+          source_state_id: sourceState,
+          destination_state_id: destState,
+          status: 1,
+          deleted: 0,
+        },
+        select: {
+          vendor_id: true,
+          vehicle_type_id: true,
+          permit_cost: true,
+        },
+      });
+
+      // Insert permit charges for this route
+      for (const cost of permitCosts) {
+        permitRows.push({
+          itinerary_plan_ID: planId,
+          itinerary_route_ID: route.itinerary_route_ID,
+          vendor_id: cost.vendor_id,
+          vendor_vehicle_type_id: cost.vehicle_type_id, // Assuming this is the vendor's vehicle type ID
+          permit_cost: cost.permit_cost,
+          createdby: userId,
+          createdon: new Date(),
+          updatedon: null,
+          status: 1,
+          deleted: 0,
+        });
+      }
+    }
+
+    // Insert permit charges
+    if (permitRows.length) {
+      await (tx as any).dvi_itinerary_plan_route_permit_charge.createMany({
+        data: permitRows,
+      });
+    }
+  }
+
+  // Helper to get state ID from location name
+  private async getLocationState(tx: Tx, locationName: string): Promise<number | null> {
+    // First try to find in stored locations
+    const stored = await (tx as any).dvi_stored_locations.findFirst({
+      where: {
+        location_name: locationName,
+        status: 1,
+        deleted: 0,
+      },
+      select: { state_id: true },
+    });
+
+    if (stored?.state_id) {
+      return stored.state_id;
+    }
+
+    // Fallback: try to find city and get its state
+    const city = await (tx as any).dvi_cities.findFirst({
+      where: {
+        city_name: locationName,
+        status: 1,
+        deleted: 0,
+      },
+      select: { state_id: true },
+    });
+
+    return city?.state_id || null;
+  }
 }
