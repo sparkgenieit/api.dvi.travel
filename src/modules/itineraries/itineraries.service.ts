@@ -47,6 +47,9 @@ export class ItinerariesService {
         userId,
       );
 
+      // Rebuild permit charges after routes are created
+      await this.routeEngine.rebuildPermitCharges(tx, planId, userId);
+
       await this.planEngine.updateNoOfRoutes(planId, tx);
 
       await this.travellersEngine.rebuildTravellers(

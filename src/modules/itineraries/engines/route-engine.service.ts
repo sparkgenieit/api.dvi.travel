@@ -316,6 +316,7 @@ export class RouteEngineService {
       },
       select: {
         itinerary_route_ID: true,
+        itinerary_route_date: true,
         location_name: true,
         next_visiting_location: true,
       },
@@ -353,8 +354,12 @@ export class RouteEngineService {
         permitRows.push({
           itinerary_plan_ID: planId,
           itinerary_route_ID: route.itinerary_route_ID,
+          itinerary_route_date: route.itinerary_route_date,
           vendor_id: cost.vendor_id,
-          vendor_vehicle_type_id: cost.vehicle_type_id, // Assuming this is the vendor's vehicle type ID
+          vendor_branch_id: 0, // TODO: Get actual vendor branch
+          vendor_vehicle_type_id: cost.vehicle_type_id,
+          source_state_id: sourceState,
+          destination_state_id: destState,
           permit_cost: cost.permit_cost,
           createdby: userId,
           createdon: new Date(),
