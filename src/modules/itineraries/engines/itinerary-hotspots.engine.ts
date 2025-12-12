@@ -5,6 +5,8 @@ import {
   ITEM_REFRESH,
   ITEM_TRAVEL_OR_BREAK,
   ITEM_VISIT,
+  ITEM_RETURN_TRAVEL,
+  ITEM_END_BUFFER,
 } from "../utils/itinerary.constants";
 import {
   buildTravellers,
@@ -257,6 +259,73 @@ export class ItineraryHotspotsEngine {
             lat: hLat,
             lng: hLng,
           };
+        }
+
+        // Add return travel to destination (item_type 5)
+        if (cursor && route.next_visiting_location) {
+          const destLocation = await tx.dvi_location_master.findFirst({
+            where: {
+              location_id: route.location_id,
+              deleted: 0,
+            },
+            select: { latitude: true, longitude: true },
+          });
+
+          if (destLocation?.latitude && destLocation?.longitude) {
+            const returnTravel = computeTravelParity(
+              cursor.lat,
+              cursor.lng,
+              toFloat(destLocation.latitude),
+              toFloat(destLocation.longitude),
+            );
+
+            order++;
+            await tx.dvi_itinerary_route_hotspot_details.create({
+              data: {
+                itinerary_plan_ID: planId,
+                itinerary_route_ID: route.itinerary_route_ID,
+                item_type: ITEM_RETURN_TRAVEL,
+                hotspot_order: order,
+                hotspot_ID: 0,
+                allow_break_hours: 0,
+                allow_via_route: 0,
+                hotspot_traveling_time: secondsToPrismaTime(returnTravel.travelSeconds),
+                itinerary_travel_type_buffer_time: secondsToPrismaTime(0),
+                hotspot_travelling_distance: returnTravel.distanceKm.toFixed(2),
+                hotspot_start_time: dateTimeToPrismaTime(cursor.time),
+                hotspot_end_time: dateTimeToPrismaTime(
+                  new Date(cursor.time.getTime() + returnTravel.travelSeconds * 1000)
+                ),
+                createdby: plan.createdby ?? 0,
+                createdon: new Date(),
+                status: 1,
+                deleted: 0,
+              } as Prisma.dvi_itinerary_route_hotspot_detailsUncheckedCreateInput,
+            });
+
+            // Add end buffer (item_type 6)
+            order++;
+            await tx.dvi_itinerary_route_hotspot_details.create({
+              data: {
+                itinerary_plan_ID: planId,
+                itinerary_route_ID: route.itinerary_route_ID,
+                item_type: ITEM_END_BUFFER,
+                hotspot_order: order,
+                hotspot_ID: 0,
+                allow_break_hours: 0,
+                allow_via_route: 0,
+                hotspot_traveling_time: secondsToPrismaTime(0),
+                itinerary_travel_type_buffer_time: secondsToPrismaTime(0),
+                hotspot_travelling_distance: null,
+                hotspot_start_time: secondsToPrismaTime(0),
+                hotspot_end_time: secondsToPrismaTime(0),
+                createdby: plan.createdby ?? 0,
+                createdon: new Date(),
+                status: 1,
+                deleted: 0,
+              } as Prisma.dvi_itinerary_route_hotspot_detailsUncheckedCreateInput,
+            });
+          }
         }
 
         return { routeId: route.itinerary_route_ID, insertedVisits };
