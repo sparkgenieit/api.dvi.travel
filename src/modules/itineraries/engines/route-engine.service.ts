@@ -384,7 +384,7 @@ export class RouteEngineService {
       // Try to find city and get its state
       const city = await (tx as any).dvi_cities.findFirst({
         where: {
-          city_name: locationName,
+          name: locationName,
           status: 1,
           deleted: 0,
         },
