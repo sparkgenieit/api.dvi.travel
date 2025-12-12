@@ -951,21 +951,26 @@ export async function calculateRouteVehicleDetails(
   // Calculate total travelling time from route start and end times
   if (route.route_start_time && route.route_end_time) {
     try {
-      // Times come from DB as Date objects or strings like '11:00:00'
-      // We need to create full Date objects for today with these times
-      const today = new Date().toISOString().split('T')[0]; // Get today's date YYYY-MM-DD
-      
-      // Convert to time string if it's a Date object
-      let startTimeStr = route.route_start_time;
-      let endTimeStr = route.route_end_time;
+      // Times come from DB as Date objects (Prisma maps TIME to DateTime)
+      // Extract just the time portion (HH:MM:SS)
+      let startTimeStr: string;
+      let endTimeStr: string;
       
       if (route.route_start_time instanceof Date) {
-        startTimeStr = route.route_start_time.toISOString().split('T')[1].split('.')[0];
-      }
-      if (route.route_end_time instanceof Date) {
-        endTimeStr = route.route_end_time.toISOString().split('T')[1].split('.')[0];
+        // Extract time from Date object: get ISO string and take time part
+        startTimeStr = route.route_start_time.toISOString().split('T')[1].substring(0, 8);
+      } else {
+        startTimeStr = String(route.route_start_time);
       }
       
+      if (route.route_end_time instanceof Date) {
+        endTimeStr = route.route_end_time.toISOString().split('T')[1].substring(0, 8);
+      } else {
+        endTimeStr = String(route.route_end_time);
+      }
+      
+      // Now calculate difference using today's date as base
+      const today = new Date().toISOString().split('T')[0];
       const startTime = new Date(`${today}T${startTimeStr}`);
       const endTime = new Date(`${today}T${endTimeStr}`);
       
