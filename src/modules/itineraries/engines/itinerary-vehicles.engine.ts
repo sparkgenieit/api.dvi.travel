@@ -322,6 +322,8 @@ export class ItineraryVehiclesEngine {
         no_of_km: true,
         location_name: true,
         next_visiting_location: true,
+        route_start_time: true,
+        route_end_time: true,
       },
       orderBy: { itinerary_route_ID: "asc" },
     });
