@@ -1342,6 +1342,22 @@ export class ItineraryVehiclesEngine {
       });
       const totalPermitCharges = Number(permitAgg._sum?.vehicle_permit_charges || 0);
 
+      // Aggregate total travelled km from vehicle_details (PHP parity)
+      const kmAgg = await tx.dvi_itinerary_plan_vendor_vehicle_details.aggregate({
+        where: {
+          itinerary_plan_id: planId,
+          vendor_vehicle_type_id: eligible.vendor_vehicle_type_id,
+          vehicle_type_id: eligible.vehicle_type_id,
+          status: 1,
+          deleted: 0,
+        },
+        _sum: {
+          total_travelled_km: true,
+        },
+      });
+      const totalKms = Number(kmAgg._sum?.total_travelled_km || 0);
+      const totalOutstationKm = totalKms; // PHP sets this equal to total_kms
+
       // Recalculate totals with the aggregated toll/permit charges
       const totalRentalNum = Number(eligible.total_rental_charges || 0);
       const totalParkingCharges = Number(eligible.total_parking_charges || 0);
@@ -1375,6 +1391,8 @@ export class ItineraryVehiclesEngine {
           itinerary_plan_vendor_eligible_ID: eligible.itinerary_plan_vendor_eligible_ID,
         },
         data: {
+          total_kms: String(totalKms),
+          total_outstation_km: String(totalOutstationKm),
           total_toll_charges: totalTollCharges,
           total_permit_charges: totalPermitCharges,
           vehicle_gst_amount: vehicleGstAmount,
