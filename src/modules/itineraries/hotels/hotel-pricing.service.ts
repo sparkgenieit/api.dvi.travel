@@ -66,12 +66,36 @@ export class HotelPricingService {
   }
 
   /**
+   * Check if a hotel has at least one non-zero room rate for the given date.
+   * PHP filters hotels this way to ensure valid pricing exists.
+   */
+  async hasValidRates(hotel_id: number, onDate: Date): Promise<boolean> {
+    const dc = dayCol(onDate);
+    const y = String(onDate.getFullYear());
+    const m = monthName(onDate);
+
+    const rows: any[] = await this.prisma.dvi_hotel_room_price_book.findMany({
+      where: { 
+        hotel_id, 
+        year: y, 
+        month: m,
+        [dc]: { gt: 0 } // Only get rows where day_X > 0
+      },
+      select: { room_id: true },
+      take: 1,
+    });
+
+    return rows.length > 0;
+  }
+
+  /**
    * Hotel picker:
    * - Filters by category
    * - Tries exact city match (case insensitive) if provided
    * - Falls back to any hotel in that category
+   * - NOW: Only picks hotels with valid (non-zero) rates for the date
    */
-  async pickHotelByCategory(hotel_category: number, city?: string | null) {
+  async pickHotelByCategory(hotel_category: number, city?: string | null, onDate?: Date) {
     const hotelCategory = Number(hotel_category) || 0;
     const cityTrim = (city ?? "").trim();
     const whereBase: any = { hotel_category: hotelCategory };
@@ -79,7 +103,7 @@ export class HotelPricingService {
     if (cityTrim) {
       const cityCandidates = [cityTrim, cityTrim.toUpperCase(), cityTrim.toLowerCase()];
       for (const c of cityCandidates) {
-        const hotel = await this.prisma.dvi_hotel.findFirst({
+        const hotels = await this.prisma.dvi_hotel.findMany({
           where: { ...whereBase, hotel_city: c },
           select: {
             hotel_id: true,
@@ -89,17 +113,32 @@ export class HotelPricingService {
             hotel_hotspot_status: true,
             hotel_city: true,
           },
-          orderBy: { hotel_id: "asc" },
         });
 
-        this.log.debug(
-          `pickHotelByCategory(cat=${hotelCategory}, city='${c}') -> ${hotel ? hotel.hotel_id : "null"}`,
-        );
-        if (hotel) return hotel;
+        if (hotels.length > 0) {
+          // Filter hotels to only those with valid rates for the date
+          if (onDate) {
+            const validHotels = [];
+            for (const h of hotels) {
+              if (await this.hasValidRates(h.hotel_id, onDate)) {
+                validHotels.push(h);
+              }
+            }
+            if (validHotels.length > 0) {
+              const hotel = validHotels[Math.floor(Math.random() * validHotels.length)];
+              return hotel;
+            }
+            // No valid hotels in this city, continue to fallback
+          } else {
+            // No date provided, pick any hotel (backward compatibility)
+            const hotel = hotels[Math.floor(Math.random() * hotels.length)];
+            return hotel;
+          }
+        }
       }
     }
 
-    const fallback = await this.prisma.dvi_hotel.findFirst({
+    const fallbacks = await this.prisma.dvi_hotel.findMany({
       where: whereBase,
       select: {
         hotel_id: true,
@@ -109,13 +148,28 @@ export class HotelPricingService {
         hotel_hotspot_status: true,
         hotel_city: true,
       },
-      orderBy: { hotel_id: "asc" },
     });
 
-    this.log.debug(
-      `pickHotelByCategory(fallback, cat=${hotelCategory}, city='${cityTrim}') -> ${fallback ? fallback.hotel_id : "null"}`,
-    );
-    return fallback;
+    if (fallbacks.length > 0) {
+      // Filter fallback hotels by valid rates
+      if (onDate) {
+        const validFallbacks = [];
+        for (const h of fallbacks) {
+          if (await this.hasValidRates(h.hotel_id, onDate)) {
+            validFallbacks.push(h);
+          }
+        }
+        if (validFallbacks.length > 0) {
+          return validFallbacks[Math.floor(Math.random() * validFallbacks.length)];
+        }
+        // No hotels with valid rates found at all
+        return null;
+      }
+      // No date filtering
+      return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    }
+
+    return null;
   }
 
   /**

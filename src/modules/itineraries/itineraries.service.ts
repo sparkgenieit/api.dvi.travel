@@ -12,6 +12,7 @@ import { HotspotEngineService } from "./engines/hotspot-engine.service";
 import { HotelEngineService } from "./engines/hotel-engine.service";
 import { TravellersEngineService } from "./engines/travellers-engine.service";
 import { VehiclesEngineService } from "./engines/vehicles-engine.service";
+import { ItineraryVehiclesEngine } from "./engines/itinerary-vehicles.engine";
 
 @Injectable()
 export class ItinerariesService {
@@ -23,13 +24,14 @@ export class ItinerariesService {
     private readonly hotelEngine: HotelEngineService,
     private readonly travellersEngine: TravellersEngineService,
     private readonly vehiclesEngine: VehiclesEngineService,
+    private readonly itineraryVehiclesEngine: ItineraryVehiclesEngine,
   ) {}
 
   async createPlan(dto: CreateItineraryDto) {
     const userId = 1;
 
     // Increase interactive transaction timeout; hotspot rebuild + hotel lookups can exceed default 5s
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const planId = await this.planEngine.upsertPlanHeader(
         dto.plan,
         dto.travellers,
@@ -87,6 +89,19 @@ export class ItinerariesService {
         message:
           "Plan created/updated with routes, vehicles, travellers, hotspots, and hotels.",
       };
-    }, { timeout: 30000, maxWait: 5000 });
+    }, { timeout: 60000, maxWait: 10000 });
+
+    // Rebuild vendor eligible list and vendor vehicle details AFTER transaction completes
+    // (requires committed routes & hotspots data)
+    await this.itineraryVehiclesEngine.rebuildEligibleVendorList({
+      planId: result.planId,
+      createdBy: userId,
+    });
+
+    // Rebuild parking charges AFTER vendor vehicles are created
+    // (parking charge builder needs vendor vehicle details)
+    await this.hotspotEngine.rebuildParkingCharges(result.planId, userId);
+
+    return result;
   }
 }
