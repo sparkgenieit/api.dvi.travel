@@ -163,6 +163,18 @@ export class TimelineBuilder {
 
       const openSeconds = timeToSeconds(openTime);
       const closeSeconds = timeToSeconds(closeTime);
+      
+      // Debug logging for hotspot 17
+      if (hotspotId === 17 || hotspotId === 20) {
+        const fs = require('fs');
+        fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/operating_hours_debug.log',
+          `Hotspot ${hotspotId}:\n` +
+          `  Visit: ${visitStartTime} (${visitStartSeconds}s) - ${visitEndTime} (${visitEndSeconds}s)\n` +
+          `  Open: ${openTime} (${openSeconds}s) - ${closeTime} (${closeSeconds}s)\n` +
+          `  Check: ${visitStartSeconds} >= ${openSeconds} && ${visitEndSeconds} <= ${closeSeconds}\n` +
+          `  Result: ${visitStartSeconds >= openSeconds && visitEndSeconds <= closeSeconds}\n\n`
+        );
+      }
 
       // PHP line 10419-10423: Both start >= open AND end <= close
       if (visitStartSeconds >= openSeconds && visitEndSeconds <= closeSeconds) {
@@ -348,12 +360,14 @@ export class TimelineBuilder {
         }
         
         if (currentSeconds >= routeEndSeconds) {
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - out of route time\n`); } catch(e) {}
           break;
         }
 
         // PHP CHECK: Skip if hotspot already added to THIS PLAN (any previous route in this rebuild)
         // Line 15159 in sql_functions.php: check_hotspot_already_added_the_itineary_plan
         if (addedHotspotIds.has(sh.hotspot_ID)) {
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - already added\n`); } catch(e) {}
           continue;
         }
 
@@ -394,46 +408,50 @@ export class TimelineBuilder {
           currentCoords, // Use tracked current coordinates
           destCoords,
         );
+
+        // PHP PARITY: Check if hotspot END time exceeds route_end_time BEFORE processing
+        // Calculate end time to determine if this hotspot fits
         const travelDurationSeconds = timeToSeconds(travelTimeToHotspot);
         const timeAfterTravel = addSeconds(currentTime, travelDurationSeconds);
-
-        // Get hotspot duration
         const hotspotDurationSeconds = timeToSeconds(hotspotDuration);
-        const timeAfterHotspot = addSeconds(
-          timeAfterTravel,
-          hotspotDurationSeconds,
-        );
+        const timeAfterHotspot = addSeconds(timeAfterTravel, hotspotDurationSeconds);
+        
+        let hotspotEndSeconds = timeToSeconds(timeAfterHotspot);
+        if (hotspotEndSeconds < routeStartSeconds) {
+          hotspotEndSeconds += 86400;
+        }
+        
+        // DEBUG: Log the comparison
+        console.log(`[HOTSPOT ${sh.hotspot_ID}] Current: ${currentTime}, AfterTravel: ${timeAfterTravel}, AfterHotspot: ${timeAfterHotspot}`);
+        console.log(`[HOTSPOT ${sh.hotspot_ID}] EndSeconds: ${hotspotEndSeconds}, RouteEndSeconds: ${routeEndSeconds}, RouteEndTime: ${routeEndTime}`);
+        console.log(`[HOTSPOT ${sh.hotspot_ID}] Check: ${hotspotEndSeconds} > ${routeEndSeconds} = ${hotspotEndSeconds > routeEndSeconds}`);
+        
+        // PHP CHECK: If hotspot would exceed route_end_time, STOP processing
+        if (hotspotEndSeconds > routeEndSeconds) {
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] BREAKING - exceeds route end time (${timeAfterHotspot} > ${routeEndTime})\n`); } catch(e) {}
+          break; // BREAK - don't process this or any subsequent hotspots
+        }
 
         // PHP CHECK: Validate operating hours (PHP sql_functions.php line 15121)
-        // Must check BEFORE checking route end time
-        const phpDow = route.itinerary_route_date
-          ? ((new Date(route.itinerary_route_date).getDay() + 6) % 7)
+        // Database uses JavaScript day numbering: 0=Sunday, 1=Monday, ..., 6=Saturday
+        const dayOfWeek = route.itinerary_route_date
+          ? new Date(route.itinerary_route_date).getDay()
           : 0;
         
         const operatingHoursOk = await this.checkHotspotOperatingHours(
           tx,
           sh.hotspot_ID,
-          phpDow,
+          dayOfWeek,
           timeAfterTravel, // Visit starts after travel
           timeAfterHotspot, // Visit ends after duration
         );
         
         if (!operatingHoursOk) {
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - operating hours\n`); } catch(e) {}
           continue; // Skip this hotspot, try next one
         }
-
-        // PHP CHECK: If hotspot END time exceeds route_end_time significantly, skip
-        // PHP allows some buffer (observed: hotspots can extend 2-3 hours past route end)
-        let hotspotEndSeconds = timeToSeconds(timeAfterHotspot);
-        // Handle overnight: if hotspot end time < start time, add 24 hours
-        if (hotspotEndSeconds < routeStartSeconds) {
-          hotspotEndSeconds += 86400;
-        }
         
-        const bufferSeconds = 4 * 3600; // Allow 4 hours buffer past route_end_time (PHP behavior observed)
-        if (hotspotEndSeconds > routeEndSeconds + bufferSeconds) {
-          continue; // Try next hotspot instead of breaking
-        }
+        try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] ADDED\n`); } catch(e) {}
 
         // 2.c) Build TRAVEL SEGMENT (item_type = 3)
         // PHP BEHAVIOR: Travel and Visit segments share the SAME hotspot_order
@@ -797,59 +815,33 @@ export class TimelineBuilder {
         // TODO: via_route_hotspots matching via locations (for future implementation)
       }
 
-      // PHP sortHotspots() for each category  
-      // CRITICAL: PHP sorts by priority ASC FIRST, then EDF WITHIN same priority
-      // Example: Priority-1 (null closing) comes before Priority-2 (closes 12:30)
-      // But within Priority-1: hotspots with earlier closing come first
-      const sortHotspots = (hotspots: any[], sourceLocation: string = '', destLocation: string = '') => {
+      // PHP PARITY: Exact copy of sortHotspots function from ajax_latest_manage_itineary.php
+      const sortHotspots = (hotspots: any[]) => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
           
-          // Priority-0 hotspots always go last (PHP: CASE WHEN priority = 0 THEN 1 ELSE 0 END)
-          if (aPriority === 0 && bPriority !== 0) return 1;
-          if (aPriority !== 0 && bPriority === 0) return -1;
-          
-          // First by priority ASC (PHP: hotspot_priority ASC)
-          if (aPriority !== bPriority) return aPriority - bPriority;
-          
-          // Within same priority, apply EDF (Earliest Deadline First)
-          const aId = Number(a.hotspot_ID ?? 0);
-          const bId = Number(b.hotspot_ID ?? 0);
-          const aClosing = closingTimeMap.get(aId);
-          const bClosing = closingTimeMap.get(bId);
-          
-          // Both have closing times - prioritize earlier closing (URGENT first)
-          if (aClosing && bClosing && aClosing !== bClosing) {
-            return aClosing < bClosing ? -1 : 1;
+          // Priority 0 goes to END
+          if (aPriority === 0 && bPriority !== 0) {
+            return 1;
+          } else if (aPriority !== 0 && bPriority === 0) {
+            return -1;
+          } else if (aPriority === bPriority) {
+            // Same priority: sort by distance ASC (closer first)
+            return a.hotspot_distance - b.hotspot_distance;
           }
-          
-          // One has closing time, one doesn't - prioritize no closing time (open all day)
-          // because hotspot with null closing has no urgency
-          if (aClosing && !bClosing) return 1; // b (no closing) comes first
-          if (!aClosing && bClosing) return -1; // a (no closing) comes first
-          
-          // For same priority and no closing time difference, prefer hotspots with multiple locations
-          const aLocCount = (a.hotspot_location || '').split('|').length;
-          const bLocCount = (b.hotspot_location || '').split('|').length;
-          if (aLocCount !== bLocCount) return bLocCount - aLocCount;
-          
-          // Finally by distance (ASC - closer first)
-          return a.hotspot_distance - b.hotspot_distance;
+          // Different priorities: sort by priority ASC (lower number first)
+          return aPriority - bPriority;
         });
       };
 
-      sortHotspots(sourceLocationHotspots, targetLocation, nextLocation);
-      sortHotspots(destinationHotspots, targetLocation, nextLocation);
-      sortHotspots(viaRouteHotspots, targetLocation, nextLocation);
-      // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
-      // This prevents low-value attractions from being added when traveling between cities
-      if (directToNextVisitingPlace === 0) {
-        sourceLocationHotspots = sourceLocationHotspots.filter((h: any) => {
-          const priority = Number(h.hotspot_priority ?? 0);
-          return priority > 0;
-        });
-      }
+      sortHotspots(sourceLocationHotspots);
+      sortHotspots(destinationHotspots);
+      sortHotspots(viaRouteHotspots);
+      
+      // PHP does NOT filter priority=0, it just sorts them to the END
+      // Time constraints and route_end_time will naturally prevent low-priority hotspots
+      // from being added if there's not enough time
 
       // Detect airport arrival routes: Airport → City
       const isAirportArrival = targetLocation.toLowerCase().includes('airport') && 
@@ -878,6 +870,13 @@ export class TimelineBuilder {
         if (!id || seen.has(id)) continue;
         seen.add(id);
         uniqueHotspots.push(h);
+      }
+
+      console.log(`[Route ${routeId}] Selected ${uniqueHotspots.length} hotspots:`, uniqueHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', '));
+      try {
+        fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `[Route ${routeId}] Selected: ${uniqueHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', ')}\n`);
+      } catch (e) {
+        // Ignore file write errors
       }
 
       return uniqueHotspots.map((h: any, index: number) => ({
