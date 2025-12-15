@@ -6,6 +6,7 @@ import { ItinerariesController } from './itineraries.controller';
 import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
+import { ItineraryExportService } from './itinerary-export.service';
 import { HotelEngineService } from './engines/hotel-engine.service';
 import { HotelPricingService } from './hotels/hotel-pricing.service';
 
@@ -19,6 +20,8 @@ import { RouteEngineService } from './engines/route-engine.service';
 import { HotspotEngineService } from './engines/hotspot-engine.service';
 import { TravellersEngineService } from './engines/travellers-engine.service';
 import { VehiclesEngineService } from './engines/vehicles-engine.service';
+import { ViaRoutesEngine } from './engines/via-routes.engine';
+import { RouteValidationService } from './validation/route-validation.service';
 
 @Module({
   controllers: [ItinerariesController],
@@ -27,6 +30,7 @@ import { VehiclesEngineService } from './engines/vehicles-engine.service';
     ItinerariesService,
     ItineraryDetailsService,
     ItineraryHotelDetailsService,
+    ItineraryExportService,
     PrismaService,
 
     // existing engines you already had
@@ -41,6 +45,8 @@ import { VehiclesEngineService } from './engines/vehicles-engine.service';
     HotspotEngineService,
     TravellersEngineService,
     VehiclesEngineService,
+    ViaRoutesEngine,
+    RouteValidationService,
   ],
 })
 export class ItinerariesModule {}

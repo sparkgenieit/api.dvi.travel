@@ -26,6 +26,8 @@ export class HotelTravelBuilder {
       sourceLocationName?: string;
       destinationLocationName?: string;
       transportMode?: 'road' | 'train' | 'flight';
+      sourceCoords?: { lat: number; lon: number };
+      destCoords?: { lat: number; lon: number };
     },
   ): Promise<{ row: HotspotDetailRow; nextTime: string }> {
     return this.travelBuilder.buildTravelSegment(tx, {
@@ -39,6 +41,8 @@ export class HotelTravelBuilder {
       locationId: opts.locationId,
       sourceLocationName: opts.sourceLocationName,
       destinationLocationName: opts.destinationLocationName,
+      sourceCoords: opts.sourceCoords,
+      destCoords: opts.destCoords,
     });
   }
 

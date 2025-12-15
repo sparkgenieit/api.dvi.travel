@@ -2,7 +2,7 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { dvi_itinerary_plan_details } from '@prisma/client';
+import { dvi_itinerary_plan_details, Prisma } from '@prisma/client';
 
 export interface ItineraryHotelTabDto {
   groupType: number;
@@ -12,8 +12,10 @@ export interface ItineraryHotelTabDto {
 
 export interface ItineraryHotelRowDto {
   groupType: number;
+  itineraryRouteId: number;
   day: string;
   destination: string;
+  hotelId: number;
   hotelName: string;
   category: number;
   roomType: string;
@@ -32,6 +34,14 @@ export interface ItineraryHotelDetailsResponseDto {
 }
 
 /**
+ * Room type option for dropdown
+ */
+export interface RoomTypeOptionDto {
+  roomTypeId: number;
+  roomTypeTitle: string;
+}
+
+/**
  * Room-level DTO, inspired by PHP structured_hotel_room_details[]
  */
 export interface ItineraryHotelRoomDto {
@@ -39,8 +49,12 @@ export interface ItineraryHotelRoomDto {
   itineraryRouteId: number;
   itineraryPlanHotelRoomDetailsId: number;
   hotelId: number;
+  hotelName: string;
+  hotelCategory: number | null;
   roomTypeId: number;
+  roomTypeName: string;
   roomId: number;
+  availableRoomTypes: RoomTypeOptionDto[];
 
   // Pricing & tax
   pricePerNight: number;
@@ -81,6 +95,49 @@ export class ItineraryHotelDetailsService {
     }
 
     return this.getHotelDetailsForPlan(plan);
+  }
+
+  /**
+   * Helper: Get available room types for a hotel based on route date
+   * Mimics PHP getHOTEL_ROOM_TYPE_DETAIL('select_itineary_hotel')
+   */
+  private async getAvailableRoomTypesForHotel(
+    hotelId: number,
+    routeDate: Date,
+  ): Promise<RoomTypeOptionDto[]> {
+    const day = `day_${routeDate.getDate()}`;
+    const month = routeDate.toLocaleString('en-US', { month: 'long' });
+    const year = routeDate.getFullYear();
+
+    // Query inspired by PHP: dvi_hotel_rooms + dvi_hotel_room_price_book + dvi_hotel_roomtype
+    // Use Prisma.raw() for dynamic column names to avoid SQL injection and parameter issues
+    const roomTypesRaw = await this.prisma.$queryRaw<any[]>`
+      SELECT DISTINCT 
+        PRICEBOOK.room_type_id, 
+        ROOMTYPE.room_type_title
+      FROM dvi_hotel_rooms ROOMS
+      LEFT JOIN dvi_hotel_room_price_book PRICEBOOK 
+        ON PRICEBOOK.hotel_id = ROOMS.hotel_id 
+        AND ROOMS.room_type_id = PRICEBOOK.room_type_id
+      LEFT JOIN dvi_hotel_roomtype ROOMTYPE 
+        ON ROOMTYPE.room_type_id = ROOMS.room_type_id
+      WHERE ROOMS.deleted = 0 
+        AND ROOMS.status = 1 
+        AND ROOMS.hotel_id = ${hotelId}
+        AND PRICEBOOK.${Prisma.raw(day)} IS NOT NULL
+        AND PRICEBOOK.month = ${month}
+        AND PRICEBOOK.year = ${year}
+        AND PRICEBOOK.price_type = 0
+        AND PRICEBOOK.status = 1
+        AND PRICEBOOK.deleted = 0
+      GROUP BY PRICEBOOK.room_type_id
+      ORDER BY PRICEBOOK.${Prisma.raw(day)} ASC
+    `;
+
+    return roomTypesRaw.map((rt) => ({
+      roomTypeId: Number(rt.room_type_id ?? 0),
+      roomTypeTitle: rt.room_type_title ?? '',
+    }));
   }
 
  /**
@@ -152,67 +209,98 @@ async getHotelRoomDetailsByQuoteId(
     roomTypes.map((rt: any) => [Number(rt.room_type_id), rt]),
   );
 
-  // 3) Map to DTO
-  const rooms: ItineraryHotelRoomDto[] = roomRowsRaw.map((row: any) => {
-    const itineraryPlanId = Number(row.itinerary_plan_id ?? planId ?? 0);
-    const itineraryRouteId = Number(row.itinerary_route_id ?? 0);
-    const itineraryPlanHotelRoomDetailsId = Number(
-      row.itinerary_plan_hotel_room_details_ID ?? row.id ?? 0,
-    );
+  // 3) Get route dates for each room to fetch available room types
+  const routeIds = Array.from(
+    new Set(
+      roomRowsRaw
+        .map((r: any) => Number(r.itinerary_route_id ?? 0))
+        .filter((id) => id > 0),
+    ),
+  );
 
-    const hotelId = Number(row.hotel_id ?? 0);
-    const roomTypeId = Number(row.room_type_id ?? 0);
-    const roomId = Number(row.room_id ?? 0);
+  const routes = routeIds.length
+    ? await this.prisma.dvi_itinerary_route_details.findMany({
+        where: { itinerary_route_ID: { in: routeIds }, deleted: 0 },
+      })
+    : [];
 
-    const hotel = hotelMap.get(hotelId) || null;
-    const roomType = roomTypeMap.get(roomTypeId) || null;
+  const routeDateMap = new Map<number, Date>(
+    routes.map((r: any) => [
+      Number(r.itinerary_route_ID),
+      r.itinerary_route_date,
+    ]),
+  );
 
-    const hotelName = hotel ? (hotel.hotel_name as string) ?? '' : '';
-    const hotelCategory = hotel
-      ? Number(hotel.hotel_category ?? hotel.hotel_star ?? 0) || null
-      : null;
+  // 4) Map to DTO with available room types
+  const rooms: ItineraryHotelRoomDto[] = await Promise.all(
+    roomRowsRaw.map(async (row: any) => {
+      const itineraryPlanId = Number(row.itinerary_plan_id ?? planId ?? 0);
+      const itineraryRouteId = Number(row.itinerary_route_id ?? 0);
+      const itineraryPlanHotelRoomDetailsId = Number(
+        row.itinerary_plan_hotel_room_details_ID ?? row.id ?? 0,
+      );
 
-    const roomTypeName = roomType
-      ? (roomType.room_type_title as string) ?? ''
-      : '';
+      const hotelId = Number(row.hotel_id ?? 0);
+      const roomTypeId = Number(row.room_type_id ?? 0);
+      const roomId = Number(row.room_id ?? 0);
 
-    const pricePerNight = Number(
-      row.total_price ?? row.price_per_night ?? row.room_price ?? 0,
-    );
+      const hotel = hotelMap.get(hotelId) || null;
+      const roomType = roomTypeMap.get(roomTypeId) || null;
 
-    const gstType: string | null =
-      (row.gst_type as string | undefined) ?? null;
-    const gstPercentage = Number(row.gst_percentage ?? 0);
+      const hotelName = hotel ? (hotel.hotel_name as string) ?? '' : '';
+      const hotelCategory = hotel
+        ? Number(hotel.hotel_category ?? hotel.hotel_star ?? 0) || null
+        : null;
 
-    const totalExtraBed = Number(row.total_extra_bed ?? 0);
-    const totalChildWithBed = Number(row.total_child_with_bed ?? 0);
-    const totalChildWithoutBed = Number(row.total_child_without_bed ?? 0);
+      const roomTypeName = roomType
+        ? (roomType.room_type_title as string) ?? ''
+        : '';
 
-    const extraBedCharge = Number(row.extra_bed_charge ?? 0);
-    const childWithBedCharge = Number(row.child_with_bed_charge ?? 0);
-    const childWithoutBedCharge = Number(row.child_without_bed_charge ?? 0);
+      const pricePerNight = Number(
+        row.total_price ?? row.price_per_night ?? row.room_price ?? 0,
+      );
 
-    return {
-      itineraryPlanId,
-      itineraryRouteId,
-      itineraryPlanHotelRoomDetailsId,
-      hotelId,
-      hotelName,
-      hotelCategory,
-      roomTypeId,
-      roomTypeName,
-      roomId,
-      pricePerNight,
-      gstType,
-      gstPercentage,
-      totalExtraBed,
-      totalChildWithBed,
-      totalChildWithoutBed,
-      extraBedCharge,
-      childWithBedCharge,
-      childWithoutBedCharge,
-    };
-  });
+      const gstType: string | null =
+        (row.gst_type as string | undefined) ?? null;
+      const gstPercentage = Number(row.gst_percentage ?? 0);
+
+      const totalExtraBed = Number(row.total_extra_bed ?? 0);
+      const totalChildWithBed = Number(row.total_child_with_bed ?? 0);
+      const totalChildWithoutBed = Number(row.total_child_without_bed ?? 0);
+
+      const extraBedCharge = Number(row.extra_bed_charge ?? 0);
+      const childWithBedCharge = Number(row.child_with_bed_charge ?? 0);
+      const childWithoutBedCharge = Number(row.child_without_bed_charge ?? 0);
+
+      // Get available room types for this hotel based on route date
+      const routeDate = routeDateMap.get(itineraryRouteId);
+      const availableRoomTypes = routeDate
+        ? await this.getAvailableRoomTypesForHotel(hotelId, routeDate)
+        : [];
+
+      return {
+        itineraryPlanId,
+        itineraryRouteId,
+        itineraryPlanHotelRoomDetailsId,
+        hotelId,
+        hotelName,
+        hotelCategory,
+        roomTypeId,
+        roomTypeName,
+        roomId,
+        availableRoomTypes,
+        pricePerNight,
+        gstType,
+        gstPercentage,
+        totalExtraBed,
+        totalChildWithBed,
+        totalChildWithoutBed,
+        extraBedCharge,
+        childWithBedCharge,
+        childWithoutBedCharge,
+      };
+    }),
+  );
 
   return {
     quoteId: plan.itinerary_quote_ID ?? '',
@@ -301,8 +389,10 @@ async getHotelRoomDetailsByQuoteId(
 
       return {
         groupType: Number((h as any).group_type ?? 0) || 0,
+        itineraryRouteId: Number((h as any).itinerary_route_id ?? 0) || 0,
         day: `Day ${idx + 1} | ${dateLabel}`,
         destination: (h as any).itinerary_route_location ?? '',
+        hotelId: Number((h as any).hotel_id ?? 0) || 0,
         hotelName: master ? ((master as any).hotel_name ?? '') : '',
         category: master ? ((master as any).hotel_category ?? 0) : 0,
         roomType: '', // room/meal details can be wired later

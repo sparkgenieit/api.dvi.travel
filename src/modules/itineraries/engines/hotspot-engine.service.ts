@@ -76,15 +76,14 @@ export class HotspotEngineService {
 
       const parkingRows = [];
       for (const detail of hotspotDetails) {
-        const parking = await this.timelineBuilder.parkingBuilder.buildForHotspot(tx, {
+        const parkingRowsForHotspot = await this.timelineBuilder.parkingBuilder.buildForHotspot(tx, {
           planId,
           routeId: detail.itinerary_route_ID,
           hotspotId: detail.hotspot_ID,
           userId,
         });
-
-        if (parking) {
-          parkingRows.push(parking);
+        if (parkingRowsForHotspot && parkingRowsForHotspot.length > 0) {
+          parkingRows.push(...parkingRowsForHotspot);
         }
       }
 

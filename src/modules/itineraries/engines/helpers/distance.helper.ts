@@ -29,9 +29,9 @@ export class DistanceHelper {
     endLon: number,
     travelLocationType: 1 | 2,
   ): Promise<DistanceResult> {
-    console.log(
-      `[Haversine] Calculating distance: (${startLat},${startLon}) -> (${endLat},${endLon})`,
-    );
+    // console.log(
+    //   `[Haversine] Calculating distance: (${startLat},${startLon}) -> (${endLat},${endLon})`,
+    // );
     
     // Haversine formula - matches PHP's calculateDistanceAndDuration
     const earthRadius = 6371; // km
@@ -54,7 +54,7 @@ export class DistanceHelper {
     const correctionFactor = 1.5;
     const correctedDistance = distance * correctionFactor;
     
-    console.log(`[Haversine] Raw distance: ${distance.toFixed(2)}km, Corrected: ${correctedDistance.toFixed(2)}km`);
+    // console.log(`[Haversine] Raw distance: ${distance.toFixed(2)}km, Corrected: ${correctedDistance.toFixed(2)}km`);
     
     // Get speed limit from global settings
     const gs = await (tx as any).dvi_global_settings.findFirst({
@@ -65,9 +65,9 @@ export class DistanceHelper {
       ? Number(gs?.itinerary_local_speed_limit ?? 40)
       : Number(gs?.itinerary_outstation_speed_limit ?? 60);
     
-    console.log(
-      `[Haversine] Global settings speed: local=${gs?.itinerary_local_speed_limit}, outstation=${gs?.itinerary_outstation_speed_limit}, using=${avgSpeedKmPerHr}km/h for type=${travelLocationType}`,
-    );
+    // console.log(
+    //   `[Haversine] Global settings speed: local=${gs?.itinerary_local_speed_limit}, outstation=${gs?.itinerary_outstation_speed_limit}, using=${avgSpeedKmPerHr}km/h for type=${travelLocationType}`,
+    // );
     
     // Calculate duration
     const durationHours = correctedDistance / avgSpeedKmPerHr;
@@ -79,9 +79,9 @@ export class DistanceHelper {
     
     const bufferTime = await this.getBufferTime(tx, travelLocationType);
     
-    console.log(
-      `[Haversine] Speed: ${avgSpeedKmPerHr}km/h, Duration: ${travelTime}, Buffer: ${bufferTime}`,
-    );
+    // console.log(
+    //   `[Haversine] Speed: ${avgSpeedKmPerHr}km/h, Duration: ${travelTime}, Buffer: ${bufferTime}`,
+    // );
     
     return {
       distanceKm: correctedDistance,
@@ -158,9 +158,9 @@ export class DistanceHelper {
     
     // Fallback to coordinate-based calculation if available
     if (sourceCoords && destCoords) {
-      console.log(
-        `[DistanceHelper] Using Haversine: source=(${sourceCoords.lat},${sourceCoords.lon}), dest=(${destCoords.lat},${destCoords.lon})`,
-      );
+      // console.log(
+      //   `[DistanceHelper] Using Haversine: source=(${sourceCoords.lat},${sourceCoords.lon}), dest=(${destCoords.lat},${destCoords.lon})`,
+      // );
       return this.fromCoordinates(
         tx,
         sourceCoords.lat,
@@ -171,9 +171,9 @@ export class DistanceHelper {
       );
     }
     
-    console.log(
-      `[DistanceHelper] No data: sourceCoords=${!!sourceCoords}, destCoords=${!!destCoords}`,
-    );
+    // console.log(
+    //   `[DistanceHelper] No data: sourceCoords=${!!sourceCoords}, destCoords=${!!destCoords}`,
+    // );
 
     // No data available - return zeros
     return {
