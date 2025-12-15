@@ -22,6 +22,12 @@ import {
   resolveTimingForDay,
 } from "../utils/itinerary.utils";
 
+/**
+ * GLOBAL CONST (for now). Later move to DB.
+ * Rule: must reach hotel by 11 PM after adding any hotspot.
+ */
+const HOTEL_ARRIVAL_CUTOFF_TIME = "23:00:00";
+
 @Injectable()
 export class ItineraryHotspotsEngine {
   constructor(private readonly prisma: PrismaService) {}
@@ -78,6 +84,40 @@ export class ItineraryHotspotsEngine {
 
         const dayStart = combineDateOnlyAndTime(dayDate, route.route_start_time, "09:00:00");
         const dayEnd = combineDateOnlyAndTime(dayDate, route.route_end_time, "20:00:00");
+
+        // -------------------- NEW: cutoff DateTime for this day --------------------
+        const hotelCutoff = combineDateOnlyAndTime(dayDate, new Date(`1970-01-01T${HOTEL_ARRIVAL_CUTOFF_TIME}`), HOTEL_ARRIVAL_CUTOFF_TIME);
+
+        // -------------------- NEW: find assigned hotel coords for this route --------------------
+        // NOTE: This is required to compute return travel time to hotel.
+        // If no hotel or no coords, cutoff enforcement will be skipped (safe fallback).
+        let hotelLat: number | null = null;
+        let hotelLng: number | null = null;
+
+        const assignedHotel = await tx.dvi_itinerary_plan_hotel_details.findFirst({
+          where: {
+            itinerary_plan_id: planId,
+            itinerary_route_id: route.itinerary_route_ID,
+            deleted: 0,
+          },
+          select: {
+            hotel_id: true,
+          },
+          orderBy: { itinerary_plan_hotel_details_ID: "asc" },
+        });
+
+        if (assignedHotel?.hotel_id) {
+          const hotel = await tx.dvi_hotel.findUnique({
+            where: { hotel_id: assignedHotel.hotel_id },
+            select: {
+              hotel_latitude: true,
+              hotel_longitude: true,
+            },
+          });
+
+          hotelLat = toFloat((hotel as any)?.hotel_latitude);
+          hotelLng = toFloat((hotel as any)?.hotel_longitude);
+        }
 
         const viaRows = await tx.dvi_itinerary_via_route_details.findMany({
           where: {
@@ -172,6 +212,34 @@ export class ItineraryHotspotsEngine {
           const visitStart = timingDecision.visitStart;
           const visitEnd = new Date(visitStart.getTime() + durationSeconds * 1000);
           if (visitEnd > dayEnd) continue;
+
+          // -------------------- NEW: enforce 11 PM hotel cutoff while saving --------------------
+          // We can only enforce if hotel coords exist.
+          if (hotelLat != null && hotelLng != null) {
+            const returnTravel = computeTravelParity({
+              prevLat: hLat,
+              prevLng: hLng,
+              prevLocation: String(h.hotspot_location ?? ""),
+              nextLat: hotelLat,
+              nextLng: hotelLng,
+              nextLocation: "hotel",
+            });
+
+            const projectedHotelArrival = new Date(visitEnd.getTime() + returnTravel.travelSeconds * 1000);
+
+            const isPriority = Number(h.hotspot_priority ?? 0) > 0;
+
+            // If priority hotspot makes us miss hotel cutoff -> stop picking more (protect priority set + day constraints)
+            if (isPriority && projectedHotelArrival > hotelCutoff) {
+              break;
+            }
+
+            // If non-priority hotspot makes us miss -> skip it and try next
+            if (!isPriority && projectedHotelArrival > hotelCutoff) {
+              continue;
+            }
+          }
+          // -------------------- END NEW --------------------
 
           // TRAVEL ROW
           order++;

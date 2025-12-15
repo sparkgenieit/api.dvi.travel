@@ -1,6 +1,6 @@
 // FILE: src/itineraries/itineraries.controller.ts
 
-import { Body, Controller, Param, Post, Get, Query, Req } from '@nestjs/common';
+import { Body, Controller, Param, Post, Get, Query, Req, Delete, Res } from '@nestjs/common';
 import {
   ApiBody,
   ApiExtraModels,
@@ -26,6 +26,9 @@ import {
   ItineraryHotelRoomDetailsResponseDto,
 } from './itinerary-hotel-details.service';
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
+import { ItineraryExportService } from './itinerary-export.service';
+import { Public } from '../../auth/public.decorator';
+import { Response } from 'express';
 
 @ApiTags('Itineraries')
 @ApiBearerAuth()
@@ -42,6 +45,7 @@ export class ItinerariesController {
     private readonly svc: ItinerariesService,
     private readonly detailsService: ItineraryDetailsService,
     private readonly hotelDetailsService: ItineraryHotelDetailsService,
+    private readonly exportService: ItineraryExportService,
   ) {}
 
   @Post()
@@ -91,6 +95,9 @@ export class ItinerariesController {
               no_of_km: '',
               direct_to_next_visiting_place: 1,
               via_route: '',
+              via_routes: [
+                { itinerary_via_location_ID: 101, itinerary_via_location_name: 'Mahabalipuram' }
+              ],
             },
             {
               location_name: 'Chennai',
@@ -161,6 +168,9 @@ export class ItinerariesController {
               no_of_km: '',
               direct_to_next_visiting_place: 1,
               via_route: '',
+              via_routes: [
+                { itinerary_via_location_ID: 101, itinerary_via_location_name: 'Mahabalipuram' }
+              ],
             },
             {
               itinerary_route_id: 20, // <-- UPDATE EXISTING ROUTE
@@ -218,11 +228,22 @@ export class ItinerariesController {
       default: 'DVI202512032',
     },
   })
+  @ApiQuery({
+    name: 'groupType',
+    required: false,
+    description: 'Optional filter for hotel recommendation category (1-4)',
+    example: 4,
+    type: Number,
+  })
   @ApiOkResponse({
     description: 'Full itinerary details for the given quoteId',
   })
-  async getItineraryDetails(@Param('quoteId') quoteId: string) {
-    return this.detailsService.getItineraryDetails(quoteId);
+  async getItineraryDetails(
+    @Param('quoteId') quoteId: string,
+    @Query('groupType') groupType?: string,
+  ) {
+    const groupTypeNum = groupType !== undefined ? Number(groupType) : undefined;
+    return this.detailsService.getItineraryDetails(quoteId, groupTypeNum);
   }
 
   // ⭐ EXISTING ENDPOINT: hotel_details/:quoteId
@@ -276,10 +297,178 @@ export class ItinerariesController {
     return this.detailsService.getLatestItinerariesDataTable(q, req);
   }
 
+  @Delete('hotspot/:planId/:routeId/:hotspotId')
+  @ApiOperation({ summary: 'Delete a hotspot from an itinerary route' })
+  @ApiParam({ name: 'planId', example: 17940, description: 'Itinerary Plan ID' })
+  @ApiParam({ name: 'routeId', example: 1, description: 'Route ID' })
+  @ApiParam({ name: 'hotspotId', example: 123, description: 'Route Hotspot ID' })
+  @ApiOkResponse({ description: 'Hotspot deleted successfully' })
+  async deleteHotspot(
+    @Param('planId') planId: string,
+    @Param('routeId') routeId: string,
+    @Param('hotspotId') hotspotId: string,
+  ) {
+    return this.svc.deleteHotspot(Number(planId), Number(routeId), Number(hotspotId));
+  }
+
+  @Get('activities/available/:hotspotId')
+  @ApiOperation({ summary: 'Get available activities for a hotspot location' })
+  @ApiParam({ name: 'hotspotId', example: 123, description: 'Hotspot Location ID' })
+  @ApiOkResponse({ description: 'List of available activities' })
+  async getAvailableActivities(@Param('hotspotId') hotspotId: string) {
+    return this.svc.getAvailableActivities(Number(hotspotId));
+  }
+
+  @Post('activities/add')
+  @ApiOperation({ summary: 'Add an activity to a hotspot in the itinerary' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 17940 },
+        routeId: { type: 'number', example: 1 },
+        routeHotspotId: { type: 'number', example: 123 },
+        hotspotId: { type: 'number', example: 456 },
+        activityId: { type: 'number', example: 789 },
+        amount: { type: 'number', example: 500 },
+        startTime: { type: 'string', example: '10:00:00', nullable: true },
+        endTime: { type: 'string', example: '11:00:00', nullable: true },
+        duration: { type: 'string', example: '01:00:00', nullable: true },
+      },
+      required: ['planId', 'routeId', 'routeHotspotId', 'hotspotId', 'activityId'],
+    },
+  })
+  @ApiOkResponse({ description: 'Activity added successfully' })
+  async addActivity(@Body() body: any) {
+    return this.svc.addActivity(body);
+  }
+
+  @Delete('activities/:planId/:routeId/:activityId')
+  @ApiOperation({ summary: 'Delete an activity from an itinerary route' })
+  @ApiParam({ name: 'planId', example: 17940, description: 'Itinerary Plan ID' })
+  @ApiParam({ name: 'routeId', example: 1, description: 'Route ID' })
+  @ApiParam({ name: 'activityId', example: 123, description: 'Route Activity ID' })
+  @ApiOkResponse({ description: 'Activity deleted successfully' })
+  async deleteActivity(
+    @Param('planId') planId: string,
+    @Param('routeId') routeId: string,
+    @Param('activityId') activityId: string,
+  ) {
+    return this.svc.deleteActivity(Number(planId), Number(routeId), Number(activityId));
+  }
+
+  @Get('hotspots/available/:locationId')
+  @ApiOperation({ summary: 'Get available hotspots for a location' })
+  @ApiParam({ name: 'locationId', example: 123, description: 'Location ID' })
+  @ApiOkResponse({ description: 'List of available hotspots' })
+  async getAvailableHotspots(@Param('locationId') locationId: string) {
+    return this.svc.getAvailableHotspots(Number(locationId));
+  }
+
+  @Post('hotspots/add')
+  @ApiOperation({ summary: 'Add a hotspot to an itinerary route' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 17940 },
+        routeId: { type: 'number', example: 1 },
+        hotspotId: { type: 'number', example: 456 },
+      },
+      required: ['planId', 'routeId', 'hotspotId'],
+    },
+  })
+  @ApiOkResponse({ description: 'Hotspot added successfully' })
+  async addHotspot(@Body() body: any) {
+    return this.svc.addHotspot(body);
+  }
+
+  @Get('hotels/available/:routeId')
+  @ApiOperation({ summary: 'Get available hotels for a route' })
+  @ApiParam({ name: 'routeId', example: 1, description: 'Route ID' })
+  @ApiOkResponse({ description: 'List of available hotels' })
+  async getAvailableHotels(@Param('routeId') routeId: string) {
+    return this.svc.getAvailableHotels(Number(routeId));
+  }
+
+  @Post('hotels/select')
+  @ApiOperation({ summary: 'Select/update hotel for a route' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 17940 },
+        routeId: { type: 'number', example: 1 },
+        hotelId: { type: 'number', example: 123 },
+        roomTypeId: { type: 'number', example: 456 },
+        mealPlan: { type: 'object', properties: {
+          all: { type: 'boolean' },
+          breakfast: { type: 'boolean' },
+          lunch: { type: 'boolean' },
+          dinner: { type: 'boolean' },
+        }},
+      },
+      required: ['planId', 'routeId', 'hotelId', 'roomTypeId'],
+    },
+  })
+  @ApiOkResponse({ description: 'Hotel selected successfully' })
+  async selectHotel(@Body() body: any) {
+    return this.svc.selectHotel(body);
+  }
+
+  @Post('vehicles/select-vendor')
+  @ApiOperation({ summary: 'Select/update vehicle vendor for a vehicle type' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 17940 },
+        vehicleTypeId: { type: 'number', example: 1 },
+        vendorEligibleId: { type: 'number', example: 123 },
+      },
+      required: ['planId', 'vehicleTypeId', 'vendorEligibleId'],
+    },
+  })
+  @ApiOkResponse({ description: 'Vehicle vendor selected successfully' })
+  async selectVehicleVendor(@Body() body: any) {
+    return this.svc.selectVehicleVendor(body);
+  }
+
+  @Get('edit/:id')
+  @ApiOperation({ summary: 'Get itinerary raw plan data for editing' })
+  @ApiParam({ name: 'id', example: 17940, description: 'Itinerary Plan ID' })
+  @ApiOkResponse({ description: 'Returns plan, routes, and vehicles for editing in the form' })
+  async getPlanForEdit(@Param('id') id: string) {
+    return this.svc.getPlanForEdit(Number(id));
+  }
+
+  @Get('export/:id')
+  @Public()
+  @ApiOperation({ summary: 'Export itinerary to Excel' })
+  @ApiParam({ name: 'id', example: 14, description: 'Itinerary Plan ID' })
+  async exportToExcel(@Param('id') id: string, @Res() res: Response) {
+    const planId = Number(id);
+    const workbook = await this.exportService.exportItineraryToExcel(planId);
+    
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="ITINERARY-DVI${id}.xlsx"`,
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get itinerary by plan id' })
   @ApiParam({ name: 'id', example: 17940 })
-  async findOne(@Param('id') id: string) {
-    return this.detailsService.findOne(Number(id));
+  @ApiQuery({ name: 'groupType', required: false, description: 'Hotel recommendation group type (1-4)' })
+  async findOne(@Param('id') id: string, @Query('groupType') groupType?: string) {
+    const groupTypeNum = groupType ? Number(groupType) : undefined;
+    return this.detailsService.findOne(Number(id), groupTypeNum);
   }
 }
