@@ -1,0 +1,926 @@
+{
+  "settingsPages": [
+    {
+      "pageName": "global_settings",
+      "filePath": "legacy_php/global_settings.php",
+      "description": "Global system settings for the application including hotel API configurations, itinerary settings, company details, and site settings",
+      "database": {
+        "table": "dvi_global_settings",
+        "primaryKey": "global_settings_ID",
+        "fixedRecordId": 1
+      },
+      "fields": [
+        {
+          "name": "extrabed_rate_percentage",
+          "type": "decimal",
+          "inputType": "text",
+          "validation": { "required": true, "min": 0, "max": 100 },
+          "label": "Extrabed Rate Percentage",
+          "section": "Extra Occupancy"
+        },
+        {
+          "name": "childwithbed_rate_percentage",
+          "type": "decimal",
+          "inputType": "text",
+          "validation": { "required": true, "min": 0, "max": 100 },
+          "label": "Child With Bed Rate Percentage",
+          "section": "Extra Occupancy"
+        },
+        {
+          "name": "childnobed_rate_percentage",
+          "type": "decimal",
+          "inputType": "text",
+          "validation": { "required": true, "min": 0, "max": 100 },
+          "label": "Child No Bed Rate Percentage",
+          "section": "Extra Occupancy"
+        },
+        {
+          "name": "hotel_margin",
+          "type": "decimal",
+          "inputType": "text",
+          "validation": { "required": true, "min": 0, "max": 100 },
+          "label": "Hotel Margin (In Percentage)",
+          "section": "Hotel Default Margin"
+        },
+        {
+          "name": "hotel_margin_gst_type",
+          "type": "string",
+          "inputType": "select",
+          "validation": { "required": true },
+          "label": "Hotel Margin GST Type",
+          "section": "Hotel Default Margin",
+          "options": "getGSTTYPE()"
+        },
+        {
+          "name": "hotel_margin_gst_percentage",
+          "type": "string",
+          "inputType": "select",
+          "validation": { "required": true },
+          "label": "Hotel Margin GST Percentage",
+          "section": "Hotel Default Margin",
+          "options": "getGSTDETAILS()"
+        },
+        {
+          "name": "eligibile_country_code",
+          "type": "string",
+          "inputType": "multi-select",
+          "validation": { "required": true },
+          "label": "TBO Hotel Eligible Countries",
+          "section": "Hotel API Configurations",
+          "options": "getCOUNTRYLIST()"
+        },
+        {
+          "name": "itinerary_distance_limit",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Distance Limit (Between Locations)",
+          "section": "Itinerary Distance"
+        },
+        {
+          "name": "allowed_km_limit_per_day",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Allowed KM (Per Day)",
+          "section": "Itinerary Distance"
+        },
+        {
+          "name": "itinerary_common_buffer_time",
+          "type": "time",
+          "inputType": "time",
+          "validation": { "required": true },
+          "label": "Common Buffer Time",
+          "section": "Itinerary Distance"
+        },
+        {
+          "name": "site_seeing_restriction_km_limit",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Site Seeing KM Limit Restriction",
+          "section": "Itinerary Distance"
+        },
+        {
+          "name": "itinerary_travel_by_flight_buffer_time",
+          "type": "time",
+          "inputType": "time",
+          "validation": { "required": true },
+          "label": "Flight Buffer Time",
+          "section": "Itinerary Travel Buffer Time"
+        },
+        {
+          "name": "itinerary_travel_by_train_buffer_time",
+          "type": "time",
+          "inputType": "time",
+          "validation": { "required": true },
+          "label": "Train Buffer Time",
+          "section": "Itinerary Travel Buffer Time"
+        },
+        {
+          "name": "itinerary_travel_by_road_buffer_time",
+          "type": "time",
+          "inputType": "time",
+          "validation": { "required": true },
+          "label": "Road Buffer Time",
+          "section": "Itinerary Travel Buffer Time"
+        },
+        {
+          "name": "itinerary_break_time",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Journey Start",
+          "section": "Itinerary Customize Text"
+        },
+        {
+          "name": "itinerary_hotel_start",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "In-Between Day Start (Including Last Day)",
+          "section": "Itinerary Customize Text"
+        },
+        {
+          "name": "itinerary_hotel_return",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "In-Between Day End (Including Last Day)",
+          "section": "Itinerary Customize Text"
+        },
+        {
+          "name": "hotel_terms_condition",
+          "type": "text",
+          "inputType": "textarea",
+          "validation": { "required": true },
+          "label": "Hotel Terms and Condition",
+          "rows": 10
+        },
+        {
+          "name": "vehicle_terms_condition",
+          "type": "text",
+          "inputType": "textarea",
+          "validation": { "required": true },
+          "label": "Vehicle Terms and Condition",
+          "rows": 10
+        },
+        {
+          "name": "hotel_voucher_terms_condition",
+          "type": "text",
+          "inputType": "textarea",
+          "validation": { "required": true },
+          "label": "Hotel Voucher Terms and Condition",
+          "rows": 10
+        },
+        {
+          "name": "vehicle_voucher_terms_condition",
+          "type": "text",
+          "inputType": "textarea",
+          "validation": { "required": true },
+          "label": "Vehicle Voucher Terms and Condition",
+          "rows": 10
+        },
+        {
+          "name": "itinerary_local_speed_limit",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Local travel speed limit (KM/Hr)",
+          "section": "Itinerary Travel Speed"
+        },
+        {
+          "name": "itinerary_outstation_speed_limit",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Outstation travel speed limit (KM/Hr)",
+          "section": "Itinerary Travel Speed"
+        },
+        {
+          "name": "itinerary_additional_margin_percentage",
+          "type": "decimal",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Additional margin Percentage",
+          "section": "Itinerary Additional Margin Settings"
+        },
+        {
+          "name": "itinerary_additional_margin_day_limit",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Additional Margin Applicable day Limit (Days)",
+          "section": "Itinerary Additional Margin Settings"
+        },
+        {
+          "name": "agent_referral_bonus_credit",
+          "type": "decimal",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Referral Bonus Credit",
+          "section": "Agent Settings"
+        },
+        {
+          "name": "site_title",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Site Title",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_name",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Company Name",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_address",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Address",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_pincode",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true, "type": "number" },
+          "label": "Pincode",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_gstin_no",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true, "pattern": "\\d{2}[A-Za-z]{5}\\d{4}[A-Za-z]{1}\\d{1}[A-Za-z]{1}[A-Za-z0-9]{1}" },
+          "label": "GSTIN No.",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_pan_no",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true, "pattern": "[A-Za-z]{5}\\d{4}[A-Za-z]{1}" },
+          "label": "PAN No.",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_contact_no",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true, "type": "number" },
+          "label": "Contact No.",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_email_id",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true, "type": "email" },
+          "label": "Email ID",
+          "section": "Site Settings"
+        },
+        {
+          "name": "cc_email_id",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true, "type": "email" },
+          "label": "CC Email ID",
+          "section": "Site Settings"
+        },
+        {
+          "name": "default_hotel_voucher_email_id",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "type": "email" },
+          "label": "Default Hotel Voucher Email ID",
+          "section": "Site Settings"
+        },
+        {
+          "name": "default_vehicle_voucher_email_id",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "type": "email" },
+          "label": "Default Vehicle Voucher Email ID",
+          "section": "Site Settings"
+        },
+        {
+          "name": "default_accounts_email_id",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "type": "email" },
+          "label": "Default Accounts Email ID",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_logo",
+          "type": "string",
+          "inputType": "file",
+          "label": "Company Logo",
+          "section": "Site Settings"
+        },
+        {
+          "name": "company_cin",
+          "type": "string",
+          "inputType": "text",
+          "label": "Company CIN",
+          "section": "Site Settings"
+        },
+        {
+          "name": "bank_acc_holder_name",
+          "type": "string",
+          "inputType": "text",
+          "label": "Bank Account Holder Name",
+          "section": "Bank Details"
+        },
+        {
+          "name": "bank_acc_no",
+          "type": "string",
+          "inputType": "text",
+          "label": "Bank Account No.",
+          "section": "Bank Details"
+        },
+        {
+          "name": "bank_ifsc_code",
+          "type": "string",
+          "inputType": "text",
+          "label": "Bank IFSC Code",
+          "section": "Bank Details"
+        },
+        {
+          "name": "bank_name",
+          "type": "string",
+          "inputType": "text",
+          "label": "Bank Name",
+          "section": "Bank Details"
+        },
+        {
+          "name": "branch_name",
+          "type": "string",
+          "inputType": "text",
+          "label": "Branch Name",
+          "section": "Bank Details"
+        },
+        {
+          "name": "hotel_hsn",
+          "type": "string",
+          "inputType": "text",
+          "label": "Hotel HSN",
+          "section": "HSN Codes"
+        },
+        {
+          "name": "vehicle_hsn",
+          "type": "string",
+          "inputType": "text",
+          "label": "Vehicle HSN",
+          "section": "HSN Codes"
+        },
+        {
+          "name": "service_component_hsn",
+          "type": "string",
+          "inputType": "text",
+          "label": "Service Component HSN",
+          "section": "HSN Codes"
+        },
+        {
+          "name": "youtube_link",
+          "type": "string",
+          "inputType": "text",
+          "label": "YouTube Link",
+          "section": "Social Media"
+        },
+        {
+          "name": "facebook_link",
+          "type": "string",
+          "inputType": "text",
+          "label": "Facebook Link",
+          "section": "Social Media"
+        },
+        {
+          "name": "instagram_link",
+          "type": "string",
+          "inputType": "text",
+          "label": "Instagram Link",
+          "section": "Social Media"
+        },
+        {
+          "name": "linkedin_link",
+          "type": "string",
+          "inputType": "text",
+          "label": "LinkedIn Link",
+          "section": "Social Media"
+        }
+      ],
+      "operations": {
+        "create": false,
+        "read": true,
+        "update": true,
+        "delete": false
+      },
+      "specialNotes": "Single record UPDATE only (ID=1). No create or delete operations."
+    },
+    {
+      "pageName": "gstsetting",
+      "filePath": "legacy_php/gstsetting.php",
+      "description": "GST settings management",
+      "database": {
+        "table": "dvi_gst_setting",
+        "primaryKey": "gst_setting_ID"
+      },
+      "fields": [
+        {
+          "name": "gst_title",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "GST Title"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "dataTable": {
+        "columns": ["count", "modify", "gst_title", "status"],
+        "ajax": "engine/json/__JSONgstsetting.php",
+        "exportFormats": ["copy", "excel", "csv"]
+      },
+      "specialNotes": "Standard CRUD with status toggle"
+    },
+    {
+      "pageName": "hotelcategory",
+      "filePath": "legacy_php/hotelcategory.php",
+      "description": "Hotel category management",
+      "database": {
+        "table": "dvi_hotel_category",
+        "primaryKey": "hotel_category_ID"
+      },
+      "fields": [
+        {
+          "name": "hotel_category_title",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Hotels Category Title"
+        },
+        {
+          "name": "hotel_category_code",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Hotels Category Code"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "dataTable": {
+        "columns": ["count", "modify", "hotel_category_title", "hotel_category_code", "status"],
+        "ajax": "engine/json/__JSONhotelcategory.php",
+        "exportFormats": ["copy", "excel", "csv"]
+      },
+      "specialNotes": "IDs <= 5 are system defaults and cannot be deleted/edited (UI disabled)"
+    },
+    {
+      "pageName": "inbuild_amenities",
+      "filePath": "legacy_php/inbuild_amenities.php",
+      "description": "Inbuilt amenities management",
+      "database": {
+        "table": "dvi_inbuilt_amenity_type",
+        "primaryKey": "inbuilt_amenity_type_ID"
+      },
+      "fields": [
+        {
+          "name": "inbuilt_amenity_title",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Inbuild Amenity Title"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "dataTable": {
+        "columns": ["count", "modify", "inbuilt_amenity_title", "status"],
+        "ajax": "engine/json/__JSONinbuildamenity.php",
+        "exportFormats": ["copy", "excel", "csv"]
+      },
+      "specialNotes": "Standard CRUD with status toggle"
+    },
+    {
+      "pageName": "vehicle_type",
+      "filePath": "legacy_php/vehicle_type.php",
+      "description": "Vehicle type management",
+      "database": {
+        "table": "dvi_vehicle_type",
+        "primaryKey": "vehicle_type_ID"
+      },
+      "fields": [
+        {
+          "name": "vehicle_type_title",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Vehicle Type Title"
+        },
+        {
+          "name": "occupancy",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true, "type": "number" },
+          "label": "Occupancy"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "dataTable": {
+        "columns": ["count", "modify", "vehicle_type_title", "occupancy", "status"],
+        "ajax": "engine/json/__JSONvehicletype.php",
+        "exportFormats": ["copy", "excel", "csv"]
+      },
+      "specialNotes": "Standard CRUD with status toggle"
+    },
+    {
+      "pageName": "cities",
+      "filePath": "legacy_php/cities.php",
+      "description": "Cities management",
+      "database": {
+        "table": "dvi_cities",
+        "primaryKey": "city_ID"
+      },
+      "fields": [
+        {
+          "name": "city_name",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "City Name"
+        },
+        {
+          "name": "state_id",
+          "type": "integer",
+          "inputType": "select",
+          "validation": { "required": true },
+          "label": "State",
+          "options": "getSTATELIST()"
+        },
+        {
+          "name": "country_id",
+          "type": "integer",
+          "inputType": "select",
+          "validation": { "required": true },
+          "label": "Country",
+          "options": "getCOUNTRYLIST()"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "specialNotes": "Loaded via AJAX: __ajax_cities_list.php. Hierarchical relationship: Country > State > City"
+    },
+    {
+      "pageName": "language",
+      "filePath": "legacy_php/language.php",
+      "description": "Language management",
+      "database": {
+        "table": "dvi_language",
+        "primaryKey": "language_ID"
+      },
+      "fields": [
+        {
+          "name": "language",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Language"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "dataTable": {
+        "columns": ["count", "modify", "language", "status"],
+        "ajax": "engine/json/__JSONlanguage.php",
+        "exportFormats": ["copy", "excel", "csv"]
+      },
+      "specialNotes": "Standard CRUD with status toggle"
+    },
+    {
+      "pageName": "rolepermission",
+      "filePath": "legacy_php/rolepermission.php",
+      "description": "Role and permissions management",
+      "database": {
+        "table": "dvi_role_menu",
+        "primaryKey": "role_ID",
+        "relatedTables": [
+          {
+            "table": "dvi_pagemenu",
+            "relation": "Many-to-Many via dvi_role_menu_access"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "name": "role_name",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true, "unique": true },
+          "label": "Role Name"
+        },
+        {
+          "name": "page_menu_id",
+          "type": "integer",
+          "inputType": "checkbox-group",
+          "validation": { "required": false },
+          "label": "Page Permissions",
+          "relatedTable": "dvi_pagemenu"
+        },
+        {
+          "name": "read_access",
+          "type": "boolean",
+          "inputType": "checkbox",
+          "validation": { "required": false },
+          "label": "Read Access"
+        },
+        {
+          "name": "write_access",
+          "type": "boolean",
+          "inputType": "checkbox",
+          "validation": { "required": false },
+          "label": "Write Access"
+        },
+        {
+          "name": "modify_access",
+          "type": "boolean",
+          "inputType": "checkbox",
+          "validation": { "required": false },
+          "label": "Modify Access"
+        },
+        {
+          "name": "full_access",
+          "type": "boolean",
+          "inputType": "checkbox",
+          "validation": { "required": false },
+          "label": "Full Access"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "dataTable": {
+        "columns": ["count", "modify", "role_name", "status"],
+        "ajax": "engine/json/__JSONrolemenu.php",
+        "exportFormats": []
+      },
+      "businessLogic": [
+        "Full access checkbox auto-checks read, write, and modify",
+        "If all three (read, write, modify) are checked, full access is auto-checked",
+        "Role IDs <= 6 are system defaults - cannot be deleted or have role name changed (readonly)",
+        "Permissions are stored in separate table: dvi_role_menu_access with columns: role_menu_access_ID, role_ID, page_menu_id, read_access, write_access, modify_access, full_access"
+      ],
+      "specialNotes": "Complex page with nested permissions per page. Uses route parameter (add/edit) instead of modal."
+    },
+    {
+      "pageName": "agent_subscription_plan",
+      "filePath": "legacy_php/agent_subscription_plan.php",
+      "description": "Agent subscription plan management",
+      "database": {
+        "table": "dvi_agent_subscription_plan",
+        "primaryKey": "agent_subscription_plan_ID"
+      },
+      "fields": [
+        {
+          "name": "subscription_title",
+          "type": "string",
+          "inputType": "text",
+          "validation": { "required": true },
+          "label": "Subscription Title"
+        },
+        {
+          "name": "subscription_description",
+          "type": "text",
+          "inputType": "textarea",
+          "validation": { "required": false },
+          "label": "Subscription Description"
+        },
+        {
+          "name": "subscription_price",
+          "type": "decimal",
+          "inputType": "text",
+          "validation": { "required": true, "type": "number" },
+          "label": "Subscription Price"
+        },
+        {
+          "name": "subscription_duration",
+          "type": "integer",
+          "inputType": "text",
+          "validation": { "required": true, "type": "number" },
+          "label": "Subscription Duration (Days)"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "inputType": "toggle",
+          "validation": { "required": true, "values": [0, 1] },
+          "label": "Status",
+          "default": 1
+        }
+      ],
+      "operations": {
+        "create": true,
+        "read": true,
+        "update": true,
+        "delete": true,
+        "updateStatus": true
+      },
+      "specialNotes": "Multi-step form with route parameters (add/edit/preview) and formtype (basic_info/sub_plan_info). Loaded via AJAX."
+    }
+  ],
+  "commonPatterns": {
+    "statusField": {
+      "name": "status",
+      "type": "integer",
+      "values": { "0": "Inactive", "1": "Active" },
+      "toggleable": true
+    },
+    "softDelete": {
+      "field": "deleted",
+      "values": { "0": "Active", "1": "Deleted" }
+    },
+    "timestamps": {
+      "created": "createdon",
+      "updated": "updatedon"
+    },
+    "ajaxPaths": {
+      "addForm": "engine/ajax/__ajax_add_{module}_form.php",
+      "manage": "engine/ajax/__ajax_manage_{module}.php",
+      "json": "engine/json/__JSON{module}.php"
+    },
+    "validation": {
+      "library": "Parsley.js",
+      "attributes": [
+        "data-parsley-validate",
+        "data-parsley-trigger",
+        "data-parsley-whitespace",
+        "data-parsley-type",
+        "data-parsley-pattern"
+      ]
+    },
+    "ui": {
+      "framework": "Bootstrap 5",
+      "modalLibrary": "Bootstrap Modal",
+      "dataTable": "DataTables",
+      "icons": "Tabler Icons",
+      "toastNotifications": "Toastr"
+    }
+  },
+  "nestjsImplementation": {
+    "controllerStructure": {
+      "endpoints": [
+        "GET /{module} - List all records",
+        "GET /{module}/:id - Get single record",
+        "POST /{module} - Create new record",
+        "PUT /{module}/:id - Update record",
+        "DELETE /{module}/:id - Delete record",
+        "PATCH /{module}/:id/status - Toggle status"
+      ],
+      "decorators": [
+        "@Controller('{module}')",
+        "@UseGuards(JwtAuthGuard, RolesGuard)",
+        "@ApiTags('{module}')"
+      ]
+    },
+    "serviceStructure": {
+      "methods": [
+        "findAll()",
+        "findOne(id)",
+        "create(createDto)",
+        "update(id, updateDto)",
+        "remove(id)",
+        "toggleStatus(id)"
+      ]
+    },
+    "dtoStructure": {
+      "validators": [
+        "@IsString()",
+        "@IsNumber()",
+        "@IsBoolean()",
+        "@IsOptional()",
+        "@Min()",
+        "@Max()",
+        "@Matches()",
+        "@IsEmail()"
+      ]
+    }
+  },
+  "reactComponentStructure": {
+    "components": [
+      "{Module}List - DataTable component",
+      "{Module}Form - Create/Edit modal form",
+      "{Module}Details - View details",
+      "DeleteConfirmation - Delete modal"
+    ],
+    "hooks": [
+      "useQuery - Fetch data",
+      "useMutation - Create/Update/Delete",
+      "useForm - Form handling"
+    ],
+    "libraries": [
+      "React Query - Data fetching",
+      "React Hook Form - Form management",
+      "Zod - Validation",
+      "TanStack Table - DataTables",
+      "Shadcn/UI - UI components"
+    ]
+  }
+}

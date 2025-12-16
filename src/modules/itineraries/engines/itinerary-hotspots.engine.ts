@@ -5,6 +5,8 @@ import {
   ITEM_REFRESH,
   ITEM_TRAVEL_OR_BREAK,
   ITEM_VISIT,
+  ITEM_RETURN_TRAVEL,
+  ITEM_END_BUFFER,
 } from "../utils/itinerary.constants";
 import {
   buildTravellers,
@@ -19,6 +21,12 @@ import {
   uniqueTokens,
   resolveTimingForDay,
 } from "../utils/itinerary.utils";
+
+/**
+ * GLOBAL CONST (for now). Later move to DB.
+ * Rule: must reach hotel by 11 PM after adding any hotspot.
+ */
+const HOTEL_ARRIVAL_CUTOFF_TIME = "23:00:00";
 
 @Injectable()
 export class ItineraryHotspotsEngine {
@@ -76,6 +84,40 @@ export class ItineraryHotspotsEngine {
 
         const dayStart = combineDateOnlyAndTime(dayDate, route.route_start_time, "09:00:00");
         const dayEnd = combineDateOnlyAndTime(dayDate, route.route_end_time, "20:00:00");
+
+        // -------------------- NEW: cutoff DateTime for this day --------------------
+        const hotelCutoff = combineDateOnlyAndTime(dayDate, new Date(`1970-01-01T${HOTEL_ARRIVAL_CUTOFF_TIME}`), HOTEL_ARRIVAL_CUTOFF_TIME);
+
+        // -------------------- NEW: find assigned hotel coords for this route --------------------
+        // NOTE: This is required to compute return travel time to hotel.
+        // If no hotel or no coords, cutoff enforcement will be skipped (safe fallback).
+        let hotelLat: number | null = null;
+        let hotelLng: number | null = null;
+
+        const assignedHotel = await tx.dvi_itinerary_plan_hotel_details.findFirst({
+          where: {
+            itinerary_plan_id: planId,
+            itinerary_route_id: route.itinerary_route_ID,
+            deleted: 0,
+          },
+          select: {
+            hotel_id: true,
+          },
+          orderBy: { itinerary_plan_hotel_details_ID: "asc" },
+        });
+
+        if (assignedHotel?.hotel_id) {
+          const hotel = await tx.dvi_hotel.findUnique({
+            where: { hotel_id: assignedHotel.hotel_id },
+            select: {
+              hotel_latitude: true,
+              hotel_longitude: true,
+            },
+          });
+
+          hotelLat = toFloat((hotel as any)?.hotel_latitude);
+          hotelLng = toFloat((hotel as any)?.hotel_longitude);
+        }
 
         const viaRows = await tx.dvi_itinerary_via_route_details.findMany({
           where: {
@@ -171,6 +213,34 @@ export class ItineraryHotspotsEngine {
           const visitEnd = new Date(visitStart.getTime() + durationSeconds * 1000);
           if (visitEnd > dayEnd) continue;
 
+          // -------------------- NEW: enforce 11 PM hotel cutoff while saving --------------------
+          // We can only enforce if hotel coords exist.
+          if (hotelLat != null && hotelLng != null) {
+            const returnTravel = computeTravelParity({
+              prevLat: hLat,
+              prevLng: hLng,
+              prevLocation: String(h.hotspot_location ?? ""),
+              nextLat: hotelLat,
+              nextLng: hotelLng,
+              nextLocation: "hotel",
+            });
+
+            const projectedHotelArrival = new Date(visitEnd.getTime() + returnTravel.travelSeconds * 1000);
+
+            const isPriority = Number(h.hotspot_priority ?? 0) > 0;
+
+            // If priority hotspot makes us miss hotel cutoff -> stop picking more (protect priority set + day constraints)
+            if (isPriority && projectedHotelArrival > hotelCutoff) {
+              break;
+            }
+
+            // If non-priority hotspot makes us miss -> skip it and try next
+            if (!isPriority && projectedHotelArrival > hotelCutoff) {
+              continue;
+            }
+          }
+          // -------------------- END NEW --------------------
+
           // TRAVEL ROW
           order++;
           await tx.dvi_itinerary_route_hotspot_details.create({
@@ -258,6 +328,79 @@ export class ItineraryHotspotsEngine {
             lng: hLng,
           };
         }
+
+        // Add return travel to destination (item_type 5)
+        // TEMPORARILY DISABLED: No location coordinates table available in current schema
+        // TODO: Re-enable when dvi_location_master or equivalent is added
+        /*
+        if (cursor && route.next_visiting_location) {
+          const destLocation = await tx.dvi_location_master.findFirst({
+            where: {
+              location_id: route.location_id,
+              deleted: 0,
+            },
+            select: { latitude: true, longitude: true },
+          });
+
+          if (destLocation?.latitude && destLocation?.longitude) {
+            const returnTravel = computeTravelParity({
+              prevLat: cursor.lat,
+              prevLng: cursor.lng,
+              prevLocation: 'current',
+              nextLat: toFloat(destLocation.latitude),
+              nextLng: toFloat(destLocation.longitude),
+              nextLocation: route.location_name || 'destination',
+            });
+
+            order++;
+            await tx.dvi_itinerary_route_hotspot_details.create({
+              data: {
+                itinerary_plan_ID: planId,
+                itinerary_route_ID: route.itinerary_route_ID,
+                item_type: ITEM_RETURN_TRAVEL,
+                hotspot_order: order,
+                hotspot_ID: 0,
+                allow_break_hours: 0,
+                allow_via_route: 0,
+                hotspot_traveling_time: secondsToPrismaTime(returnTravel.travelSeconds),
+                itinerary_travel_type_buffer_time: secondsToPrismaTime(0),
+                hotspot_travelling_distance: returnTravel.distanceKm.toFixed(2),
+                hotspot_start_time: dateTimeToPrismaTime(cursor.time),
+                hotspot_end_time: dateTimeToPrismaTime(
+                  new Date(cursor.time.getTime() + returnTravel.travelSeconds * 1000)
+                ),
+                createdby: plan.createdby ?? 0,
+                createdon: new Date(),
+                status: 1,
+                deleted: 0,
+              } as Prisma.dvi_itinerary_route_hotspot_detailsUncheckedCreateInput,
+            });
+
+            // Add end buffer (item_type 6)
+            order++;
+            await tx.dvi_itinerary_route_hotspot_details.create({
+              data: {
+                itinerary_plan_ID: planId,
+                itinerary_route_ID: route.itinerary_route_ID,
+                item_type: ITEM_END_BUFFER,
+                hotspot_order: order,
+                hotspot_ID: 0,
+                allow_break_hours: 0,
+                allow_via_route: 0,
+                hotspot_traveling_time: secondsToPrismaTime(0),
+                itinerary_travel_type_buffer_time: secondsToPrismaTime(0),
+                hotspot_travelling_distance: null,
+                hotspot_start_time: secondsToPrismaTime(0),
+                hotspot_end_time: secondsToPrismaTime(0),
+                createdby: plan.createdby ?? 0,
+                createdon: new Date(),
+                status: 1,
+                deleted: 0,
+              } as Prisma.dvi_itinerary_route_hotspot_detailsUncheckedCreateInput,
+            });
+          }
+        }
+        */
 
         return { routeId: route.itinerary_route_ID, insertedVisits };
       });

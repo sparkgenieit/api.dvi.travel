@@ -25,7 +25,7 @@ import {
   ParkingChargeBuilder,
   ParkingChargeRow,
 } from "./parking-charge.builder";
-import { timeToSeconds, addSeconds } from "./time.helper";
+import { timeToSeconds, addSeconds, secondsToTime } from "./time.helper";
 import { DistanceHelper } from "./distance.helper";
 import { TimeConverter } from "./time-converter";
 import * as fs from "fs";
@@ -37,6 +37,8 @@ interface PlanHeader {
   itinerary_plan_ID: number;
   trip_start_date: Date;
   trip_end_date: Date;
+  trip_start_date_and_time?: Date | null;
+  trip_end_date_and_time?: Date | null;
   pick_up_date_and_time: Date;
   arrival_type: number;
   departure_type: number;
@@ -46,6 +48,7 @@ interface PlanHeader {
   total_children: number;
   total_infants: number;
   itinerary_preference: number;
+  arrival_location?: string | null;
   departure_location?: string | null;
 }
 
@@ -65,6 +68,7 @@ interface RouteRow {
 interface SelectedHotspot {
   hotspot_ID: number;
   display_order?: number;
+  hotspot_priority?: number;
 }
 
 export class TimelineBuilder {
@@ -88,8 +92,9 @@ export class TimelineBuilder {
    * PHP Logic (line 10419-10423):
    * if (($start_timestamp >= $operating_start_timestamp) && ($end_timestamp <= $operating_end_timestamp))
    * 
-   * Returns true if BOTH start AND end time fall within THE SAME operating hours window.
-   * Does NOT allow waiting - wait logic is handled separately in includeHotspotInItinerary (lines 15169-15240)
+   * Returns object with:
+   * - canVisitNow: true if BOTH start AND end time fall within THE SAME operating hours window
+   * - nextWindowStart: start time of next available window (if canVisitNow is false)
    */
   private async checkHotspotOperatingHours(
     tx: any,
@@ -97,7 +102,7 @@ export class TimelineBuilder {
     dayOfWeek: number,
     visitStartTime: string,
     visitEndTime: string,
-  ): Promise<boolean> {
+  ): Promise<{ canVisitNow: boolean; nextWindowStart: string | null }> {
     // Fetch timing records for this hotspot on this day
     const timingRecords = await tx.dvi_hotspot_timing.findMany({
       where: {
@@ -116,63 +121,57 @@ export class TimelineBuilder {
 
     if (!timingRecords || timingRecords.length === 0) {
       // No timing records = not open on this day
-      return false;
+      return { canVisitNow: false, nextWindowStart: null };
     }
 
-    // PHP BEHAVIOR: hotspot_closed=1 with null times means "no timing restrictions" (open all day)
-    // Only filter out hotspot_closed=1 if it has actual times specified
-    const openRecords = timingRecords.filter((t: any) => {
-      if (t.hotspot_closed === 1) {
-        // If closed but no times specified, treat as open all day (PHP behavior)
-        if (!t.hotspot_start_time && !t.hotspot_end_time) {
-          return true; // Include this record
+    let nextWindowStart: string | null = null;
+    const currentSeconds = timeToSeconds(visitStartTime);
+
+    // Check if any timing window allows the full visit (start AND end within same window)
+    for (const timing of timingRecords) {
+      // Skip if hotspot is closed
+      if (timing.hotspot_closed === 1) {
+        continue;
+      }
+      
+      // Open all time = always available
+      if (timing.hotspot_open_all_time === 1) {
+        return { canVisitNow: true, nextWindowStart: null };
+      }
+      
+      // Get operating window times
+      const operatingStart = timing.hotspot_start_time
+        ? (timing.hotspot_start_time instanceof Date
+          ? `${String(timing.hotspot_start_time.getUTCHours()).padStart(2, '0')}:${String(timing.hotspot_start_time.getUTCMinutes()).padStart(2, '0')}:${String(timing.hotspot_start_time.getUTCSeconds()).padStart(2, '0')}`
+          : String(timing.hotspot_start_time))
+        : '00:00:00';
+      
+      const operatingEnd = timing.hotspot_end_time
+        ? (timing.hotspot_end_time instanceof Date
+          ? `${String(timing.hotspot_end_time.getUTCHours()).padStart(2, '0')}:${String(timing.hotspot_end_time.getUTCMinutes()).padStart(2, '0')}:${String(timing.hotspot_end_time.getUTCSeconds()).padStart(2, '0')}`
+          : String(timing.hotspot_end_time))
+        : '23:59:59';
+      
+      const visitStartSeconds = timeToSeconds(visitStartTime);
+      const visitEndSeconds = timeToSeconds(visitEndTime);
+      const opStartSeconds = timeToSeconds(operatingStart);
+      const opEndSeconds = timeToSeconds(operatingEnd);
+      
+      // PHP Logic: BOTH start and end must fall within the SAME operating window
+      if (visitStartSeconds >= opStartSeconds && visitEndSeconds <= opEndSeconds) {
+        return { canVisitNow: true, nextWindowStart: null };
+      }
+      
+      // Track next available window that's after current time
+      if (opStartSeconds > currentSeconds) {
+        if (nextWindowStart === null || opStartSeconds < timeToSeconds(nextWindowStart)) {
+          nextWindowStart = operatingStart;
         }
-        // If closed with times, exclude it
-        return false;
       }
-      return true; // Not closed, include it
-    });
+    }
     
-    if (openRecords.length === 0) {
-      // All timing records are closed (with times)
-      return false;
-    }
-
-    // Check if open all time
-    const openAllTime = openRecords.some((t: any) => t.hotspot_open_all_time === 1);
-    if (openAllTime) {
-      return true;
-    }
-
-    // Convert visit times to comparable format (seconds since midnight)
-    const visitStartSeconds = timeToSeconds(visitStartTime);
-    const visitEndSeconds = timeToSeconds(visitEndTime);
-
-    // PHP Logic: Loop through each set of operating hours
-    // Check if BOTH start AND end fall within THE SAME window (no waiting allowed here)
-    for (const timing of openRecords) {
-      if (!timing.hotspot_start_time || !timing.hotspot_end_time) continue;
-
-      // IMPORTANT: Convert to UTC like route times (database stores as UTC timestamps)
-      const openTime = timing.hotspot_start_time instanceof Date
-        ? `${String(timing.hotspot_start_time.getUTCHours()).padStart(2, '0')}:${String(timing.hotspot_start_time.getUTCMinutes()).padStart(2, '0')}:${String(timing.hotspot_start_time.getUTCSeconds()).padStart(2, '0')}`
-        : String(timing.hotspot_start_time);
-      const closeTime = timing.hotspot_end_time instanceof Date
-        ? `${String(timing.hotspot_end_time.getUTCHours()).padStart(2, '0')}:${String(timing.hotspot_end_time.getUTCMinutes()).padStart(2, '0')}:${String(timing.hotspot_end_time.getUTCSeconds()).padStart(2, '0')}`
-        : String(timing.hotspot_end_time);
-
-      const openSeconds = timeToSeconds(openTime);
-      const closeSeconds = timeToSeconds(closeTime);
-
-      // PHP line 10419-10423: Both start >= open AND end <= close
-      if (visitStartSeconds >= openSeconds && visitEndSeconds <= closeSeconds) {
-        return true;
-      }
-    }
-
-    // Visit doesn't fit in any single operating window
-    // PHP handles waiting separately (not in this function)
-    return false;
+    // No timing window accommodates the current visit, but return next window if available
+    return { canVisitNow: false, nextWindowStart };
   }
 
   /**
@@ -203,6 +202,32 @@ export class TimelineBuilder {
       return { hotspotRows: [], parkingRows: [] };
     }
 
+    // SCENARIO 2: Check if arrival city == departure city
+    // If yes AND departure time > 4 PM, skip Day 1 local sightseeing and do it on last day
+    const arrivalPoint = String(plan.arrival_location ?? '').trim();
+    const departurePoint = String(plan.departure_location ?? '').trim();
+    
+    // Normalize city names for comparison (remove "Airport", "International", etc.)
+    const normalizeCityName = (name: string): string => {
+      return name
+        .toLowerCase()
+        .replace(/\s+(international|domestic)?\s*airport/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+    
+    const isSameArrivalDepartureCity = 
+      normalizeCityName(arrivalPoint) === normalizeCityName(departurePoint);
+    
+    // Check departure time (extract hour from trip_end_date_and_time)
+    let departureTimeAfter4PM = false;
+    if (plan.trip_end_date_and_time && plan.trip_end_date_and_time instanceof Date) {
+      const departureHour = plan.trip_end_date_and_time.getUTCHours();
+      departureTimeAfter4PM = departureHour >= 16; // 4 PM or later
+    }
+    
+    const shouldDeferDay1Sightseeing = isSameArrivalDepartureCity && departureTimeAfter4PM;
+
     const hotspotRows: HotspotDetailRow[] = [];
     const parkingRows: ParkingChargeRow[] = [];
 
@@ -212,7 +237,13 @@ export class TimelineBuilder {
     // TODO (later): pass real user id from controller/service.
     const createdByUserId = 1;
 
+    // Track first route for special Day 1 handling
+    let routeIndex = 0;
+
     for (const route of routes) {
+      const isFirstRoute = routeIndex === 0;
+      routeIndex++;
+      
       // Determine if this is the last route BEFORE processing
       const isLastRoute = await this.isLastRouteOfPlan(
         tx,
@@ -244,6 +275,14 @@ export class TimelineBuilder {
       const routeStartSeconds = timeToSeconds(routeStartTime);
       if (routeEndSeconds < routeStartSeconds) {
         routeEndSeconds += 86400; // Add 24 hours in seconds
+      }
+      
+      // DAY 1 SPECIAL: Override end time to 8 PM (20:00) for proper structure
+      if (isFirstRoute && !isLastRoute) {
+        routeEndSeconds = timeToSeconds('20:00:00');
+        if (routeEndSeconds < routeStartSeconds) {
+          routeEndSeconds += 86400;
+        }
       }
 
       // Maintain current logical location name for distance calculations.
@@ -332,28 +371,203 @@ export class TimelineBuilder {
       }
 
       // 2) SELECTED HOTSPOTS FOR THIS ROUTE
-      const selectedHotspots = await this.fetchSelectedHotspotsForRoute(
-        tx,
-        planId,
-        route.itinerary_route_ID,
-      );
-
-      // Build travel + hotspot segments in order.
-      for (const sh of selectedHotspots) {
-        // stop if we have run out of route time
-        let currentSeconds = timeToSeconds(currentTime);
-        // Handle overnight: if current time < start time, add 24 hours
-        if (currentSeconds < routeStartSeconds) {
-          currentSeconds += 86400;
-        }
+      // SCENARIO 2: If Day 1 in arrival city and should defer sightseeing, skip hotspots
+      // SCENARIO 2 LAST DAY: If last route in departure city and we deferred Day 1, do local sightseeing
+      // DAY 1 TRAVEL LOGIC: Handle direct vs non-direct travel to first destination
+      let selectedHotspots: SelectedHotspot[] = [];
+      
+      if (isFirstRoute && shouldDeferDay1Sightseeing) {
+        // Check if current route is STAYING in arrival city (not just passing through)
+        // Only skip if both location_name AND next_visiting_location are in arrival city
+        const currentCity = normalizeCityName(currentLocationName);
+        const nextCity = normalizeCityName(route.next_visiting_location || '');
+        const arrivalCity = normalizeCityName(arrivalPoint);
         
-        if (currentSeconds >= routeEndSeconds) {
-          break;
+        // CRITICAL FIX: Only skip if STAYING in arrival city, not just starting from there
+        // Example: "Madurai Airport → Alleppey" should NOT skip (traveling away)
+        // Example: "Madurai Airport → Madurai" SHOULD skip (staying in same city)
+        const isStayingInArrivalCity = (currentCity === arrivalCity) && (nextCity === arrivalCity);
+        
+        if (isStayingInArrivalCity) {
+          // Skip hotspot selection on Day 1 in arrival city
+          // Travel directly to next destination
+          try {
+            fs.appendFileSync(
+              'd:/wamp64\www\dvi_fullstack\dvi_backend\tmp\hotspot_selection.log',
+              `SCENARIO 2: Day 1 staying in arrival city ${currentLocationName} → ${route.next_visiting_location} - skipping local sightseeing\n`
+            );
+          } catch (e) {}
+          
+          selectedHotspots = []; // Empty - no hotspots for Day 1 in arrival city
+        } else {
+          // Traveling away from arrival city on Day 1 - apply same direct/non-direct logic
+          const directToNext = (route as any).direct_to_next_visiting_place || 0;
+          
+          if (directToNext === 1) {
+            // Direct travel: Skip arrival city hotspots
+            try {
+              fs.appendFileSync(
+                'd:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+                `SCENARIO 2 DAY 1 DIRECT: ${currentLocationName} → ${route.next_visiting_location} - going directly to destination\n`
+              );
+            } catch (e) {}
+            
+            selectedHotspots = await this.fetchSelectedHotspotsForRoute(
+              tx,
+              planId,
+              route.itinerary_route_ID,
+              undefined, // No source limit for direct travel
+            );
+          } else {
+            // Non-direct travel: Visit all available arrival city hotspots
+            try {
+              fs.appendFileSync(
+                'd:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+                `SCENARIO 2 DAY 1 NON-DIRECT: ${currentLocationName} → ${route.next_visiting_location} - scheduling all top priority hotspots\n`
+              );
+            } catch (e) {}
+            
+            selectedHotspots = await this.fetchSelectedHotspotsForRoute(
+              tx,
+              planId,
+              route.itinerary_route_ID,
+              undefined, // No limit - schedule all top priority hotspots
+              true, // Skip destination hotspots - they'll be added on Day 2
+            );
+          }
         }
+      } else if (isFirstRoute && !shouldDeferDay1Sightseeing) {
+        // Day 1 traveling to different city - check direct flag
+        const directToNext = (route as any).direct_to_next_visiting_place || 0;
+        
+        if (directToNext === 1) {
+          // Direct travel: Skip arrival city hotspots, go straight to destination
+          // Fetch destination city hotspots only (fetchSelectedHotspotsForRoute handles direct flag internally)
+          try {
+            fs.appendFileSync(
+              'd:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+              `DAY 1 DIRECT: ${currentLocationName} → ${route.next_visiting_location} - going directly to destination\n`
+            );
+          } catch (e) {}
+          
+          selectedHotspots = await this.fetchSelectedHotspotsForRoute(
+            tx,
+            planId,
+            route.itinerary_route_ID,
+            undefined, // No source limit for direct travel (will skip source anyway)
+          );
+        } else {
+          // Non-direct travel: Visit all available arrival city hotspots
+          try {
+            fs.appendFileSync(
+              'd:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+              `DAY 1 NON-DIRECT: ${currentLocationName} → ${route.next_visiting_location} - scheduling all top priority hotspots\n`
+            );
+          } catch (e) {}
+          
+          // Fetch all available hotspots, skip destination (will be on Day 2)
+          selectedHotspots = await this.fetchSelectedHotspotsForRoute(
+            tx,
+            planId,
+            route.itinerary_route_ID,
+            undefined, // No limit - schedule all top priority hotspots
+            true, // Skip destination hotspots - they'll be added on Day 2
+          );
+          
+          try {
+            fs.appendFileSync(
+              'd:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+              `DAY 1 NON-DIRECT: Selected ${selectedHotspots.length} total hotspots (priorities: ${selectedHotspots.map(h => h.hotspot_priority).join(', ')})\n`
+            );
+          } catch (e) {}
+        }
+      } else if (isLastRoute && shouldDeferDay1Sightseeing) {
+        // Last day in departure city - fetch hotspots for departure city sightseeing
+        const currentCity = normalizeCityName(currentLocationName);
+        const departureCity = normalizeCityName(departurePoint);
+        
+        if (currentCity === departureCity) {
+          // Do local sightseeing on last day
+          try {
+            fs.appendFileSync(
+              'd:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+              `SCENARIO 2: Last day in departure city ${currentLocationName} - doing local sightseeing\n`
+            );
+          } catch (e) {}
+          
+          // Fetch hotspots for this city (will get popular spots)
+          selectedHotspots = await this.fetchSelectedHotspotsForRoute(
+            tx,
+            planId,
+            route.itinerary_route_ID,
+          );
+        } else {
+          // Normal last route
+          selectedHotspots = await this.fetchSelectedHotspotsForRoute(
+            tx,
+            planId,
+            route.itinerary_route_ID,
+          );
+        }
+      } else {
+        // Normal route - fetch hotspots
+        selectedHotspots = await this.fetchSelectedHotspotsForRoute(
+          tx,
+          planId,
+          route.itinerary_route_ID,
+        );
+      }
+
+      // NO LUNCH BREAKS OR TIME CUTOFFS - User can schedule all hotspots and delete unwanted ones from UI
+      // Day 1: Schedule ALL top priority hotspots without time constraints
+      // User can reach hotel at any time
+
+      // STRATEGY: Multi-pass scheduling to fill gaps with deferred hotspots
+      // Pass 1: Schedule all hotspots that can be visited immediately
+      // Pass 2: Re-attempt deferred hotspots (their windows may have opened as time advanced)
+      // Pass 3: Continue until no more hotspots can be added
+      
+      const maxPasses = 5; // Prevent infinite loops
+      let pass = 1;
+      let addedInLastPass = true;
+      const deferredHotspots: Array<typeof selectedHotspots[0] & { deferredAtTime: string; opensAt: string }> = [];
+      
+      while (pass <= maxPasses && addedInLastPass) {
+        addedInLastPass = false;
+        const hotspotsToTry = pass === 1 ? selectedHotspots : deferredHotspots.filter(h => !addedHotspotIds.has(h.hotspot_ID));
+        
+        if (pass > 1) {
+          deferredHotspots.length = 0; // Clear for next pass
+          if (hotspotsToTry.length === 0) break; // No more to try
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `\n  === PASS ${pass}: Retrying ${hotspotsToTry.length} deferred hotspots (current time: ${currentTime}) ===\n`); } catch(e) {}
+        }
+
+      // Build travel + hotspot segments in order (NO LUNCH BREAKS OR CUTOFF CHECKS)
+      for (const sh of hotspotsToTry) {
+        
+        // USER REQUIREMENT: Day 1 schedules ALL hotspots - no route time limit
+        // Other days: stop if we have run out of route time
+        if (!isFirstRoute) {
+          let currentSeconds = timeToSeconds(currentTime);
+          // Handle overnight: if current time < start time, add 24 hours
+          if (currentSeconds < routeStartSeconds) {
+            currentSeconds += 86400;
+          }
+          
+          if (currentSeconds >= routeEndSeconds) {
+            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - out of route time\n`); } catch(e) {}
+            break;
+          }
+        }
+
+        // DAY 1 TRAVEL CUTOFF: We'll check if this hotspot would finish after cutoff
+        // AFTER calculating timeAfterSightseeing (lines ~835-851)
+        // Don't break here - we need to try scheduling and see if it fits
 
         // PHP CHECK: Skip if hotspot already added to THIS PLAN (any previous route in this rebuild)
         // Line 15159 in sql_functions.php: check_hotspot_already_added_the_itineary_plan
         if (addedHotspotIds.has(sh.hotspot_ID)) {
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - already added\n`); } catch(e) {}
           continue;
         }
 
@@ -394,47 +608,90 @@ export class TimelineBuilder {
           currentCoords, // Use tracked current coordinates
           destCoords,
         );
+
+        // PHP PARITY: Check if SIGHTSEEING end time (item_type=3) exceeds route_end_time
+        // PHP allows the BREAK (item_type=4) to exceed route_end_time, but the sightseeing must fit
+        // Calculate end time AFTER travel only (before sightseeing duration)
         const travelDurationSeconds = timeToSeconds(travelTimeToHotspot);
         const timeAfterTravel = addSeconds(currentTime, travelDurationSeconds);
-
-        // Get hotspot duration
-        const hotspotDurationSeconds = timeToSeconds(hotspotDuration);
-        const timeAfterHotspot = addSeconds(
-          timeAfterTravel,
-          hotspotDurationSeconds,
-        );
-
-        // PHP CHECK: Validate operating hours (PHP sql_functions.php line 15121)
-        // Must check BEFORE checking route end time
-        const phpDow = route.itinerary_route_date
-          ? ((new Date(route.itinerary_route_date).getDay() + 6) % 7)
-          : 0;
         
-        const operatingHoursOk = await this.checkHotspotOperatingHours(
+        // PHP checks if SIGHTSEEING END TIME fits within route_end_time
+        // Sightseeing duration is just the hotspot visit time (not including break)
+        const hotspotDurationSeconds = timeToSeconds(hotspotDuration);
+        const timeAfterSightseeing = addSeconds(timeAfterTravel, hotspotDurationSeconds);
+        
+        let sightseeingEndSeconds = timeToSeconds(timeAfterSightseeing);
+        if (sightseeingEndSeconds < routeStartSeconds) {
+          sightseeingEndSeconds += 86400;
+        }
+        
+        // DEBUG: Log the comparison
+        console.log(`[HOTSPOT ${sh.hotspot_ID}] Current: ${currentTime}, AfterTravel: ${timeAfterTravel}, AfterSightseeing: ${timeAfterSightseeing}`);
+        console.log(`[HOTSPOT ${sh.hotspot_ID}] SightseeingEndSeconds: ${sightseeingEndSeconds}, RouteEndSeconds: ${routeEndSeconds}, RouteEndTime: ${routeEndTime}`);
+        console.log(`[HOTSPOT ${sh.hotspot_ID}] Check: ${sightseeingEndSeconds} > ${routeEndSeconds} = ${sightseeingEndSeconds > routeEndSeconds}`);
+        
+        // NO DAY 1 CUTOFF - removed per user request
+        // Schedule all top priority hotspots without time constraints
+        
+        // PHP CHECK: If SIGHTSEEING would exceed route_end_time, STOP processing
+        // NOTE: The break (item_type=4) is allowed to exceed route_end_time
+        // SKIP THIS CHECK FOR DAY 1 - Day 1 has its own time management
+        // USER REQUIREMENT: Keep user busy with all hotspots - no time constraints on Day 1
+        if (!isFirstRoute && sightseeingEndSeconds > routeEndSeconds) {
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - sightseeing exceeds route end time (${timeAfterSightseeing} > ${routeEndTime})\n`); } catch(e) {}
+          continue; // PHP uses CONTINUE - skip this hotspot and try next ones
+        }
+
+        // PHP CHECK: Validate operating hours
+        // PHP uses date('N')-1 where date('N') gives 1=Monday, 2=Tuesday, ..., 7=Sunday
+        // So date('N')-1 gives: 0=Monday, 1=Tuesday, ..., 6=Sunday
+        // JavaScript getDay() gives: 0=Sunday, 1=Monday, ..., 6=Saturday
+        // Convert JS to PHP: (jsDay + 6) % 7
+        const jsDay = route.itinerary_route_date
+          ? new Date(route.itinerary_route_date).getDay()
+          : 0;
+        const dayOfWeek = (jsDay + 6) % 7; // Convert to PHP convention (0=Monday)
+        
+        const operatingHoursCheck = await this.checkHotspotOperatingHours(
           tx,
           sh.hotspot_ID,
-          phpDow,
+          dayOfWeek,
           timeAfterTravel, // Visit starts after travel
-          timeAfterHotspot, // Visit ends after duration
+          timeAfterSightseeing, // Visit ends after sightseeing duration
         );
         
-        if (!operatingHoursOk) {
-          continue; // Skip this hotspot, try next one
-        }
-
-        // PHP CHECK: If hotspot END time exceeds route_end_time significantly, skip
-        // PHP allows some buffer (observed: hotspots can extend 2-3 hours past route end)
-        let hotspotEndSeconds = timeToSeconds(timeAfterHotspot);
-        // Handle overnight: if hotspot end time < start time, add 24 hours
-        if (hotspotEndSeconds < routeStartSeconds) {
-          hotspotEndSeconds += 86400;
+        // USER REQUIREMENT: Schedule all hotspots to keep user busy
+        // BALANCED APPROACH: Respect operating hours when available, but be flexible
+        // - If hotspot can be visited now → schedule it
+        // - If hotspot opens later today → defer and try next hotspot (fill gaps)
+        // - If hotspot is closed OR has no operating hours → skip it (unrealistic to schedule)
+        
+        if (!operatingHoursCheck.canVisitNow) {
+          if (operatingHoursCheck.nextWindowStart) {
+            // Hotspot opens later today - defer for now, try other hotspots first
+            if (pass === 1) {
+              // First pass: defer and track for later retry
+              deferredHotspots.push({
+                ...sh,
+                deferredAtTime: currentTime,
+                opensAt: operatingHoursCheck.nextWindowStart
+              });
+            }
+            if (isFirstRoute) {
+              try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DEFERRED DAY 1 (opens at ${operatingHoursCheck.nextWindowStart}) - trying other hotspots first\n`); } catch(e) {}
+            } else {
+              try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DEFERRED (opens at ${operatingHoursCheck.nextWindowStart}) - trying next hotspot first\n`); } catch(e) {}
+            }
+            continue; // Try next hotspot to fill the time
+          } else {
+            // No operating hours available - skip this hotspot (closed or no data)
+            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - closed or no operating hours available\n`); } catch(e) {}
+            continue;
+          }
         }
         
-        const bufferSeconds = 4 * 3600; // Allow 4 hours buffer past route_end_time (PHP behavior observed)
-        if (hotspotEndSeconds > routeEndSeconds + bufferSeconds) {
-          continue; // Try next hotspot instead of breaking
-        }
-
+        try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] ADDED\n`); } catch(e) {}
+        addedInLastPass = true; // Mark that we added something in this pass
         // 2.c) Build TRAVEL SEGMENT (item_type = 3)
         // PHP BEHAVIOR: Travel and Visit segments share the SAME hotspot_order
         const currentOrder = order;
@@ -491,18 +748,27 @@ export class TimelineBuilder {
         currentTime = tAfterHotspot;
         // currentLocationName remains at the hotspot.
 
-        // 2.d) PARKING CHARGE ROW for this hotspot (if a master row exists)
-        const parking = await this.parkingBuilder.buildForHotspot(tx, {
+        // NO LUNCH BREAK LOGIC - removed per user request
+
+        // 2.d) PARKING CHARGE ROWS for this hotspot (one per vendor vehicle)
+        const parkingRowsForHotspot = await this.parkingBuilder.buildForHotspot(tx, {
           planId,
           routeId: route.itinerary_route_ID,
           hotspotId: sh.hotspot_ID,
           userId: createdByUserId,
         });
 
-        if (parking) {
-          parkingRows.push(parking);
+        if (parkingRowsForHotspot && parkingRowsForHotspot.length > 0) {
+          parkingRows.push(...parkingRowsForHotspot);
         }
       }
+      
+      // End of hotspot scheduling loop
+      pass++;
+      } // End of while loop for multi-pass scheduling
+
+      // NO DAY 1 CUTOFF TRAVEL - removed per user request
+      // User can reach hotel at any time
 
       // 3) TRAVEL TO HOTEL (item_type = 5)
       // In PHP this uses the chosen hotel for that route/date.
@@ -510,15 +776,22 @@ export class TimelineBuilder {
       // PHP BEHAVIOR: Last route SKIPS hotel rows (no ToHotel, no AtHotel)
       if (!isLastRoute) {
         const hotelOrder = order;
-        
+
+        const hotelInfo = await this.getHotelDetailsForRoute(
+          tx,
+          planId,
+          route.itinerary_route_ID,
+        );
+
         const hotelLocationName =
-          (await this.getHotelLocationNameForRoute(
-            tx,
-            planId,
-            route.itinerary_route_ID,
-          )) ||
+          hotelInfo?.hotelName ||
           (route.next_visiting_location as string) ||
           currentLocationName;
+
+        const travelLocationType = this.getTravelLocationType(
+          currentLocationName,
+          hotelLocationName,
+        );
 
         const { row: toHotelRow, nextTime: tAfterHotel } =
           await this.hotelBuilder.buildToHotel(tx, {
@@ -526,15 +799,20 @@ export class TimelineBuilder {
             routeId: route.itinerary_route_ID,
             order: hotelOrder,
             startTime: currentTime,
-            travelLocationType: 1, // TODO: local vs outstation if needed
+            travelLocationType,
             userId: createdByUserId,
             sourceLocationName: currentLocationName,
             destinationLocationName: hotelLocationName,
+            sourceCoords: currentCoords,
+            destCoords: hotelInfo?.coords,
           });
 
         hotspotRows.push(toHotelRow);
         currentTime = tAfterHotel;
         currentLocationName = hotelLocationName;
+        if (hotelInfo?.coords) {
+          currentCoords = hotelInfo.coords;
+        }
 
         // 4) RETURN / CLOSING ROW FOR HOTEL (item_type = 6)
         // PHP usually creates a closing row with 0 distance/time.
@@ -610,11 +888,15 @@ export class TimelineBuilder {
    * NOTE: In the schema, dvi_hotspot_place doesn't have a location_id field.
    * Instead, it has hotspot_location (text) which must be matched against
    * the route's location_name or next_visiting_location.
+   * 
+   * @param maxSourceHotspots - Optional limit for source location hotspots (for Day 1 arrival city)
    */
   private async fetchSelectedHotspotsForRoute(
     tx: Tx,
     planId: number,
     routeId: number,
+    maxSourceHotspots?: number,
+    skipDestinationHotspots?: boolean,
   ): Promise<SelectedHotspot[]> {
     try {
       // 1) Load route context (dates + locations)
@@ -631,8 +913,103 @@ export class TimelineBuilder {
         return [];
       }
 
-      const targetLocation = (route.location_name as string) || "";
-      const nextLocation = (route.next_visiting_location as string) || "";
+      // PHP LINE 1023-1033: Get location names from stored_locations table, NOT from route fields
+      // $location_name = getSTOREDLOCATIONDETAILS($start_location_id, 'SOURCE_LOCATION');
+      // $next_visiting_name = getSTOREDLOCATIONDETAILS($start_location_id, 'DESTINATION_LOCATION');
+      let targetLocation = "";
+      let nextLocation = "";
+      
+      if (route.location_id) {
+        const storedLoc = await (tx as any).dvi_stored_locations?.findFirst({
+          where: {
+            location_ID: BigInt(route.location_id),
+            deleted: 0,
+            status: 1,
+          },
+        });
+        
+        if (storedLoc) {
+          targetLocation = storedLoc.source_location || "";
+          nextLocation = storedLoc.destination_location || "";
+        }
+      }
+      
+      // Fallback: If location_id is missing/0, try to find by route location names
+      if (!targetLocation && !nextLocation) {
+        // Try exact match first
+        if (route.location_name) {
+          const foundBySource = await (tx as any).dvi_stored_locations?.findFirst({
+            where: {
+              source_location: route.location_name,
+              deleted: 0,
+              status: 1,
+            },
+          });
+          
+          if (foundBySource) {
+            targetLocation = foundBySource.source_location || "";
+            nextLocation = foundBySource.destination_location || "";
+          }
+        }
+        
+        // Fuzzy match if exact didn't work
+        if (!targetLocation && !nextLocation && route.location_name) {
+          const foundFuzzy = await (tx as any).dvi_stored_locations?.findFirst({
+            where: {
+              OR: [
+                { source_location: { contains: route.location_name } },
+                { destination_location: { contains: route.location_name } },
+              ],
+              deleted: 0,
+              status: 1,
+            },
+          });
+          
+          if (foundFuzzy) {
+            targetLocation = foundFuzzy.source_location || "";
+            nextLocation = foundFuzzy.destination_location || "";
+          }
+        }
+        
+        // If still not found, try next_visiting_location
+        if (!targetLocation && !nextLocation && route.next_visiting_location) {
+          // Try exact match
+          const foundByNext = await (tx as any).dvi_stored_locations?.findFirst({
+            where: {
+              OR: [
+                { source_location: route.next_visiting_location },
+                { destination_location: route.next_visiting_location },
+              ],
+              deleted: 0,
+              status: 1,
+            },
+          });
+          
+          if (foundByNext) {
+            targetLocation = foundByNext.source_location || "";
+            nextLocation = foundByNext.destination_location || "";
+          }
+          
+          // Fuzzy match as last resort
+          if (!targetLocation && !nextLocation) {
+            const foundFuzzyNext = await (tx as any).dvi_stored_locations?.findFirst({
+              where: {
+                OR: [
+                  { source_location: { contains: route.next_visiting_location } },
+                  { destination_location: { contains: route.next_visiting_location } },
+                ],
+                deleted: 0,
+                status: 1,
+              },
+            });
+            
+            if (foundFuzzyNext) {
+              targetLocation = foundFuzzyNext.source_location || "";
+              nextLocation = foundFuzzyNext.destination_location || "";
+            }
+          }
+        }
+      }
 
       if (!targetLocation && !nextLocation) {
         return [];
@@ -700,26 +1077,53 @@ export class TimelineBuilder {
       const nextLower = nextLocation.toLowerCase();
       const directToNextVisitingPlace = (route as any).direct_to_next_visiting_place || 0;
 
-      // Get starting location coordinates from dvi_stored_locations (like PHP)
+      // Get starting location coordinates from stored_locations (already fetched above)
+      // PHP line 1108-1109: Uses source coordinates for starting point
       let startLat = 0;
       let startLon = 0;
       
-      // Try to fetch from stored_locations using location_name
-      const storedLocation = await (tx as any).dvi_stored_locations?.findFirst({
-        where: {
-          OR: [
-            { source_location: { contains: targetLocation } },
-            { destination_location: { contains: targetLocation } },
-          ],
-          deleted: 0,
-          status: 1,
-        },
-      });
+      if (route.location_id) {
+        const storedLoc = await (tx as any).dvi_stored_locations?.findFirst({
+          where: {
+            location_ID: BigInt(route.location_id),
+            deleted: 0,
+            status: 1,
+          },
+        });
+        
+        if (storedLoc) {
+          // Use source coordinates (PHP uses source for starting point)
+          startLat = Number(storedLoc.source_location_lattitude ?? 0);
+          startLon = Number(storedLoc.source_location_longitude ?? 0);
+        }
+      }
       
-      if (storedLocation) {
-        // Use source coordinates (PHP uses source for starting point)
-        startLat = Number(storedLocation.source_location_lattitude ?? 0);
-        startLon = Number(storedLocation.source_location_longitude ?? 0);
+      // Fallback: If location_id is missing/0 and no coordinates, try by location_name
+      if (!startLat && !startLon && targetLocation) {
+        // Try exact match first
+        let foundLoc = await (tx as any).dvi_stored_locations?.findFirst({
+          where: {
+            source_location: targetLocation,
+            deleted: 0,
+            status: 1,
+          },
+        });
+        
+        // Fuzzy match if exact didn't work
+        if (!foundLoc && route.location_name) {
+          foundLoc = await (tx as any).dvi_stored_locations?.findFirst({
+            where: {
+              source_location: { contains: route.location_name },
+              deleted: 0,
+              status: 1,
+            },
+          });
+        }
+        
+        if (foundLoc) {
+          startLat = Number(foundLoc.source_location_lattitude ?? 0);
+          startLon = Number(foundLoc.source_location_longitude ?? 0);
+        }
       }
 
       // PHP LINE 1003-1011: Filter includes source location when direct_to_next_visiting_place != 1
@@ -729,16 +1133,29 @@ export class TimelineBuilder {
       const viaRouteHotspots: any[] = [];
 
       // Helper function to match location like PHP's containsLocation()
-      // PHP splits hotspot_location by '|' and checks if target is in the array (exact match after normalization)
+      // PHP containsLocation: splits by '|', normalizes both sides (trim+lowercase), checks exact match
+      // PHP normalizeLocation: strtolower(trim($location))
       const containsLocation = (hotspotLocation: string | null, targetLocation: string | null): boolean => {
         if (!hotspotLocation || !targetLocation) return false;
         
-        // Split by pipe and normalize (trim, lowercase)
+        // Split by pipe and normalize (trim, lowercase) - matches PHP exactly
         const hotspotParts = hotspotLocation.split('|').map(p => p.trim().toLowerCase());
         const normalizedTarget = targetLocation.trim().toLowerCase();
         
-        // Check if normalized target exists in the array (exact match, not substring)
-        return hotspotParts.includes(normalizedTarget);
+        // PHP uses in_array($normalized_target, $normalized_hotspot_locations)
+        const matches = hotspotParts.includes(normalizedTarget);
+        
+        // Debug logging for Route 980 to see what's matching
+        if (routeId === 980 && matches) {
+          try {
+            fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+              `  [containsLocation] Hotspot parts: ${JSON.stringify(hotspotParts)}\n` +
+              `  [containsLocation] Target: "${normalizedTarget}" → MATCH\n`
+            );
+          } catch (e) {}
+        }
+        
+        return matches;
       };
 
       for (const h of allHotspots) {
@@ -772,102 +1189,151 @@ export class TimelineBuilder {
         const matchesSource = containsLocation(h.hotspot_location as string, targetLocation);
         const matchesDestination = containsLocation(h.hotspot_location as string, nextLocation);
         
-        // Check if location is PRIMARY (first in pipe-delimited list) and if ONLY location
-        const locationParts = (h.hotspot_location || '').split('|').map((p: string) => p.trim().toLowerCase());
-        const primaryLocation = locationParts[0] || '';
-        const isOnlyLocation = locationParts.length === 1;
-        const isPrimarySource = primaryLocation === (targetLocation || '').trim().toLowerCase();
-        const isPrimaryDestination = primaryLocation === (nextLocation || '').trim().toLowerCase();
-
-        // PHP BEHAVIOR: Add to source and/or destination based on location match
-        // CRITICAL PHP LOGIC: Hotspots can be in BOTH lists (will be deduplicated later)
-        // However, if a hotspot matches destination as PRIMARY, prefer adding it to DESTINATION only
-        // to maintain proper concatenation order (SOURCE + DESTINATION)
-        const shouldAddToSource = matchesSource && !(matchesDestination && isPrimaryDestination);
-        const shouldAddToDestination = matchesDestination;
-
-        if (shouldAddToSource) {
-          sourceLocationHotspots.push({ ...hotspotWithDistance, isPrimarySource, isOnlyLocation });
+        // PHP PARITY: Lines showing categorization:
+        // if ($source_match) :
+        //     $source_location_hotspots[] = $hotspot_details;
+        // endif;
+        // if ($destination_match) :
+        //     $destination_hotspots[] = $hotspot_details;
+        // endif;
+        
+        // CRITICAL: Hotspot can be in BOTH buckets (e.g., hotspot_location = "Chennai|Pondicherry")
+        // Deduplication happens AFTER bucket selection based on direct flag
+        if (matchesSource) {
+          sourceLocationHotspots.push(hotspotWithDistance);
         }
         
-        if (shouldAddToDestination) {
-          destinationHotspots.push({ ...hotspotWithDistance, isPrimaryDestination, isOnlyLocation });
+        if (matchesDestination) {
+          destinationHotspots.push(hotspotWithDistance);
         }
-
-        // TODO: via_route_hotspots matching via locations (for future implementation)
+      }
+      
+      // Fetch via routes for this route and match hotspots
+      const viaRoutes = await (tx as any).dvi_itinerary_via_route_details?.findMany({
+        where: {
+          itinerary_plan_ID: planId,
+          itinerary_route_ID: routeId,
+          deleted: 0,
+          status: 1,
+        },
+      }) || [];
+      
+      // For each via location, find matching hotspots
+      for (const viaRoute of viaRoutes) {
+        const viaLocationName = viaRoute.itinerary_via_location_name;
+        if (!viaLocationName) continue;
+        
+        for (const h of allHotspots) {
+          // Check if timing allows this hotspot on this day
+          if (allowedHotspotIds && !allowedHotspotIds.has(Number(h.hotspot_ID ?? 0))) {
+            continue;
+          }
+          
+          // Calculate distance from starting location to this hotspot
+          const hsLat = Number(h.hotspot_latitude ?? 0);
+          const hsLon = Number(h.hotspot_longitude ?? 0);
+          let distance = 0;
+          
+          if (startLat && startLon && hsLat && hsLon) {
+            const earthRadius = 6371;
+            const dLat = ((hsLat - startLat) * Math.PI) / 180;
+            const dLon = ((hsLon - startLon) * Math.PI) / 180;
+            const a =
+              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos((startLat * Math.PI) / 180) *
+                Math.cos((hsLat * Math.PI) / 180) *
+                Math.sin(dLon / 2) *
+                Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            distance = earthRadius * c * 1.5;
+          }
+          
+          const hotspotWithDistance = { ...h, hotspot_distance: distance };
+          
+          // Check if hotspot matches via location
+          const matchesVia = containsLocation(h.hotspot_location as string, viaLocationName);
+          
+          if (matchesVia) {
+            viaRouteHotspots.push(hotspotWithDistance);
+          }
+        }
       }
 
-      // PHP sortHotspots() for each category  
-      // CRITICAL: PHP sorts by priority ASC FIRST, then EDF WITHIN same priority
-      // Example: Priority-1 (null closing) comes before Priority-2 (closes 12:30)
-      // But within Priority-1: hotspots with earlier closing come first
-      const sortHotspots = (hotspots: any[], sourceLocation: string = '', destLocation: string = '') => {
+      // PHP PARITY: Exact copy of sortHotspots function from ajax_latest_manage_itineary.php
+      const sortHotspots = (hotspots: any[]) => {
         hotspots.sort((a: any, b: any) => {
           const aPriority = Number(a.hotspot_priority ?? 0);
           const bPriority = Number(b.hotspot_priority ?? 0);
           
-          // Priority-0 hotspots always go last (PHP: CASE WHEN priority = 0 THEN 1 ELSE 0 END)
-          if (aPriority === 0 && bPriority !== 0) return 1;
-          if (aPriority !== 0 && bPriority === 0) return -1;
-          
-          // First by priority ASC (PHP: hotspot_priority ASC)
-          if (aPriority !== bPriority) return aPriority - bPriority;
-          
-          // Within same priority, apply EDF (Earliest Deadline First)
-          const aId = Number(a.hotspot_ID ?? 0);
-          const bId = Number(b.hotspot_ID ?? 0);
-          const aClosing = closingTimeMap.get(aId);
-          const bClosing = closingTimeMap.get(bId);
-          
-          // Both have closing times - prioritize earlier closing (URGENT first)
-          if (aClosing && bClosing && aClosing !== bClosing) {
-            return aClosing < bClosing ? -1 : 1;
+          // Priority 0 goes to END
+          if (aPriority === 0 && bPriority !== 0) {
+            return 1;
+          } else if (aPriority !== 0 && bPriority === 0) {
+            return -1;
+          } else if (aPriority === bPriority) {
+            // Same priority: sort by distance ASC (closer first)
+            return a.hotspot_distance - b.hotspot_distance;
           }
-          
-          // One has closing time, one doesn't - prioritize no closing time (open all day)
-          // because hotspot with null closing has no urgency
-          if (aClosing && !bClosing) return 1; // b (no closing) comes first
-          if (!aClosing && bClosing) return -1; // a (no closing) comes first
-          
-          // For same priority and no closing time difference, prefer hotspots with multiple locations
-          const aLocCount = (a.hotspot_location || '').split('|').length;
-          const bLocCount = (b.hotspot_location || '').split('|').length;
-          if (aLocCount !== bLocCount) return bLocCount - aLocCount;
-          
-          // Finally by distance (ASC - closer first)
-          return a.hotspot_distance - b.hotspot_distance;
+          // Different priorities: sort by priority ASC (lower number first)
+          return aPriority - bPriority;
         });
       };
 
-      sortHotspots(sourceLocationHotspots, targetLocation, nextLocation);
-      sortHotspots(destinationHotspots, targetLocation, nextLocation);
-      sortHotspots(viaRouteHotspots, targetLocation, nextLocation);
-      // PHP ajax_latest_manage_itineary_opt.php: Only non-zero priority source hotspots are used
-      // This prevents low-value attractions from being added when traveling between cities
-      if (directToNextVisitingPlace === 0) {
-        sourceLocationHotspots = sourceLocationHotspots.filter((h: any) => {
-          const priority = Number(h.hotspot_priority ?? 0);
-          return priority > 0;
-        });
+      // PHP BEHAVIOR: Sort individual location buckets, NOT the final combined list
+      sortHotspots(sourceLocationHotspots);
+      sortHotspots(destinationHotspots);
+      sortHotspots(viaRouteHotspots);
+      
+      // Apply max source hotspots limit if specified (for Day 1 arrival city)
+      if (maxSourceHotspots && maxSourceHotspots > 0 && sourceLocationHotspots.length > maxSourceHotspots) {
+        // Limit to top priority hotspots only
+        sourceLocationHotspots = sourceLocationHotspots.slice(0, maxSourceHotspots);
+        try {
+          fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+            `[Route ${routeId}] LIMITED source hotspots to ${maxSourceHotspots} (was ${sourceLocationHotspots.length + maxSourceHotspots})\n`
+          );
+        } catch (e) {}
       }
+      
+      // Debug logging to trace sorting behavior
+      try {
+        const fs = require('fs');
+        fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+          `[Route ${routeId}] After sorting each bucket:\n` +
+          `  Source (${targetLocation}): ${sourceLocationHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', ')}\n` +
+          `  Destination (${nextLocation}): ${destinationHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', ')}\n` +
+          `  Via: ${viaRouteHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', ')}\n` +
+          `  Direct: ${directToNextVisitingPlace}\n`
+        );
+      } catch (e) {}
+      
+      // PHP does NOT filter priority=0, it just sorts them to the END
+      // Time constraints and route_end_time will naturally prevent low-priority hotspots
+      // from being added if there's not enough time
 
-      // Detect airport arrival routes: Airport → City
-      const isAirportArrival = targetLocation.toLowerCase().includes('airport') && 
-                               !nextLocation.toLowerCase().includes('airport');
-
-      // PHP LINE 1261 or 1338: Process hotspots based on direct_to_next_visiting_place
+      // PHP PARITY: Process hotspots based on direct_to_next_visiting_place
+      // Concatenate buckets in the order PHP processes them
       let matchingHotspots: any[] = [];
       
       if (directToNextVisitingPlace === 1) {
-        // PHP LINE 1262-1336: Process via_route_hotspots, then destination_hotspots
+        // PHP ELSE BRANCH (direct == 1): Process via_route_hotspots, then destination_hotspots
         matchingHotspots = [...viaRouteHotspots, ...destinationHotspots];
-      } else if (isAirportArrival) {
-        // SPECIAL CASE: Airport arrival routes should use DESTINATION hotspots (city), not SOURCE (airport)
-        matchingHotspots = [...destinationHotspots, ...viaRouteHotspots];
       } else {
-        // PHP BEHAVIOR: For city-to-city routes with direct=0, use SOURCE + DESTINATION hotspots
-        // Route 179 (Chennai → Pondicherry) selects hotspots from BOTH locations
-        matchingHotspots = [...sourceLocationHotspots, ...destinationHotspots, ...viaRouteHotspots];
+        // PHP ELSE BRANCH (direct == 0): Process source, via, then destination
+        // Order: source_location_hotspots → via_route_hotspots → destination_hotspots
+        
+        // DAY 1 NON-DIRECT: Skip destination hotspots entirely
+        // User requirement: "Day 1 should have max 3 Madurai hotspots, Day 2 will have Alleppey hotspots"
+        if (skipDestinationHotspots) {
+          matchingHotspots = [...sourceLocationHotspots, ...viaRouteHotspots];
+          try {
+            fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log',
+              `[Route ${routeId}] DAY 1 NON-DIRECT: Skipping destination hotspots (will be added on Day 2)\n`
+            );
+          } catch (e) {}
+        } else {
+          matchingHotspots = [...sourceLocationHotspots, ...viaRouteHotspots, ...destinationHotspots];
+        }
       }
 
       // De-duplicate by hotspot_ID and keep first occurrence
@@ -879,10 +1345,21 @@ export class TimelineBuilder {
         seen.add(id);
         uniqueHotspots.push(h);
       }
+      
+      // PHP PARITY: Do NOT re-sort after concatenation
+      // The order from concatenation (source + destination + via) is the final order
+
+      console.log(`[Route ${routeId}] Selected ${uniqueHotspots.length} hotspots:`, uniqueHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', '));
+      try {
+        fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `[Route ${routeId}] Selected: ${uniqueHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', ')}\n`);
+      } catch (e) {
+        // Ignore file write errors
+      }
 
       return uniqueHotspots.map((h: any, index: number) => ({
         hotspot_ID: Number(h.hotspot_ID ?? 0) || 0,
         display_order: Number(h.hotspot_priority ?? index + 1) || index + 1,
+        hotspot_priority: Number(h.hotspot_priority ?? 0) || 0,
       }));
     } catch (err) {
       console.error("[fetchSelectedHotspots] Error:", err);
@@ -961,6 +1438,53 @@ export class TimelineBuilder {
       h.hotel_name ??
       null
     );
+  }
+
+  private async getHotelDetailsForRoute(
+    tx: Tx,
+    planId: number,
+    routeId: number,
+  ): Promise<{ hotelId: number; hotelName: string | null; coords?: { lat: number; lon: number } } | null> {
+    const details = await (tx as any).dvi_itinerary_plan_hotel_details?.findFirst({
+      where: {
+        itinerary_plan_id: planId,
+        itinerary_route_id: routeId,
+        group_type: 1,
+        deleted: 0,
+        status: 1,
+      },
+      select: {
+        hotel_id: true,
+      },
+    });
+
+    const hotelId = Number(details?.hotel_id ?? 0) || 0;
+    if (!hotelId) return null;
+
+    const hotel = await (tx as any).dvi_hotel?.findFirst({
+      where: {
+        hotel_id: hotelId,
+      },
+      select: {
+        hotel_name: true,
+        hotel_latitude: true,
+        hotel_longitude: true,
+      },
+    });
+
+    if (!hotel) {
+      return { hotelId, hotelName: null };
+    }
+
+    const lat = Number(hotel.hotel_latitude);
+    const lon = Number(hotel.hotel_longitude);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+
+    return {
+      hotelId,
+      hotelName: (hotel.hotel_name as string) ?? null,
+      coords: hasCoords ? { lat, lon } : undefined,
+    };
   }
 
   /**

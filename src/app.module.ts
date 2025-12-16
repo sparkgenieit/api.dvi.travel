@@ -21,10 +21,11 @@ import { LocationsModule } from './modules/locations/locations.module';
 import { GuidesModule } from './modules/guides/guides.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { AgentModule } from './modules/agent/agent.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { ExportPricebookModule } from './modules/export-pricebook/export-pricebook.module';
-
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, ExportPricebookModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, SettingsModule, ExportPricebookModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

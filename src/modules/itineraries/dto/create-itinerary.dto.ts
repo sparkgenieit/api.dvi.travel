@@ -145,6 +145,28 @@ export class CreateRouteDto {
   @IsOptional()
   @IsString()
   via_route?: string;
+
+  @ApiProperty({
+    type: () => [CreateViaRouteDto],
+    required: false,
+    description: 'Array of via route locations for this route segment',
+    example: [{ itinerary_via_location_ID: 101, itinerary_via_location_name: 'Mahabalipuram' }]
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateViaRouteDto)
+  via_routes?: CreateViaRouteDto[];
+}
+
+export class CreateViaRouteDto {
+  @ApiProperty({ example: 101, description: 'Via location ID from dvi_stored_locations' })
+  @IsInt()
+  itinerary_via_location_ID!: number;
+
+  @ApiProperty({ example: 'Mahabalipuram', description: 'Via location name' })
+  @IsString()
+  itinerary_via_location_name!: string;
 }
 
 export class CreateVehicleDto {
