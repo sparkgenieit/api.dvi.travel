@@ -4633,7 +4633,7 @@ model dvi_staff {
   staff_name          String?   @db.VarChar(50)
   staff_email         String?   @db.Text
   staff_mobile_number String?   @db.VarChar(50)
-  createdby           Int       @default(0)
+  createdby           Int       @default(1)
   createdon           DateTime? @db.DateTime(0)
   updatedon           DateTime? @db.DateTime(0)
   status              Int       @default(0) @db.TinyInt

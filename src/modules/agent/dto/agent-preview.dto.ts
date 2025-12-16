@@ -1,0 +1,21 @@
+export type AgentPreviewDto = {
+  agent_ID: number;
+  agent_name: string | null;
+  agent_lastname: string | null;
+  agent_email_id: string | null;
+  agent_primary_mobile_number: string | null;
+  agent_alternative_mobile_number: string | null;
+  agent_country: number | null;
+  agent_state: number | null;
+  agent_city: number | null;
+  agent_gst_number: string | null;
+  agent_gst_attachment: string | null;
+  subscription_plan_id: number | null;
+  travel_expert_id: number | null;
+  login_enabled: boolean;
+  country_label?: string | null;
+  state_label?: string | null;
+  city_label?: string | null;
+  subscription_title?: string | null;
+  travel_expert_label?: string | null;
+};
