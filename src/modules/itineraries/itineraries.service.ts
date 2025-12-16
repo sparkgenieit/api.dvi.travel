@@ -1033,4 +1033,76 @@ export class ItinerariesService {
       data,
     };
   }
+
+  async getAgentsForFilter() {
+    const agents = await this.prisma.dvi_agent.findMany({
+      select: {
+        agent_ID: true,
+        agent_name: true,
+        agent_lastname: true,
+      },
+      orderBy: {
+        agent_name: 'asc',
+      },
+    });
+
+    return agents.map((a) => ({
+      id: a.agent_ID,
+      name: a.agent_name || '',
+      staff_name: a.agent_lastname || '',
+    }));
+  }
+
+  async getLocationsForFilter() {
+    // Get unique arrival and departure locations from confirmed itineraries
+    const plans = await this.prisma.dvi_itinerary_plan_details.findMany({
+      where: {
+        quotation_status: 1,
+        deleted: 0,
+      },
+      select: {
+        arrival_location: true,
+        departure_location: true,
+      },
+    });
+
+    const locationsSet = new Set<string>();
+    
+    plans.forEach((plan) => {
+      if (plan.arrival_location) locationsSet.add(plan.arrival_location);
+      if (plan.departure_location) locationsSet.add(plan.departure_location);
+    });
+
+    return Array.from(locationsSet)
+      .filter(loc => loc && loc.trim().length > 0)
+      .sort()
+      .map(loc => ({ value: loc, label: loc }));
+  }
+
+  /**
+   * Get unique locations for latest itineraries filter (from all non-deleted plans)
+   */
+  async getLocationsForLatestFilter(): Promise<{ value: string; label: string }[]> {
+    const plans = await this.prisma.dvi_itinerary_plan_details.findMany({
+      where: {
+        deleted: 0,
+      },
+      select: {
+        arrival_location: true,
+        departure_location: true,
+      },
+    });
+
+    const locationsSet = new Set<string>();
+    
+    plans.forEach((plan) => {
+      if (plan.arrival_location) locationsSet.add(plan.arrival_location);
+      if (plan.departure_location) locationsSet.add(plan.departure_location);
+    });
+
+    return Array.from(locationsSet)
+      .filter(loc => loc && loc.trim().length > 0)
+      .sort()
+      .map(loc => ({ value: loc, label: loc }));
+  }
 }

@@ -22,9 +22,10 @@ import { GuidesModule } from './modules/guides/guides.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { AgentModule } from './modules/agent/agent.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, SettingsModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

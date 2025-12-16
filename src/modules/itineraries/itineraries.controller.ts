@@ -307,6 +307,18 @@ export class ItinerariesController {
     return this.detailsService.getLatestItinerariesDataTable(q, req);
   }
 
+  @Get('latest/agents')
+  @ApiOperation({ summary: 'Get agents for latest itineraries filter' })
+  async getLatestAgents() {
+    return this.svc.getAgentsForFilter();
+  }
+
+  @Get('latest/locations')
+  @ApiOperation({ summary: 'Get origin/destination locations from latest itineraries' })
+  async getLatestLocations() {
+    return this.svc.getLocationsForLatestFilter();
+  }
+
   @Delete('hotspot/:planId/:routeId/:hotspotId')
   @ApiOperation({ summary: 'Delete a hotspot from an itinerary route' })
   @ApiParam({ name: 'planId', example: 17940, description: 'Itinerary Plan ID' })
@@ -547,6 +559,20 @@ export class ItinerariesController {
   @ApiQuery({ name: 'staff_id', required: false, type: Number })
   async getConfirmedItineraries(@Query() query: LatestItineraryQueryDto) {
     return this.svc.getConfirmedItineraries(query);
+  }
+
+  @Get('confirmed/agents')
+  @ApiOperation({ summary: 'Get agents for confirmed itineraries filter' })
+  @ApiOkResponse({ description: 'Returns list of agents with id and name' })
+  async getConfirmedAgents() {
+    return this.svc.getAgentsForFilter();
+  }
+
+  @Get('confirmed/locations')
+  @ApiOperation({ summary: 'Get origin/destination locations from confirmed itineraries' })
+  @ApiOkResponse({ description: 'Returns unique locations from arrival and departure' })
+  async getConfirmedLocations() {
+    return this.svc.getLocationsForFilter();
   }
 
   /**

@@ -451,7 +451,17 @@ async getForm(query: any) {
   ).toString().trim();
   const routeDate = routeDateStr ? this.parseRouteDate(routeDateStr) : null;
 
+  console.log('VIA ROUTE FORM REQUEST:', {
+    source,
+    destination,
+    itinerary_plan_ID,
+    itinerary_route_ID,
+    itinerary_session_id,
+    routeDateStr,
+  });
+
   // -------- 3.1 Find base location row in dvi_stored_locations ----------
+  // CRITICAL: This must match EXACTLY how PHP does it
   let locationId: bigint | null = null;
 
   if (source && destination) {
@@ -467,8 +477,12 @@ async getForm(query: any) {
       },
     });
 
+    console.log('FOUND BASE LOCATION:', baseLocation);
+
     if (baseLocation && baseLocation.location_ID != null) {
       locationId = baseLocation.location_ID;
+    } else {
+      console.log('NO LOCATION FOUND FOR:', { source, destination });
     }
   }
 
@@ -542,6 +556,7 @@ async getForm(query: any) {
   }[] = [];
 
   if (locationId != null) {
+    console.log('FETCHING VIA ROUTES FOR location_id:', locationId);
     optionsRows = await this.prisma.dvi_stored_location_via_routes.findMany({
       where: {
         deleted: 0,
@@ -556,6 +571,10 @@ async getForm(query: any) {
         via_route_location: true,
       },
     });
+
+    console.log('VIA ROUTE OPTIONS FOUND:', optionsRows.length);
+  } else {
+    console.log('CANNOT FETCH VIA ROUTES - locationId is null');
   }
 
   const options = optionsRows
@@ -564,6 +583,11 @@ async getForm(query: any) {
       id: r.via_route_location_ID.toString(),
       label: r.via_route_location as string,
     }));
+
+  console.log('FINAL RESPONSE:', {
+    existingCount: existing.length,
+    optionsCount: options.length,
+  });
 
   return {
     success: true,
