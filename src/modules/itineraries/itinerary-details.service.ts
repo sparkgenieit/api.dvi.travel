@@ -1503,6 +1503,11 @@ export class ItineraryDetailsService {
   }
 
   async findOneOld(id: number, groupType?: number) {
+    const plan = await this.prisma.dvi_itinerary_plan_details.findUnique({
+      where: { itinerary_plan_ID: id },
+    });
+    if (!plan) throw new NotFoundException('Itinerary not found');
+
     const routes = await this.prisma.dvi_itinerary_route_details.findMany({
       where: { itinerary_plan_ID: id, deleted: 0 },
     });

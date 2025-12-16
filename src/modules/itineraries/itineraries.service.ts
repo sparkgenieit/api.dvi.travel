@@ -7,6 +7,7 @@ import {
   CreateItineraryDto,
 } from "./dto/create-itinerary.dto";
 import { ConfirmQuotationDto } from "./dto/confirm-quotation.dto";
+import { LatestItineraryQueryDto } from "./dto/latest-itinerary-query.dto";
 import { PlanEngineService } from "./engines/plan-engine.service";
 import { RouteEngineService } from "./engines/route-engine.service";
 import { HotspotEngineService } from "./engines/hotspot-engine.service";
