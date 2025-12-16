@@ -1,6 +1,21 @@
 // FILE: src/itineraries/itineraries.controller.ts
+// ✅ Fixes Prisma error by:
+// 1) Moving @Get(':id') to the VERY END (so it won’t swallow /customer-info, /confirmed, etc.)
+// 2) Enforcing numeric :id with ParseIntPipe (so "confirmed" never becomes NaN)
+// 3) Importing Request type correctly (your file used Request without import)
 
-import { Body, Controller, Param, Post, Get, Query, Req, Delete, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Post,
+  Get,
+  Query,
+  Req,
+  Delete,
+  Res,
+  ParseIntPipe,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiExtraModels,
@@ -19,6 +34,7 @@ import {
   CreateVehicleDto,
 } from './dto/create-itinerary.dto';
 import { LatestItineraryQueryDto } from './dto/latest-itinerary-query.dto';
+import { ConfirmQuotationDto } from './dto/confirm-quotation.dto';
 import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import {
@@ -28,7 +44,7 @@ import {
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
 import { ItineraryExportService } from './itinerary-export.service';
 import { Public } from '../../auth/public.decorator';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 
 @ApiTags('Itineraries')
 @ApiBearerAuth()
@@ -53,7 +69,7 @@ export class ItinerariesController {
     summary:
       'Create OR Update plan + routes + vehicles + travellers (NO hotspots yet). Use plan.itinerary_plan_id for update.',
   })
- @ApiBody({
+  @ApiBody({
     type: CreateItineraryDto,
     examples: {
       create: {
@@ -96,7 +112,10 @@ export class ItinerariesController {
               direct_to_next_visiting_place: 1,
               via_route: '',
               via_routes: [
-                { itinerary_via_location_ID: 101, itinerary_via_location_name: 'Mahabalipuram' }
+                {
+                  itinerary_via_location_ID: 101,
+                  itinerary_via_location_name: 'Mahabalipuram',
+                },
               ],
             },
             {
@@ -169,7 +188,10 @@ export class ItinerariesController {
               direct_to_next_visiting_place: 1,
               via_route: '',
               via_routes: [
-                { itinerary_via_location_ID: 101, itinerary_via_location_name: 'Mahabalipuram' }
+                {
+                  itinerary_via_location_ID: 101,
+                  itinerary_via_location_name: 'Mahabalipuram',
+                },
               ],
             },
             {
@@ -223,10 +245,7 @@ export class ItinerariesController {
     required: true,
     description: 'Quote ID generated for the itinerary',
     example: 'DVI202512032',
-    schema: {
-      type: 'string',
-      default: 'DVI202512032',
-    },
+    schema: { type: 'string', default: 'DVI202512032' },
   })
   @ApiQuery({
     name: 'groupType',
@@ -235,9 +254,7 @@ export class ItinerariesController {
     example: 4,
     type: Number,
   })
-  @ApiOkResponse({
-    description: 'Full itinerary details for the given quoteId',
-  })
+  @ApiOkResponse({ description: 'Full itinerary details for the given quoteId' })
   async getItineraryDetails(
     @Param('quoteId') quoteId: string,
     @Query('groupType') groupType?: string,
@@ -246,7 +263,6 @@ export class ItinerariesController {
     return this.detailsService.getItineraryDetails(quoteId, groupTypeNum);
   }
 
-  // ⭐ EXISTING ENDPOINT: hotel_details/:quoteId
   @Get('hotel_details/:quoteId')
   @ApiOperation({
     summary: 'Get hotel details for an itinerary by Quote ID',
@@ -259,16 +275,13 @@ export class ItinerariesController {
     description: 'Quote ID generated for the itinerary',
     example: 'DVI202512032',
   })
-  @ApiOkResponse({
-    description: 'Hotel details for the given quoteId',
-  })
+  @ApiOkResponse({ description: 'Hotel details for the given quoteId' })
   async getItineraryHotelDetails(
     @Param('quoteId') quoteId: string,
   ): Promise<ItineraryHotelDetailsResponseDto> {
     return this.hotelDetailsService.getHotelDetailsByQuoteId(quoteId);
   }
 
-  // ⭐ NEW ENDPOINT: hotel_room_details/:quoteId
   @Get('hotel_room_details/:quoteId')
   @ApiOperation({
     summary: 'Get hotel ROOM details for an itinerary by Quote ID',
@@ -281,16 +294,13 @@ export class ItinerariesController {
     description: 'Quote ID generated for the itinerary',
     example: 'DVI202512032',
   })
-  @ApiOkResponse({
-    description: 'Hotel room details for the given quoteId',
-  })
+  @ApiOkResponse({ description: 'Hotel room details for the given quoteId' })
   async getItineraryHotelRoomDetails(
     @Param('quoteId') quoteId: string,
   ): Promise<ItineraryHotelRoomDetailsResponseDto> {
     return this.hotelDetailsService.getHotelRoomDetailsByQuoteId(quoteId);
   }
 
-  // ✅ SP-FREE datatable endpoint (replaces CALL GetLatestItineraryPlans)
   @Get('latest')
   @ApiOperation({ summary: 'Latest itineraries datatable' })
   async latest(@Query() q: LatestItineraryQueryDto, @Req() req: Request) {
@@ -308,12 +318,20 @@ export class ItinerariesController {
     @Param('routeId') routeId: string,
     @Param('hotspotId') hotspotId: string,
   ) {
-    return this.svc.deleteHotspot(Number(planId), Number(routeId), Number(hotspotId));
+    return this.svc.deleteHotspot(
+      Number(planId),
+      Number(routeId),
+      Number(hotspotId),
+    );
   }
 
   @Get('activities/available/:hotspotId')
   @ApiOperation({ summary: 'Get available activities for a hotspot location' })
-  @ApiParam({ name: 'hotspotId', example: 123, description: 'Hotspot Location ID' })
+  @ApiParam({
+    name: 'hotspotId',
+    example: 123,
+    description: 'Hotspot Location ID',
+  })
   @ApiOkResponse({ description: 'List of available activities' })
   async getAvailableActivities(@Param('hotspotId') hotspotId: string) {
     return this.svc.getAvailableActivities(Number(hotspotId));
@@ -347,14 +365,22 @@ export class ItinerariesController {
   @ApiOperation({ summary: 'Delete an activity from an itinerary route' })
   @ApiParam({ name: 'planId', example: 17940, description: 'Itinerary Plan ID' })
   @ApiParam({ name: 'routeId', example: 1, description: 'Route ID' })
-  @ApiParam({ name: 'activityId', example: 123, description: 'Route Activity ID' })
+  @ApiParam({
+    name: 'activityId',
+    example: 123,
+    description: 'Route Activity ID',
+  })
   @ApiOkResponse({ description: 'Activity deleted successfully' })
   async deleteActivity(
     @Param('planId') planId: string,
     @Param('routeId') routeId: string,
     @Param('activityId') activityId: string,
   ) {
-    return this.svc.deleteActivity(Number(planId), Number(routeId), Number(activityId));
+    return this.svc.deleteActivity(
+      Number(planId),
+      Number(routeId),
+      Number(activityId),
+    );
   }
 
   @Get('hotspots/available/:locationId')
@@ -401,12 +427,15 @@ export class ItinerariesController {
         routeId: { type: 'number', example: 1 },
         hotelId: { type: 'number', example: 123 },
         roomTypeId: { type: 'number', example: 456 },
-        mealPlan: { type: 'object', properties: {
-          all: { type: 'boolean' },
-          breakfast: { type: 'boolean' },
-          lunch: { type: 'boolean' },
-          dinner: { type: 'boolean' },
-        }},
+        mealPlan: {
+          type: 'object',
+          properties: {
+            all: { type: 'boolean' },
+            breakfast: { type: 'boolean' },
+            lunch: { type: 'boolean' },
+            dinner: { type: 'boolean' },
+          },
+        },
       },
       required: ['planId', 'routeId', 'hotelId', 'roomTypeId'],
     },
@@ -437,19 +466,23 @@ export class ItinerariesController {
   @Get('edit/:id')
   @ApiOperation({ summary: 'Get itinerary raw plan data for editing' })
   @ApiParam({ name: 'id', example: 17940, description: 'Itinerary Plan ID' })
-  @ApiOkResponse({ description: 'Returns plan, routes, and vehicles for editing in the form' })
-  async getPlanForEdit(@Param('id') id: string) {
-    return this.svc.getPlanForEdit(Number(id));
+  @ApiOkResponse({
+    description: 'Returns plan, routes, and vehicles for editing in the form',
+  })
+  async getPlanForEdit(@Param('id', ParseIntPipe) id: number) {
+    return this.svc.getPlanForEdit(id);
   }
 
   @Get('export/:id')
   @Public()
   @ApiOperation({ summary: 'Export itinerary to Excel' })
   @ApiParam({ name: 'id', example: 14, description: 'Itinerary Plan ID' })
-  async exportToExcel(@Param('id') id: string, @Res() res: Response) {
-    const planId = Number(id);
-    const workbook = await this.exportService.exportItineraryToExcel(planId);
-    
+  async exportToExcel(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const workbook = await this.exportService.exportItineraryToExcel(id);
+
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -463,12 +496,76 @@ export class ItinerariesController {
     res.end();
   }
 
+  @Get('customer-info/:planId')
+  @ApiOperation({ summary: 'Get customer info form data for confirm quotation' })
+  @ApiParam({ name: 'planId', example: 12, description: 'Itinerary Plan ID' })
+  @ApiOkResponse({
+    description: 'Returns quotation number, agent name, and wallet balance',
+  })
+  async getCustomerInfoForm(@Param('planId', ParseIntPipe) planId: number) {
+    return this.svc.getCustomerInfoForm(planId);
+  }
+
+  @Get('wallet-balance/:agentId')
+  @ApiOperation({ summary: 'Check agent wallet balance' })
+  @ApiParam({ name: 'agentId', example: 3, description: 'Agent ID' })
+  @ApiOkResponse({ description: 'Returns agent wallet balance and sufficiency status' })
+  async checkWalletBalance(@Param('agentId', ParseIntPipe) agentId: number) {
+    return this.svc.checkWalletBalance(agentId);
+  }
+
+  @Post('confirm-quotation')
+  @ApiOperation({ summary: 'Confirm quotation with guest details' })
+  @ApiBody({ type: ConfirmQuotationDto })
+  @ApiOkResponse({ description: 'Quotation confirmed successfully' })
+  async confirmQuotation(@Body() dto: ConfirmQuotationDto) {
+    return this.svc.confirmQuotation(dto);
+  }
+
+  @Get('confirmed')
+  @ApiOperation({
+    summary: 'Get confirmed itineraries list with pagination and filters',
+  })
+  @ApiQuery({ name: 'draw', required: false, type: Number })
+  @ApiQuery({ name: 'start', required: false, type: Number })
+  @ApiQuery({ name: 'length', required: false, type: Number })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: String,
+    description: 'Format: DD/MM/YYYY',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: String,
+    description: 'Format: DD/MM/YYYY',
+  })
+  @ApiQuery({ name: 'source_location', required: false, type: String })
+  @ApiQuery({ name: 'destination_location', required: false, type: String })
+  @ApiQuery({ name: 'agent_id', required: false, type: Number })
+  @ApiQuery({ name: 'staff_id', required: false, type: Number })
+  async getConfirmedItineraries(@Query() query: LatestItineraryQueryDto) {
+    return this.svc.getConfirmedItineraries(query);
+  }
+
+  /**
+   * ✅ MUST BE LAST.
+   * Otherwise it will swallow routes like /customer-info/:planId, /confirmed, /latest, etc.
+   */
   @Get(':id')
   @ApiOperation({ summary: 'Get itinerary by plan id' })
   @ApiParam({ name: 'id', example: 17940 })
-  @ApiQuery({ name: 'groupType', required: false, description: 'Hotel recommendation group type (1-4)' })
-  async findOne(@Param('id') id: string, @Query('groupType') groupType?: string) {
+  @ApiQuery({
+    name: 'groupType',
+    required: false,
+    description: 'Hotel recommendation group type (1-4)',
+  })
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('groupType') groupType?: string,
+  ) {
     const groupTypeNum = groupType ? Number(groupType) : undefined;
-    return this.detailsService.findOne(Number(id), groupTypeNum);
+    return this.detailsService.findOne(id, groupTypeNum);
   }
 }

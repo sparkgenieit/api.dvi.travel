@@ -1500,7 +1500,9 @@ export class ItineraryDetailsService {
     const quoteId = plan.itinerary_quote_ID;
     if (!quoteId) throw new NotFoundException('Quote ID not found for this plan');
     return this.getItineraryDetails(quoteId, groupType);
+  }
 
+  async findOneOld(id: number, groupType?: number) {
     const routes = await this.prisma.dvi_itinerary_route_details.findMany({
       where: { itinerary_plan_ID: id, deleted: 0 },
     });

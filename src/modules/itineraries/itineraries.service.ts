@@ -6,6 +6,7 @@ import { PrismaService } from "../../prisma.service";
 import {
   CreateItineraryDto,
 } from "./dto/create-itinerary.dto";
+import { ConfirmQuotationDto } from "./dto/confirm-quotation.dto";
 import { PlanEngineService } from "./engines/plan-engine.service";
 import { RouteEngineService } from "./engines/route-engine.service";
 import { HotspotEngineService } from "./engines/hotspot-engine.service";
@@ -698,4 +699,337 @@ export class ItinerariesService {
       routes: routesWithVia,
       vehicles,
     };
-  }}
+  }
+
+  async getCustomerInfoForm(planId: number) {
+    // Get plan details
+    const plan = await this.prisma.dvi_itinerary_plan_details.findUnique({
+      where: { itinerary_plan_ID: planId },
+      select: {
+        itinerary_quote_ID: true,
+        agent_id: true,
+      },
+    });
+
+    if (!plan) {
+      throw new BadRequestException('Itinerary plan not found');
+    }
+
+    // Get agent details
+    const agent = await this.prisma.dvi_agent.findUnique({
+      where: { agent_ID: plan.agent_id },
+      select: {
+        agent_name: true,
+        total_cash_wallet: true,
+      },
+    });
+
+    if (!agent) {
+      throw new BadRequestException('Agent not found');
+    }
+
+    const walletBalance = Number(agent.total_cash_wallet || 0);
+    const formattedBalance = walletBalance.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    return {
+      quotation_no: plan.itinerary_quote_ID || '',
+      agent_name: agent.agent_name,
+      wallet_balance: formattedBalance,
+      balance_sufficient: walletBalance > 0,
+    };
+  }
+
+  async checkWalletBalance(agentId: number) {
+    const agent = await this.prisma.dvi_agent.findUnique({
+      where: { agent_ID: agentId },
+      select: {
+        total_cash_wallet: true,
+      },
+    });
+
+    if (!agent) {
+      throw new BadRequestException('Agent not found');
+    }
+
+    const balance = Number(agent.total_cash_wallet || 0);
+    const formattedBalance = `₹ ${balance.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+    return {
+      balance,
+      formatted_balance: formattedBalance,
+      is_sufficient: balance > 0,
+    };
+  }
+
+  async confirmQuotation(dto: ConfirmQuotationDto) {
+    const userId = 1; // TODO: Get from authenticated user
+
+    // Parse arrival and departure dates
+    const parseDateTime = (dateTimeStr: string) => {
+      // Format: "12-12-2025 9:00 AM"
+      const [datePart, timePart, meridiem] = dateTimeStr.split(' ');
+      const [day, month, year] = datePart.split('-');
+      let [hours, minutes] = timePart.split(':').map(Number);
+      
+      if (meridiem === 'PM' && hours !== 12) hours += 12;
+      if (meridiem === 'AM' && hours === 12) hours = 0;
+      
+      return new Date(Number(year), Number(month) - 1, Number(day), hours, Number(minutes));
+    };
+
+    const arrivalDateTime = parseDateTime(dto.arrival_date_time);
+    const departureDateTime = parseDateTime(dto.departure_date_time);
+
+    // Get plan details to check if already confirmed
+    const plan = await this.prisma.dvi_itinerary_plan_details.findUnique({
+      where: { itinerary_plan_ID: dto.itinerary_plan_ID },
+    });
+
+    if (!plan) {
+      throw new BadRequestException('Itinerary plan not found');
+    }
+
+    // Insert or update primary guest details in dvi_confirmed_itinerary_customer_details
+    const existingCustomer = await this.prisma.dvi_confirmed_itinerary_customer_details.findFirst({
+      where: {
+        itinerary_plan_ID: dto.itinerary_plan_ID,
+        primary_customer: 1,
+        deleted: 0,
+      },
+    });
+
+    if (existingCustomer) {
+      // Update existing customer
+      await this.prisma.dvi_confirmed_itinerary_customer_details.update({
+        where: { confirmed_itinerary_customer_ID: existingCustomer.confirmed_itinerary_customer_ID },
+        data: {
+          customer_salutation: dto.primary_guest_salutation,
+          customer_name: dto.primary_guest_name,
+          customer_age: parseInt(dto.primary_guest_age) || 0,
+          primary_contact_no: dto.primary_guest_contact_no,
+          altenative_contact_no: dto.primary_guest_alternative_contact_no || '',
+          email_id: dto.primary_guest_email_id || '',
+          arrival_date_and_time: arrivalDateTime,
+          arrival_place: dto.arrival_place,
+          arrival_flight_details: dto.arrival_flight_details || '',
+          departure_date_and_time: departureDateTime,
+          departure_place: dto.departure_place,
+          departure_flight_details: dto.departure_flight_details || '',
+          updatedon: new Date(),
+        },
+      });
+    } else {
+      // Create new customer record
+      await this.prisma.dvi_confirmed_itinerary_customer_details.create({
+        data: {
+          itinerary_plan_ID: dto.itinerary_plan_ID,
+          agent_id: dto.agent,
+          primary_customer: 1,
+          customer_type: 1, // Adult
+          customer_salutation: dto.primary_guest_salutation,
+          customer_name: dto.primary_guest_name,
+          customer_age: parseInt(dto.primary_guest_age) || 0,
+          primary_contact_no: dto.primary_guest_contact_no,
+          altenative_contact_no: dto.primary_guest_alternative_contact_no || '',
+          email_id: dto.primary_guest_email_id || '',
+          arrival_date_and_time: arrivalDateTime,
+          arrival_place: dto.arrival_place,
+          arrival_flight_details: dto.arrival_flight_details || '',
+          departure_date_and_time: departureDateTime,
+          departure_place: dto.departure_place,
+          departure_flight_details: dto.departure_flight_details || '',
+          createdby: userId,
+          createdon: new Date(),
+          status: 1,
+          deleted: 0,
+        },
+      });
+    }
+
+    // Handle additional adults if provided
+    if (dto.adult_name && dto.adult_name.length > 0) {
+      for (let i = 0; i < dto.adult_name.length; i++) {
+        if (dto.adult_name[i]) {
+          await this.prisma.dvi_confirmed_itinerary_customer_details.create({
+            data: {
+              itinerary_plan_ID: dto.itinerary_plan_ID,
+              agent_id: dto.agent,
+              primary_customer: 0,
+              customer_type: 1, // Adult
+              customer_salutation: 'Mr',
+              customer_name: dto.adult_name[i],
+              customer_age: parseInt(dto.adult_age?.[i] || '0') || 0,
+              createdby: userId,
+              createdon: new Date(),
+              status: 1,
+              deleted: 0,
+            },
+          });
+        }
+      }
+    }
+
+    // Update plan status to confirmed
+    await this.prisma.dvi_itinerary_plan_details.update({
+      where: { itinerary_plan_ID: dto.itinerary_plan_ID },
+      data: {
+        quotation_status: 1, // Confirmed
+        updatedon: new Date(),
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Quotation confirmed successfully',
+      itinerary_plan_ID: dto.itinerary_plan_ID,
+    };
+  }
+
+  async getConfirmedItineraries(query: LatestItineraryQueryDto) {
+    const {
+      draw = 1,
+      start = 0,
+      length = 10,
+      start_date,
+      end_date,
+      source_location,
+      destination_location,
+      agent_id,
+      staff_id,
+    } = query;
+
+    // Parse date filters if provided
+    const parseDateFilter = (dateStr: string | undefined) => {
+      if (!dateStr) return undefined;
+      const [day, month, year] = dateStr.split('/');
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    };
+
+    const startDate = parseDateFilter(start_date);
+    const endDate = parseDateFilter(end_date);
+
+    // Build where clause
+    const where: any = {
+      quotation_status: 1, // Only confirmed quotations
+      deleted: 0,
+    };
+
+    if (agent_id) {
+      where.agent_id = agent_id;
+    }
+
+    if (staff_id) {
+      where.staff_id = staff_id;
+    }
+
+    if (startDate) {
+      where.trip_start_date_and_time = {
+        gte: startDate,
+      };
+    }
+
+    if (endDate) {
+      where.trip_end_date_and_time = {
+        lte: new Date(endDate.getTime() + 86400000 - 1), // End of day
+      };
+    }
+
+    if (source_location) {
+      where.arrival_location = {
+        contains: source_location,
+      };
+    }
+
+    if (destination_location) {
+      where.departure_location = {
+        contains: destination_location,
+      };
+    }
+
+    // Get total count
+    const recordsTotal = await this.prisma.dvi_itinerary_plan_details.count();
+    const recordsFiltered = await this.prisma.dvi_itinerary_plan_details.count({
+      where,
+    });
+
+    // Fetch paginated data
+    const plans = await this.prisma.dvi_itinerary_plan_details.findMany({
+      where,
+      skip: start,
+      take: length,
+      orderBy: {
+        createdon: 'desc',
+      },
+      select: {
+        itinerary_plan_ID: true,
+        itinerary_quote_ID: true,
+        agent_id: true,
+        staff_id: true,
+        arrival_location: true,
+        departure_location: true,
+        trip_start_date_and_time: true,
+        trip_end_date_and_time: true,
+        no_of_days: true,
+        no_of_nights: true,
+        createdon: true,
+        createdby: true,
+      },
+    });
+
+    // Get primary customer details for each plan
+    const data = await Promise.all(
+      plans.map(async (plan) => {
+        const customer = await this.prisma.dvi_confirmed_itinerary_customer_details.findFirst({
+          where: {
+            itinerary_plan_ID: plan.itinerary_plan_ID,
+            primary_customer: 1,
+            deleted: 0,
+          },
+          select: {
+            customer_name: true,
+            primary_contact_no: true,
+            arrival_date_and_time: true,
+            departure_date_and_time: true,
+          },
+        });
+
+        // Get agent name
+        const agent = plan.agent_id
+          ? await this.prisma.dvi_agent.findUnique({
+              where: { agent_ID: plan.agent_id },
+              select: { agent_name: true },
+            })
+          : null;
+
+        return {
+          itinerary_plan_ID: plan.itinerary_plan_ID,
+          booking_quote_id: plan.itinerary_quote_ID,
+          agent_name: agent?.agent_name || 'N/A',
+          primary_customer_name: customer?.customer_name || 'N/A',
+          primary_contact_no: customer?.primary_contact_no || 'N/A',
+          arrival_location: plan.arrival_location,
+          departure_location: plan.departure_location,
+          arrival_date: customer?.arrival_date_and_time || plan.trip_start_date_and_time,
+          departure_date: customer?.departure_date_and_time || plan.trip_end_date_and_time,
+          nights: plan.no_of_nights,
+          days: plan.no_of_days,
+          created_on: plan.createdon,
+          created_by: plan.createdby,
+        };
+      }),
+    );
+
+    return {
+      draw,
+      recordsTotal,
+      recordsFiltered,
+      data,
+    };
+  }
+}
