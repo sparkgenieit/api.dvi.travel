@@ -17,10 +17,7 @@ export class SettingsService {
       where: { deleted: 0 },
     });
 
-    if (!settings) {
-      throw new NotFoundException('Global settings not found');
-    }
-
+    if (!settings) throw new NotFoundException('Global settings not found');
     return settings;
   }
 
@@ -29,117 +26,116 @@ export class SettingsService {
       where: { deleted: 0 },
     });
 
-    if (!existing) {
-      throw new NotFoundException('Global settings not found');
-    }
+    if (!existing) throw new NotFoundException('Global settings not found');
 
-    const updated = await this.prisma.dvi_global_settings.update({
+    return this.prisma.dvi_global_settings.update({
       where: { global_settings_ID: existing.global_settings_ID },
       data: {
         ...dto,
         updatedon: new Date(),
       },
     });
-
-    return updated;
   }
 
   // ==================== CITIES ====================
 
   async getCities() {
-    const cities = await this.prisma.dvi_city.findMany({
+    const cities = await this.prisma.dvi_cities.findMany({
       where: { deleted: 0 },
-      include: {
-        dvi_states: {
-          select: {
-            state_id: true,
-            state_name: true,
-          },
-        },
+      select: {
+        id: true,
+        name: true,
+        state_id: true,
+        status: true,
       },
-      orderBy: { city_name: 'asc' },
+      orderBy: { name: 'asc' },
     });
 
+    // dvi_cities has state_id but schema has NO Prisma relation, so we batch-fetch states
+    const stateIds = Array.from(new Set(cities.map(c => c.state_id).filter(Boolean)));
+    const states = await this.prisma.dvi_states.findMany({
+      where: { deleted: 0, id: { in: stateIds } },
+      select: { id: true, name: true },
+    });
+    const stateMap = new Map(states.map(s => [s.id, s.name]));
+
     return cities.map(city => ({
-      city_id: city.city_id,
-      city_name: city.city_name,
+      city_id: city.id,
+      city_name: city.name,
       state_id: city.state_id,
-      state_name: city.dvi_states?.state_name || '',
+      state_name: stateMap.get(city.state_id) || '',
       status: city.status,
     }));
   }
 
   async getCity(id: number) {
-    const city = await this.prisma.dvi_city.findFirst({
-      where: { city_id: id, deleted: 0 },
-      include: {
-        dvi_states: {
-          select: {
-            state_id: true,
-            state_name: true,
-          },
-        },
+    const city = await this.prisma.dvi_cities.findFirst({
+      where: { id, deleted: 0 },
+      select: {
+        id: true,
+        name: true,
+        state_id: true,
+        status: true,
       },
     });
 
-    if (!city) {
-      throw new NotFoundException(`City with ID ${id} not found`);
-    }
+    if (!city) throw new NotFoundException(`City with ID ${id} not found`);
+
+    const state = await this.prisma.dvi_states.findFirst({
+      where: { id: city.state_id, deleted: 0 },
+      select: { id: true, name: true },
+    });
 
     return {
-      city_id: city.city_id,
-      city_name: city.city_name,
+      city_id: city.id,
+      city_name: city.name,
       state_id: city.state_id,
-      state_name: city.dvi_states?.state_name || '',
+      state_name: state?.name || '',
       status: city.status,
     };
   }
 
   async createCity(dto: CreateCityDto) {
-    const city = await this.prisma.dvi_city.create({
+    return this.prisma.dvi_cities.create({
       data: {
-        city_name: dto.city_name,
+        name: dto.city_name,
         state_id: dto.state_id,
         status: dto.status ?? 1,
         deleted: 0,
         createdon: new Date(),
       },
     });
-
-    return city;
   }
 
   async updateCity(id: number, dto: UpdateCityDto) {
-    const existing = await this.prisma.dvi_city.findFirst({
-      where: { city_id: id, deleted: 0 },
+    const existing = await this.prisma.dvi_cities.findFirst({
+      where: { id, deleted: 0 },
+      select: { id: true },
     });
 
-    if (!existing) {
-      throw new NotFoundException(`City with ID ${id} not found`);
-    }
+    if (!existing) throw new NotFoundException(`City with ID ${id} not found`);
 
-    const updated = await this.prisma.dvi_city.update({
-      where: { city_id: id },
+    return this.prisma.dvi_cities.update({
+      where: { id },
       data: {
-        ...dto,
+        ...(dto.city_name !== undefined ? { name: dto.city_name } : {}),
+        ...(dto.state_id !== undefined ? { state_id: dto.state_id } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
         updatedon: new Date(),
       },
     });
-
-    return updated;
   }
 
   async deleteCity(id: number) {
-    const existing = await this.prisma.dvi_city.findFirst({
-      where: { city_id: id, deleted: 0 },
+    const existing = await this.prisma.dvi_cities.findFirst({
+      where: { id, deleted: 0 },
+      select: { id: true },
     });
 
-    if (!existing) {
-      throw new NotFoundException(`City with ID ${id} not found`);
-    }
+    if (!existing) throw new NotFoundException(`City with ID ${id} not found`);
 
-    await this.prisma.dvi_city.update({
-      where: { city_id: id },
+    await this.prisma.dvi_cities.update({
+      where: { id },
       data: { deleted: 1, updatedon: new Date() },
     });
 
@@ -149,12 +145,10 @@ export class SettingsService {
   // ==================== HOTEL CATEGORIES ====================
 
   async getHotelCategories() {
-    const categories = await this.prisma.dvi_hotel_category.findMany({
+    return this.prisma.dvi_hotel_category.findMany({
       where: { deleted: 0 },
       orderBy: { hotel_category_id: 'asc' },
     });
-
-    return categories;
   }
 
   async getHotelCategory(id: number) {
@@ -170,7 +164,7 @@ export class SettingsService {
   }
 
   async createHotelCategory(dto: CreateHotelCategoryDto) {
-    const category = await this.prisma.dvi_hotel_category.create({
+    return this.prisma.dvi_hotel_category.create({
       data: {
         hotel_category_title: dto.category_title,
         hotel_category_code: String(dto.hotel_category),
@@ -179,34 +173,37 @@ export class SettingsService {
         createdon: new Date(),
       },
     });
-
-    return category;
   }
 
   async updateHotelCategory(id: number, dto: UpdateHotelCategoryDto) {
     const existing = await this.prisma.dvi_hotel_category.findFirst({
       where: { hotel_category_id: id, deleted: 0 },
+      select: { hotel_category_id: true },
     });
 
     if (!existing) {
       throw new NotFoundException(`Hotel category with ID ${id} not found`);
     }
 
-    const updated = await this.prisma.dvi_hotel_category.update({
+    return this.prisma.dvi_hotel_category.update({
       where: { hotel_category_id: id },
       data: {
-        hotel_category_title: dto.category_title,
-        hotel_category_code: dto.hotel_category ? String(dto.hotel_category) : undefined,
+        ...(dto.category_title !== undefined
+          ? { hotel_category_title: dto.category_title }
+          : {}),
+        ...(dto.hotel_category !== undefined
+          ? { hotel_category_code: String(dto.hotel_category) }
+          : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
         updatedon: new Date(),
       },
     });
-
-    return updated;
   }
 
   async deleteHotelCategory(id: number) {
     const existing = await this.prisma.dvi_hotel_category.findFirst({
       where: { hotel_category_id: id, deleted: 0 },
+      select: { hotel_category_id: true },
     });
 
     if (!existing) {
@@ -224,7 +221,7 @@ export class SettingsService {
   // ==================== STATES ====================
 
   async getStates() {
-    const states = await this.prisma.dvi_states.findMany({
+    return this.prisma.dvi_states.findMany({
       where: { deleted: 0 },
       orderBy: { name: 'asc' },
       select: {
@@ -232,7 +229,5 @@ export class SettingsService {
         name: true,
       },
     });
-
-    return states;
   }
 }

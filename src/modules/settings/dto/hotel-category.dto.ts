@@ -6,11 +6,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class CreateHotelCategoryDto {
   @ApiProperty()
   @IsNumber()
-  hotel_category: number;
+  hotel_category!: number;
 
   @ApiProperty()
   @IsString()
-  category_title: string;
+  category_title!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -21,13 +21,13 @@ export class CreateHotelCategoryDto {
 export class UpdateHotelCategoryDto {
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
-  hotel_category_title?: string;
+  @IsNumber()
+  hotel_category?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  hotel_category_code?: string;
+  category_title?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

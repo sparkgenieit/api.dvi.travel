@@ -6,11 +6,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class CreateCityDto {
   @ApiProperty()
   @IsString()
-  city_name: string;
+  city_name!: string;
 
   @ApiProperty()
   @IsNumber()
-  state_id: number;
+  state_id!: number;
 
   @ApiPropertyOptional()
   @IsOptional()
