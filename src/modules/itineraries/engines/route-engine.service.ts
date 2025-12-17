@@ -16,20 +16,21 @@
 //   • direct_to_next_visiting_place → 0 (current PHP has checkbox logic disabled)
 //   • next_visiting_location       → destination name (string)
 //   • route_start_time / route_end_time:
-//         - first leg: trip_start_time
+//         - first leg: trip_start_time (MUST be IST wall-clock, no UTC conversion)
 //         - middle legs: 08:00:00 → 20:00:00
-//         - last leg going to departure_point:
-//               end   = trip_end_time - departure-buffer
-//               start = end - travel_duration(distance, speed)
-//
+//         - sightseeing end: 20:00:00 (PHP parity)
 //   • createdby / createdon / status / deleted → PHP-like semantics.
+//
+// IMPORTANT TIMEZONE NOTE (YOUR BUG FIX):
+// MySQL TIME has NO timezone. Your UI sends ISO strings with +05:30.
+// If we do `new Date("...+05:30")` and then extract hours, production (UTC)
+// will shift 12:00 to 06:30 and you will save 06:30 into route_start_time.
+// So: for tripStartTime/EndTime we extract the "wall-clock" HH:mm:ss directly
+// from the incoming string.
 
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import {
-  CreatePlanDto,
-  CreateRouteDto,
-} from "../dto/create-itinerary.dto";
+import { CreatePlanDto, CreateRouteDto } from "../dto/create-itinerary.dto";
 import { timeStringToPrismaTime } from "../utils/itinerary.utils";
 
 type Tx = Prisma.TransactionClient;
@@ -64,9 +65,33 @@ export class RouteEngineService {
     return `${this.pad2(h)}:${this.pad2(m)}:${this.pad2(s)}`;
   }
 
+  /** Extract wall-clock HH:mm:ss from an ISO string WITHOUT timezone conversion. */
+  private extractWallTimeHms(iso?: string | null): string | null {
+    if (!iso) return null;
+    // supports:
+    //  - 2025-12-20T12:00:00+05:30
+    //  - 2025-12-20T12:00:00.000Z
+    //  - 2025-12-20 12:00:00
+    const m = String(iso).match(/[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return null;
+    return `${m[1]}:${m[2]}:${m[3] ?? "00"}`;
+  }
+
+  /** Extract wall-clock date YYYY-MM-DD from an ISO-ish string. */
+  private extractWallDateYmd(iso?: string | null): { y: number; m: number; d: number } | null {
+    if (!iso) return null;
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    if (!y || !mo || !d) return null;
+    return { y, m: mo, d };
+  }
+
   /**
    * Extract trip_start_time and trip_end_time as HH:MM:SS from the plan DTO.
-   * We prefer trip_start_date / trip_end_date if present, otherwise fall back.
+   * MUST be IST wall-clock parity (NO UTC conversion).
    */
   private extractTripTimes(plan: CreatePlanDto) {
     const anyPlan: any = plan || {};
@@ -83,11 +108,14 @@ export class RouteEngineService {
       anyPlan.trip_end_time ||
       anyPlan.tripEndTime;
 
-    const start = startIso ? new Date(startIso) : new Date();
-    const end = endIso ? new Date(endIso) : new Date(start.getTime());
+    // ✅ Prefer wall-time extraction (prevents 12:00+05:30 turning into 06:30 in UTC env)
+    const tripStartTimeHms =
+      this.extractWallTimeHms(startIso) ??
+      this.toHmsFromDate(startIso ? new Date(startIso) : new Date());
 
-    const tripStartTimeHms = this.toHmsFromDate(start);
-    const tripEndTimeHms = this.toHmsFromDate(end);
+    const tripEndTimeHms =
+      this.extractWallTimeHms(endIso) ??
+      this.toHmsFromDate(endIso ? new Date(endIso) : new Date());
 
     return { tripStartTimeHms, tripEndTimeHms };
   }
@@ -148,9 +176,7 @@ export class RouteEngineService {
       return { locationId: BigInt(0), distanceKm: "" };
     }
 
-    const rawId =
-      (row as any).location_ID ??
-      0;
+    const rawId = (row as any).location_ID ?? 0;
 
     let locationId: bigint;
     try {
@@ -167,16 +193,14 @@ export class RouteEngineService {
 
     const distanceRaw = (row as any).distance;
     const distanceKm =
-      distanceRaw === null || distanceRaw === undefined
-        ? ""
-        : String(distanceRaw);
+      distanceRaw === null || distanceRaw === undefined ? "" : String(distanceRaw);
 
     return { locationId, distanceKm };
   }
 
   /**
    * Normalize the base trip start date (date-only) from the plan.
-   * PHP uses date('Y-m-d', strtotime(trip_start_date_and_time + N days)).
+   * MUST be PHP parity (IST wall-date), NOT UTC-converted date.
    */
   private getTripStartDateOnly(plan: CreatePlanDto): Date {
     const anyPlan: any = plan || {};
@@ -186,8 +210,14 @@ export class RouteEngineService {
       anyPlan.tripStartDate ||
       anyPlan.pickUpDateAndTime;
 
+    // ✅ Prefer wall-date extraction from the incoming string
+    const ymd = this.extractWallDateYmd(startIso);
+    if (ymd) {
+      return new Date(Date.UTC(ymd.y, ymd.m - 1, ymd.d));
+    }
+
+    // Fallback (should rarely happen)
     const base = startIso ? new Date(startIso) : new Date();
-    // Extract date components in UTC to avoid timezone shifts
     return new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()));
   }
 
@@ -249,16 +279,13 @@ export class RouteEngineService {
 
       // itinerary_route_date = trip_start_date + dayOffset (one day per leg)
       const routeDate = new Date(baseDate.getTime());
-      routeDate.setDate(routeDate.getDate() + dayOffset);
+      routeDate.setUTCDate(routeDate.getUTCDate() + dayOffset);
       dayOffset += 1; // PHP's $selected_NO_OF_DAYS = 1;
 
       // Start time defaults
       let startHms: string;
-      if (
-        totalRoutes === 1 ||
-        (isFirst && sourceName === arrivalLocation)
-      ) {
-        // First leg matching arrival location → trip_start_time
+      if (totalRoutes === 1 || (isFirst && sourceName === arrivalLocation)) {
+        // First leg matching arrival location → trip_start_time (IST wall-clock)
         startHms = tripStartTimeHms;
       } else {
         // Default sightseeing day start
@@ -272,6 +299,9 @@ export class RouteEngineService {
       // The trip_end_time is for the actual flight/train departure, not sightseeing end
       endHms = "20:00:00";
 
+      // Prisma requires a Date object for @db.Time fields. This helper builds a Date-like
+      // value that Prisma can write into MySQL TIME. The IMPORTANT part is: startHms/endHms
+      // must be IST wall-clock (fixed above), not UTC-shifted.
       const row = await (tx as any).dvi_itinerary_route_details.create({
         data: {
           itinerary_plan_ID: planId,
@@ -282,9 +312,8 @@ export class RouteEngineService {
           no_of_km: distanceKm, // from master distance; "" or "0" if missing
           direct_to_next_visiting_place: 0, // PHP currently sets $selected_DIRECT_DESTINATION_VISIT_CHECK = 0
           next_visiting_location: destName,
-          // Insert time string as-is to avoid UTC conversion issues
-          route_start_time: startHms,
-          route_end_time: endHms,
+          route_start_time: timeStringToPrismaTime(startHms),
+          route_end_time: timeStringToPrismaTime(endHms),
           createdby: userId,
           createdon: new Date(),
           updatedon: null,
@@ -294,6 +323,13 @@ export class RouteEngineService {
       });
 
       created.push(row);
+
+      // keep variables referenced (avoid lint complaints if you use them later)
+      void isLast;
+      void lastDayEndSec;
+      void departureLocation;
+      void bufferSec;
+      void tripEndTimeHms;
     }
 
     return created;
@@ -304,7 +340,7 @@ export class RouteEngineService {
   // ---------------------------------------------------------------------------
   async rebuildPermitCharges(tx: Tx, planId: number, userId: number): Promise<void> {
     console.log(`[rebuildPermitCharges] Starting for plan ${planId}`);
-    
+
     // Delete existing permit charges for this plan
     await (tx as any).dvi_itinerary_plan_route_permit_charge.deleteMany({
       where: { itinerary_plan_ID: planId },
@@ -348,8 +384,10 @@ export class RouteEngineService {
     const addedPermits = new Set<string>();
 
     for (const route of routes) {
-      console.log(`[rebuildPermitCharges] Route ${route.itinerary_route_ID}: ${route.location_name} → ${route.next_visiting_location}`);
-      
+      console.log(
+        `[rebuildPermitCharges] Route ${route.itinerary_route_ID}: ${route.location_name} → ${route.next_visiting_location}`,
+      );
+
       // Get destination state for this route
       const destState = await this.getLocationState(tx, route.next_visiting_location);
 
@@ -371,7 +409,9 @@ export class RouteEngineService {
         });
 
         if (!vehicle?.registration_number) {
-          console.log(`[rebuildPermitCharges] Skipping vehicle ${eligibleVehicle.vehicle_id} - no registration`);
+          console.log(
+            `[rebuildPermitCharges] Skipping vehicle ${eligibleVehicle.vehicle_id} - no registration`,
+          );
           continue;
         }
 
@@ -390,13 +430,17 @@ export class RouteEngineService {
         });
 
         if (!vehicleState) {
-          console.log(`[rebuildPermitCharges] Skipping vehicle ${vehicle.registration_number} - state code "${stateCode}" not found`);
+          console.log(
+            `[rebuildPermitCharges] Skipping vehicle ${vehicle.registration_number} - state code "${stateCode}" not found`,
+          );
           continue;
         }
 
         const vehicleStateId = Number(vehicleState.permit_state_id);
 
-        console.log(`[rebuildPermitCharges] Vehicle ${vehicle.registration_number}: state=${vehicleStateId}, dest=${destState}`);
+        console.log(
+          `[rebuildPermitCharges] Vehicle ${vehicle.registration_number}: state=${vehicleStateId}, dest=${destState}`,
+        );
 
         // PHP parity: If vehicle state == destination state, permit cost = 0 (no permit needed)
         if (vehicleStateId === destState) {
@@ -405,8 +449,6 @@ export class RouteEngineService {
         }
 
         // PHP parity: source_state_id = vehicle registration state, destination_state_id = route destination
-        // SELECT * FROM dvi_permit_cost WHERE vendor_id=... AND vehicle_type_id=... 
-        //   AND source_state_id='$vehicle_state_id' AND destination_state_id='$destination_state_id'
         const permitCost = await (tx as any).dvi_permit_cost.findFirst({
           where: {
             vendor_id: eligibleVehicle.vendor_id,
@@ -422,7 +464,9 @@ export class RouteEngineService {
         });
 
         if (!permitCost) {
-          console.log(`[rebuildPermitCharges] No permit cost found for vendor ${eligibleVehicle.vendor_id}, vehicle type ${eligibleVehicle.vendor_vehicle_type_id}, ${vehicleStateId}→${destState}`);
+          console.log(
+            `[rebuildPermitCharges] No permit cost found for vendor ${eligibleVehicle.vendor_id}, vehicle type ${eligibleVehicle.vendor_vehicle_type_id}, ${vehicleStateId}→${destState}`,
+          );
           continue;
         }
 
@@ -431,7 +475,9 @@ export class RouteEngineService {
         // PHP parity: Only create one permit per vendor per state pair
         const permitKey = `${eligibleVehicle.vendor_id}-${vehicleStateId}-${destState}`;
         if (addedPermits.has(permitKey)) {
-          console.log(`[rebuildPermitCharges] Skipping duplicate permit for vendor ${eligibleVehicle.vendor_id}`);
+          console.log(
+            `[rebuildPermitCharges] Skipping duplicate permit for vendor ${eligibleVehicle.vendor_id}`,
+          );
           continue;
         }
         addedPermits.add(permitKey);
@@ -468,16 +514,14 @@ export class RouteEngineService {
   // Helper to get permit state ID from location name (PHP parity)
   private async getLocationState(tx: Tx, locationName: string): Promise<number | null> {
     try {
-      console.log(`[getLocationState] Looking up permit state for location: "${locationName}"`);
+      console.log(
+        `[getLocationState] Looking up permit state for location: "${locationName}"`,
+      );
 
       // Step 1: Get state NAME from stored_locations (PHP parity)
-      // PHP uses source_location_state and destination_location_state fields
       const stored = await (tx as any).dvi_stored_locations.findFirst({
         where: {
-          OR: [
-            { source_location: locationName },
-            { destination_location: locationName }
-          ],
+          OR: [{ source_location: locationName }, { destination_location: locationName }],
           status: 1,
           deleted: 0,
         },
@@ -491,23 +535,27 @@ export class RouteEngineService {
 
       let stateName = null;
       if (stored) {
-        // Use the appropriate state based on whether this location is source or destination
         if (stored.source_location === locationName && stored.source_location_state) {
           stateName = stored.source_location_state;
-          console.log(`[getLocationState] Found state from source_location_state: "${stateName}"`);
+          console.log(
+            `[getLocationState] Found state from source_location_state: "${stateName}"`,
+          );
         } else if (stored.destination_location === locationName && stored.destination_location_state) {
           stateName = stored.destination_location_state;
-          console.log(`[getLocationState] Found state from destination_location_state: "${stateName}"`);
+          console.log(
+            `[getLocationState] Found state from destination_location_state: "${stateName}"`,
+          );
         }
       }
 
       if (!stateName) {
-        console.log(`[getLocationState] State name not found in stored_locations for: "${locationName}"`);
+        console.log(
+          `[getLocationState] State name not found in stored_locations for: "${locationName}"`,
+        );
         return null;
       }
 
       // Step 2: Get permit_state_id from dvi_permit_state table (PHP parity)
-      // PHP: SELECT permit_state_id FROM dvi_permit_state WHERE state_name='...'
       let permitState = await (tx as any).dvi_permit_state.findFirst({
         where: {
           state_name: stateName,
@@ -518,11 +566,11 @@ export class RouteEngineService {
       });
 
       // If not found and state is "Pondicherry", try "Puducherry" (spelling variation)
-      if (!permitState && stateName.toLowerCase() === 'pondicherry') {
+      if (!permitState && stateName.toLowerCase() === "pondicherry") {
         console.log(`[getLocationState] Trying Puducherry spelling variant...`);
         permitState = await (tx as any).dvi_permit_state.findFirst({
           where: {
-            state_name: 'Puducherry',
+            state_name: "Puducherry",
             deleted: 0,
             status: 1,
           },
@@ -531,11 +579,11 @@ export class RouteEngineService {
       }
 
       // If not found and state is "Puducherry", try "Pondicherry"
-      if (!permitState && stateName.toLowerCase() === 'puducherry') {
+      if (!permitState && stateName.toLowerCase() === "puducherry") {
         console.log(`[getLocationState] Trying Pondicherry spelling variant...`);
         permitState = await (tx as any).dvi_permit_state.findFirst({
           where: {
-            state_name: 'Pondicherry',
+            state_name: "Pondicherry",
             deleted: 0,
             status: 1,
           },
@@ -544,16 +592,22 @@ export class RouteEngineService {
       }
 
       if (!permitState?.permit_state_id) {
-        console.log(`[getLocationState] Permit state ID not found for state name: "${stateName}"`);
+        console.log(
+          `[getLocationState] Permit state ID not found for state name: "${stateName}"`,
+        );
         return null;
       }
 
       const stateId = Number(permitState.permit_state_id);
-      console.log(`[getLocationState] ✓ Result: location="${locationName}" → state_name="${stateName}" → permit_state_id=${stateId}`);
+      console.log(
+        `[getLocationState] ✓ Result: location="${locationName}" → state_name="${stateName}" → permit_state_id=${stateId}`,
+      );
       return stateId;
-
     } catch (error) {
-      console.error(`[getLocationState] Error looking up state for "${locationName}":`, error);
+      console.error(
+        `[getLocationState] Error looking up state for "${locationName}":`,
+        error,
+      );
       return null;
     }
   }

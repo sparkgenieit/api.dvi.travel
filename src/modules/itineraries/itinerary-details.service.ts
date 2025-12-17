@@ -252,7 +252,7 @@ export class ItineraryDetailsService {
     hh = hh % 12;
     if (hh === 0) hh = 12;
 
-    return `${this.pad2(hh)}:${mm} ${ampm} KIRAN`;
+    return `${this.pad2(hh)}:${mm} ${ampm}`;
   }
 
   /** Convert a TIME duration (stored as Date) to "X Hours" / "Y Min" */
