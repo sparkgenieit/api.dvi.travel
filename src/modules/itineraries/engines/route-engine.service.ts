@@ -282,8 +282,9 @@ export class RouteEngineService {
           no_of_km: distanceKm, // from master distance; "" or "0" if missing
           direct_to_next_visiting_place: 0, // PHP currently sets $selected_DIRECT_DESTINATION_VISIT_CHECK = 0
           next_visiting_location: destName,
-          route_start_time: timeStringToPrismaTime(startHms),
-          route_end_time: timeStringToPrismaTime(endHms),
+          // Insert time string as-is to avoid UTC conversion issues
+          route_start_time: startHms,
+          route_end_time: endHms,
           createdby: userId,
           createdon: new Date(),
           updatedon: null,
