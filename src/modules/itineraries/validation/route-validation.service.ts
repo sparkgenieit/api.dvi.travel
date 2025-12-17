@@ -43,53 +43,52 @@ export class RouteValidationService {
       // Hotel is booked at next_visiting_location (destination city)
       const city = route.next_visiting_location;
       
-      // STRATEGY 1: Extract city name from complex strings like "ECR Beach, Chennai, Tamil Nadu"
-      // Common patterns: "Place, City, State" or "City, State" or just "City"
+      // STRATEGY: Resolve city name to city ID, then match hotels by city ID (as string)
+      // Normalize city name: try full, comma split, and first word (legacy PHP logic)
       let citySearchTerms: string[] = [city];
-      
-      // If city contains comma, extract individual parts
       if (city.includes(',')) {
         const parts = city.split(',').map(p => p.trim());
         citySearchTerms.push(...parts);
-        
-        // For patterns like "ECR Beach, Chennai, Tamil Nadu", the actual city is usually the middle part
         if (parts.length >= 2) {
-          citySearchTerms.push(parts[1]); // "Chennai" from "ECR Beach, Chennai, Tamil Nadu"
+          citySearchTerms.push(parts[1]);
         }
       }
-      
-      // Also try case variants
-      const allSearchTerms = citySearchTerms.flatMap(term => [
-        term,
-        term.toUpperCase(),
-        term.toLowerCase(),
-        term.charAt(0).toUpperCase() + term.slice(1).toLowerCase()
-      ]);
-      
+      // Always try first word (e.g., "Chennai Central" -> "Chennai")
+      const firstWord = city.trim().split(' ')[0];
+      if (!citySearchTerms.includes(firstWord)) {
+        citySearchTerms.push(firstWord);
+      }
+      // Try to find city in dvi_cities
+      let cityId: number | null = null;
+      for (const searchTerm of citySearchTerms) {
+        const foundCity = await (this.prisma as any).dvi_cities.findFirst({
+          where: {
+            name: searchTerm,
+            deleted: 0,
+          },
+          select: { id: true },
+        });
+        if (foundCity) {
+          cityId = foundCity.id;
+          break;
+        }
+      }
       let hotelCount = 0;
-      
-      // STRATEGY 2: Try exact matches on hotel_city field (location IDs are stored as strings)
-      for (const searchTerm of allSearchTerms) {
+      if (cityId !== null) {
+        // hotel_city is stored as string, but is actually city ID
         const hotels = await (this.prisma as any).dvi_hotel.findMany({
           where: {
             hotel_category: preferredCategory,
-            hotel_city: searchTerm,
+            hotel_city: String(cityId),
             status: 1,
-            // deleted is nullable boolean in Prisma; treat NULL as not-deleted
             deleted: { not: true },
           },
           select: { hotel_id: true },
         });
-        
-        if (hotels.length > 0) {
-          hotelCount = hotels.length;
-          break;
-        }
+        hotelCount = hotels.length;
       }
-      
-      // STRATEGY 3: If still no hotels, try LIKE search on hotel address/name
+      // Fallback: If no cityId or no hotels, try LIKE search on hotel address/name
       if (hotelCount === 0) {
-        // Try each city term in the address/name
         for (const searchTerm of citySearchTerms) {
           const hotelsLike = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
             SELECT COUNT(*) as count
@@ -105,7 +104,6 @@ export class RouteValidationService {
           if (hotelCount > 0) break;
         }
       }
-      
       validations.push({
         routeIndex: i,
         locationName: route.location_name,
@@ -142,39 +140,47 @@ export class RouteValidationService {
    * Checks if hotels exist in a specific city
    */
   async hasHotelsInCity(city: string, preferredCategory: number = 2): Promise<boolean> {
-    // Extract city name from complex strings like "ECR Beach, Chennai, Tamil Nadu"
+    // STRATEGY: Resolve city name to city ID, then match hotels by city ID (as string)
+    // Normalize city name: try full, comma split, and first word (legacy PHP logic)
     let citySearchTerms: string[] = [city];
-    
     if (city.includes(',')) {
       const parts = city.split(',').map(p => p.trim());
       citySearchTerms.push(...parts);
       if (parts.length >= 2) {
-        citySearchTerms.push(parts[1]); // Extract middle part as primary city
+        citySearchTerms.push(parts[1]);
       }
     }
-    
-    const allSearchTerms = citySearchTerms.flatMap(term => [
-      term,
-      term.toUpperCase(),
-      term.toLowerCase(),
-      term.charAt(0).toUpperCase() + term.slice(1).toLowerCase()
-    ]);
-    
-    for (const searchTerm of allSearchTerms) {
+    // Always try first word (e.g., "Chennai Central" -> "Chennai")
+    const firstWord = city.trim().split(' ')[0];
+    if (!citySearchTerms.includes(firstWord)) {
+      citySearchTerms.push(firstWord);
+    }
+    let cityId: number | null = null;
+    for (const searchTerm of citySearchTerms) {
+      const foundCity = await (this.prisma as any).dvi_cities.findFirst({
+        where: {
+          name: searchTerm,
+          deleted: 0,
+        },
+        select: { id: true },
+      });
+      if (foundCity) {
+        cityId = foundCity.id;
+        break;
+      }
+    }
+    if (cityId !== null) {
       const count = await (this.prisma as any).dvi_hotel.count({
         where: {
           hotel_category: preferredCategory,
-          hotel_city: searchTerm,
+          hotel_city: String(cityId),
           status: 1,
-          // deleted is nullable boolean in Prisma; treat NULL as not-deleted
           deleted: { not: true },
         },
       });
-      
       if (count > 0) return true;
     }
-    
-    // Try LIKE search on address/name as fallback
+    // Fallback: Try LIKE search on address/name
     for (const searchTerm of citySearchTerms) {
       const hotelsLike = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT COUNT(*) as count
@@ -186,10 +192,8 @@ export class RouteValidationService {
             OR hotel_name LIKE ${`%${searchTerm}%`}
             OR hotel_address LIKE ${`%${searchTerm}%`})
       `;
-      
       if (Number(hotelsLike[0]?.count || 0) > 0) return true;
     }
-    
     return false;
   }
 }

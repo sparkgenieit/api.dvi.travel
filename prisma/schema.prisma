@@ -545,6 +545,7 @@ model dvi_cancelled_itineraries {
   total_cancelled_service_amount Float     @default(0) @db.Float
   total_cancellation_charge      Float     @default(0) @db.Float
   total_refund_amount            Int       @default(0)
+  itinerary_cancellation_status  Int       @default(0)
   createdby                      Int       @default(0)
   createdon                      DateTime? @db.DateTime(0)
   updatedon                      DateTime? @db.DateTime(0)
@@ -1357,6 +1358,7 @@ model dvi_confirmed_itinerary_plan_details {
   itinerary_total_net_payable_amount     Float     @default(0) @db.Float
   itinerary_total_paid_amount            Float     @default(0) @db.Float
   itinerary_total_balance_amount         Float     @default(0) @db.Float
+  itinerary_cancellation_status          Int       @default(0)
   createdby                              Int       @default(0)
   createdon                              DateTime? @db.DateTime(0)
   updatedon                              DateTime? @db.DateTime(0)
@@ -1786,6 +1788,7 @@ model dvi_confirmed_itinerary_plan_vehicle_details {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dvi_confirmed_itinerary_plan_vehicle_voucher_details {
   cnf_itinerary_plan_vehicle_voucher_details_ID Int       @id @default(autoincrement())
+  confirmed_itinerary_plan_vendor_eligible_ID   Int       @default(0)
   itinerary_plan_vendor_eligible_ID             Int       @default(0)
   itinerary_plan_id                             Int       @default(0)
   vehicle_type_id                               Int       @default(0)
@@ -3607,8 +3610,6 @@ model dvi_itinerary_plan_details {
   location_id              BigInt    @default(0)
   arrival_location         String?   @db.Text
   departure_location       String?   @db.Text
-  preferred_hotel_category   String?   @db.Text
-  hotel_facilities String?   @db.Text
   itinerary_quote_ID       String?   @db.Text
   trip_start_date_and_time DateTime? @db.DateTime(0)
   trip_end_date_and_time   DateTime? @db.DateTime(0)
@@ -3629,6 +3630,8 @@ model dvi_itinerary_plan_details {
   meal_plan_lunch          Int       @default(0)
   meal_plan_dinner         Int       @default(0)
   preferred_room_count     Int?      @default(0)
+  hotel_facilities         String    @db.Text
+  preferred_hotel_category String    @db.Text
   total_extra_bed          Int       @default(0)
   total_child_with_bed     Int       @default(0)
   total_child_without_bed  Int       @default(0)
@@ -4633,7 +4636,7 @@ model dvi_staff {
   staff_name          String?   @db.VarChar(50)
   staff_email         String?   @db.Text
   staff_mobile_number String?   @db.VarChar(50)
-  createdby           Int       @default(1)
+  createdby           Int       @default(0)
   createdon           DateTime? @db.DateTime(0)
   updatedon           DateTime? @db.DateTime(0)
   status              Int       @default(0) @db.TinyInt
