@@ -193,6 +193,11 @@ export class ItineraryDetailsService {
     return String(n).padStart(2, '0');
   }
 
+  /** YYYY-MM-DD using server local timezone (DB stores IST wall-clock). */
+  private formatISODateLocal(d: Date): string {
+    return `${d.getFullYear()}-${this.pad2(d.getMonth() + 1)}-${this.pad2(d.getDate())}`;
+  }
+
   private formatCreatedOn(d?: Date | string | null) {
     const dt = d instanceof Date ? d : d ? new Date(d) : null;
     if (!dt || isNaN(dt.getTime())) return '';
@@ -201,45 +206,69 @@ export class ItineraryDetailsService {
     return `${weekday}, ${month} ${this.pad2(dt.getDate())}, ${dt.getFullYear()}`;
   }
 
-  /** FORMAT for DataTable timestamps (uses local time, same as old PHP) */
+  /**
+   * Extract TIME from DATETIME field and format as "hh:mm AM/PM".
+   * 
+   * IMPORTANT:
+   * - MySQL DATETIME stores wall-clock time without timezone (e.g., "2025-12-24 12:00:00").
+   * - Prisma reads this as UTC, so "2025-12-24 12:00:00" becomes a JS Date with UTC time.
+   * - We extract the time portion using UTC getters to get the original wall-clock time.
+   * - This prevents timezone conversion (12:00 stays 12:00, not shifted to 17:30 IST).
+   */
   private formatTripDateTime(d?: Date | string | null) {
-    const dt = d instanceof Date ? d : d ? new Date(d) : null;
-    if (!dt || isNaN(dt.getTime())) return '';
-    const dd = this.pad2(dt.getDate());
-    const mm = this.pad2(dt.getMonth() + 1);
-    const yyyy = dt.getFullYear();
-    let hh = dt.getHours();
-    const min = this.pad2(dt.getMinutes());
+    if (!d) return null;
+    const dt = d instanceof Date ? d : new Date(d);
+    if (isNaN(dt.getTime())) return null;
+
+    let hh = dt.getUTCHours();
+    const mm = this.pad2(dt.getUTCMinutes());
+
     const ampm = hh >= 12 ? 'PM' : 'AM';
     hh = hh % 12;
     if (hh === 0) hh = 12;
-    return `${dd}/${mm}/${yyyy} ${this.pad2(hh)}:${min} ${ampm}`;
+
+    return `${this.pad2(hh)}:${mm} ${ampm}`;
   }
 
-  /** FORMAT MySQL TIME (stored as UTC date 1970-01-01) → "hh:mm AM/PM" WITHOUT offset */
+
+  /**
+   * FORMAT MySQL TIME (stored as IST wall-clock in DB) → "hh:mm AM/PM".
+   *
+   * IMPORTANT:
+   * - MySQL TIME has no timezone.
+   * - Prisma maps TIME to a JS Date (1970-01-01T12:00:00.000Z) in UTC.
+   * - We must use UTC getters to read the time value without timezone conversion.
+   * - Using local getters on an IST server would add +5:30 (12:00 → 17:30).
+   */
   private formatTime(d?: Date | string | null): string | null {
     if (!d) return null;
     const dt = d instanceof Date ? d : new Date(d);
     if (isNaN(dt.getTime())) return null;
-    let hh = dt.getUTCHours();
+
+    let hh = dt.getUTCHours();           // ✅ Read UTC time value
     const mm = this.pad2(dt.getUTCMinutes());
+
     const ampm = hh >= 12 ? 'PM' : 'AM';
     hh = hh % 12;
     if (hh === 0) hh = 12;
+
     return `${this.pad2(hh)}:${mm} ${ampm}`;
   }
 
-  /** FORMAT duration TIME → "15 Min" / "3 Hours 26 Min" */
+  /** Convert a TIME duration (stored as Date) to "X Hours" / "Y Min" */
   private formatDuration(d?: Date | string | null): string | null {
     if (!d) return null;
     const dt = d instanceof Date ? d : new Date(d);
     if (isNaN(dt.getTime())) return null;
-    const totalMinutes = dt.getUTCHours() * 60 + dt.getUTCMinutes();
+
+    const totalMinutes = dt.getUTCHours() * 60 + dt.getUTCMinutes();   // ✅ Read UTC time value
     if (totalMinutes <= 0) return null;
+
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
-    if (h && m) return `${h} Hours ${m} Min`;
-    if (h) return `${h} Hours`;
+
+    if (h > 0 && m > 0) return `${h} Hours ${m} Min`;
+    if (h > 0) return `${h} Hours`;
     return `${m} Min`;
   }
 
@@ -1097,11 +1126,9 @@ export class ItineraryDetailsService {
     // ------------------------------ TOP SUMMARY ------------------------------
     const dateRange =
       plan.trip_start_date_and_time && plan.trip_end_date_and_time
-        ? `${plan.trip_start_date_and_time
-            .toISOString()
-            .slice(0, 10)} to ${plan.trip_end_date_and_time
-            .toISOString()
-            .slice(0, 10)}`
+        ? `${this.formatISODateLocal(plan.trip_start_date_and_time)} to ${this.formatISODateLocal(
+            plan.trip_end_date_and_time,
+          )}`
         : '';
 
     // roomCount: ONLY from plan now. Hotels are handled by hotel endpoint.
