@@ -22,10 +22,14 @@ import { GuidesModule } from './modules/guides/guides.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { AgentModule } from './modules/agent/agent.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
-import { SettingsModule } from './modules/settings/settings.module';
+import { GstSettingsModule } from './modules/settings/gst-settings/gst-settings.module';
 import { ExportPricebookModule } from './modules/export-pricebook/export-pricebook.module';
+import { InbuiltAmenitiesModule } from "./modules/settings/inbuilt-amenities/inbuilt-amenities.module";
+import { VehicleTypesModule } from './modules/settings/vehicle-types/vehicle-types.module';
+import { CitiesModule } from './modules/settings/cities/cities.module';
+
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, SettingsModule, ExportPricebookModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, GstSettingsModule,InbuiltAmenitiesModule, VehicleTypesModule, CitiesModule, ExportPricebookModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
