@@ -487,7 +487,7 @@ export class ExportPricebookService {
         hotel_state: (q as any).stateId,
         hotel_city: (q as any).cityId,
         status: 1,
-        deleted: 0,
+        deleted: false,
       },
       select: { hotel_id: true, hotel_name: true, hotel_city: true },
     });
