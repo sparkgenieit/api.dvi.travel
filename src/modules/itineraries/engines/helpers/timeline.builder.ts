@@ -646,7 +646,6 @@ export class TimelineBuilder {
         for (const sh of selectedHotspots) {
           // Skip if already added
           if (addedHotspotIds.has(sh.hotspot_ID)) {
-            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 SKIPPED - already added\n`); } catch(e) {}
             continue;
           }
 
@@ -728,7 +727,6 @@ export class TimelineBuilder {
 
           if (!operatingCheck.canVisitNow && operatingCheck.nextWindowStart) {
             // Hotspot opens later - wait until next window
-            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 WAITING: opens at ${operatingCheck.nextWindowStart}\n`); } catch(e) {}
             
             // Advance time to next window start
             timeAfterTravel = operatingCheck.nextWindowStart;
@@ -744,12 +742,10 @@ export class TimelineBuilder {
             );
             
             if (!operatingCheck.canVisitNow) {
-              try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 SKIPPED - cannot fit in next window\n`); } catch(e) {}
               continue; // Skip this hotspot
             }
           } else if (!operatingCheck.canVisitNow) {
             // No operating hours available - skip
-            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 SKIPPED - closed or no operating hours\n`); } catch(e) {}
             continue;
           }
 
@@ -808,12 +804,9 @@ export class TimelineBuilder {
           if (parkingRowsForHotspot && parkingRowsForHotspot.length > 0) {
             parkingRows.push(...parkingRowsForHotspot);
           }
-
-          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 ADDED\n`); } catch(e) {}
         }
 
         // ✅ GAP-FILLING: Try to insert skipped hotspots into time gaps before first hotspot
-        try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `\n=== DAY1 GAP-FILLING: Trying to fit skipped hotspots ===\n`); } catch(e) {}
         
         const skippedHotspots = selectedHotspots.filter(sh => !addedHotspotIds.has(sh.hotspot_ID));
         
@@ -945,8 +938,6 @@ export class TimelineBuilder {
                     parkingRows.push(...parkingRowsForHotspot);
                   }
                   
-                  try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 GAP-FILLED: Inserted before first hotspot at ${visitStartTime}\n`); } catch(e) {}
-                  
                   // ✅ Update the first hotspot's segments to start AFTER the gap-filled hotspot
                   const visitEndTime = addSeconds(visitStartTime, hotspotDurationSeconds);
                   
@@ -988,8 +979,6 @@ export class TimelineBuilder {
                       // Update first hotspot visit start time
                       firstHotspotRow.hotspot_start_time = TimeConverter.toDate(travelEndTime);
                       // End time stays as it is (will be waiting time until opening)
-                      
-                      try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  Updated first hotspot travel: ${visitEndTime} → ${travelEndTime}\n`); } catch(e) {}
                     }
                   }
                   
@@ -1055,7 +1044,6 @@ export class TimelineBuilder {
           }
           
           if (currentSeconds >= routeEndSeconds) {
-            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - out of route time\n`); } catch(e) {}
             break;
           }
         }
@@ -1067,7 +1055,6 @@ export class TimelineBuilder {
         // PHP CHECK: Skip if hotspot already added to THIS PLAN (any previous route in this rebuild)
         // Line 15159 in sql_functions.php: check_hotspot_already_added_the_itineary_plan
         if (addedHotspotIds.has(sh.hotspot_ID)) {
-          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - already added\n`); } catch(e) {}
           continue;
         }
 
@@ -1091,7 +1078,6 @@ export class TimelineBuilder {
         // We only want "Madurai" for distance calculation
         const rawLocation = hotspotData.hotspot_location as string || currentLocationName;
         const hotspotLocationName = rawLocation.split('|')[0].trim();
-        try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', `[PARSED] Raw: "${rawLocation}" → Parsed: "${hotspotLocationName}"\n`); } catch(e) {}
         const hotspotDuration = hotspotData.hotspot_duration || '01:00:00';
         const destCoords = {
           lat: Number(hotspotData.hotspot_latitude ?? 0),
@@ -1197,12 +1183,9 @@ export class TimelineBuilder {
             continue; // Try next hotspot to fill the time
           } else {
             // No operating hours available - skip this hotspot (closed or no data)
-            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - closed or no operating hours available\n`); } catch(e) {}
             continue;
           }
         }
-        
-        try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] ADDED\n`); } catch(e) {}
         addedInLastPass = true; // Mark that we added something in this pass
         // 2.c) Build TRAVEL SEGMENT (item_type = 3)
         // PHP BEHAVIOR: Travel and Visit segments share the SAME hotspot_order

@@ -134,7 +134,6 @@ export class DistanceHelper {
     destCoords?: { lat: number; lon: number },
   ): Promise<DistanceResult> {
     const logMsg = `[DistanceHelper] Looking up: "${sourceLocation}" → "${destinationLocation}"\n`;
-    try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', logMsg); } catch(e) {}
     
     const loc = await (tx as any).dvi_stored_locations.findFirst({
       where: {
@@ -148,7 +147,6 @@ export class DistanceHelper {
 
     if (loc) {
       const foundMsg = `[DistanceHelper] Found in DB: ${loc.distance} km\n`;
-      try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', foundMsg); } catch(e) {}
       const distance = Number(loc.distance ?? 0);
 
       const totalMinutes = parseDurationToMinutes(loc.duration);
@@ -161,7 +159,6 @@ export class DistanceHelper {
     }
 
     const notFoundMsg = `[DistanceHelper] NOT found in DB, using coordinates fallback\n`;
-    try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', notFoundMsg); } catch(e) {}
     
     if (sourceCoords && destCoords) {
       return this.fromCoordinates(
