@@ -687,6 +687,32 @@ export class TimelineBuilder {
           const hotspotDurationSeconds = timeToSeconds(hotspotDuration);
           let timeAfterSightseeing = addSeconds(timeAfterTravel, hotspotDurationSeconds);
 
+          // ✅ CHECK: Would this hotspot cause arrival after 10 PM?
+          // Calculate travel time from THIS hotspot → destination
+          const rawDestination = (route.next_visiting_location as string) || currentLocationName;
+          const destinationCity = rawDestination.split('|')[0].trim();
+          const parsedHotspotLocation = hotspotLocationName.split('|')[0].trim();
+          
+          const travelToDestResult = await this.distanceHelper.fromSourceAndDestination(
+            tx,
+            parsedHotspotLocation,
+            destinationCity,
+            2, // outstation
+          );
+          
+          const travelToDestSeconds = 
+            timeToSeconds(travelToDestResult.travelTime) +
+            timeToSeconds(travelToDestResult.bufferTime);
+          
+          const hotelCutoffSeconds = timeToSeconds("22:00:00");
+          const sightseeingEndSeconds = timeToSeconds(timeAfterSightseeing);
+          const projectedArrivalSeconds = sightseeingEndSeconds + travelToDestSeconds;
+          
+          if (projectedArrivalSeconds > hotelCutoffSeconds) {
+            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 SKIPPED - would cause arrival after 10 PM (projected: ${secondsToTime(projectedArrivalSeconds)})\n`); } catch(e) {}
+            continue; // Skip this hotspot
+          }
+
           // Get day of week for operating hours check
           const jsDay = route.itinerary_route_date ? new Date(route.itinerary_route_date).getDay() : 0;
           const dayOfWeek = (jsDay + 6) % 7;
@@ -785,6 +811,199 @@ export class TimelineBuilder {
 
           try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 ADDED\n`); } catch(e) {}
         }
+
+        // ✅ GAP-FILLING: Try to insert skipped hotspots into time gaps before first hotspot
+        try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `\n=== DAY1 GAP-FILLING: Trying to fit skipped hotspots ===\n`); } catch(e) {}
+        
+        const skippedHotspots = selectedHotspots.filter(sh => !addedHotspotIds.has(sh.hotspot_ID));
+        
+        if (skippedHotspots.length > 0) {
+          // Find first added hotspot
+          const firstHotspotRow = hotspotRows.find(r => r.item_type === 4);
+          
+          if (firstHotspotRow) {
+            const firstHotspotStartTime = TimeConverter.toTimeString(firstHotspotRow.hotspot_start_time);
+            const firstHotspotStartSeconds = timeToSeconds(firstHotspotStartTime);
+            
+            // Find when route actually starts (after arrival)
+            const arrivalRow = hotspotRows.find(r => r.item_type === 1);
+            const routeStartTime = arrivalRow ? TimeConverter.toTimeString(arrivalRow.hotspot_end_time) : currentTime;
+            const routeStartSeconds = timeToSeconds(routeStartTime);
+            
+            const gapBeforeFirst = firstHotspotStartSeconds - routeStartSeconds;
+            
+            try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  Gap before first hotspot: ${Math.floor(gapBeforeFirst/60)} minutes (${routeStartTime} to ${firstHotspotStartTime})\n`); } catch(e) {}
+            
+            // Try to fit skipped hotspots in this gap
+            for (const sh of skippedHotspots) {
+              const hotspotData = await tx.dvi_hotspot_place.findUnique({
+                where: { hotspot_ID: sh.hotspot_ID },
+                select: {
+                  hotspot_location: true,
+                  hotspot_latitude: true,
+                  hotspot_longitude: true,
+                  hotspot_duration: true,
+                },
+              });
+              
+              if (!hotspotData) continue;
+              
+              const hotspotLocationName = hotspotData.hotspot_location as string;
+              const hotspotDuration = hotspotData.hotspot_duration || '01:00:00';
+              const hotspotDurationSeconds = timeToSeconds(hotspotDuration);
+              const destCoords = {
+                lat: Number(hotspotData.hotspot_latitude ?? 0),
+                lon: Number(hotspotData.hotspot_longitude ?? 0),
+              };
+              
+              // Calculate travel from current location to this hotspot
+              const travelToHotspot = await this.calculateTravelTimeWithCoords(
+                tx,
+                currentLocationName,
+                hotspotLocationName,
+                currentCoords,
+                destCoords,
+              );
+              
+              const travelSeconds = timeToSeconds(travelToHotspot);
+              const totalNeeded = travelSeconds + hotspotDurationSeconds;
+              
+              // Check if it fits in the gap (leave buffer for travel to next hotspot)
+              if (totalNeeded <= gapBeforeFirst - 1800) {
+                // Check if adding it still allows reaching destination by 10 PM
+                const visitEndTime = addSeconds(routeStartTime, totalNeeded);
+                
+                const parsedHotspotLocation = hotspotLocationName.split('|')[0].trim();
+                const rawDestination = (route.next_visiting_location as string) || currentLocationName;
+                const destinationCity = rawDestination.split('|')[0].trim();
+                
+                const travelToDestResult = await this.distanceHelper.fromSourceAndDestination(
+                  tx,
+                  parsedHotspotLocation,
+                  destinationCity,
+                  2,
+                );
+                
+                const travelToDestSeconds = 
+                  timeToSeconds(travelToDestResult.travelTime) +
+                  timeToSeconds(travelToDestResult.bufferTime);
+                
+                const hotelCutoffSeconds = timeToSeconds("22:00:00");
+                const projectedArrivalSeconds = timeToSeconds(visitEndTime) + travelToDestSeconds;
+                
+                if (projectedArrivalSeconds <= hotelCutoffSeconds) {
+                  // It fits! Insert it before first hotspot
+                  const insertOrder = firstHotspotRow.hotspot_order - 0.5;
+                  
+                  // Add travel segment
+                  const travelLocationType = this.getTravelLocationType(currentLocationName, hotspotLocationName);
+                  const { row: travelRow } = await this.travelBuilder.buildTravelSegment(tx, {
+                    planId,
+                    routeId: route.itinerary_route_ID,
+                    order: insertOrder,
+                    item_type: 3,
+                    travelLocationType,
+                    startTime: routeStartTime,
+                    userId: createdByUserId,
+                    sourceLocationName: currentLocationName,
+                    destinationLocationName: hotspotLocationName,
+                    hotspotId: sh.hotspot_ID,
+                    sourceCoords: currentCoords,
+                    destCoords: destCoords,
+                  });
+                  
+                  hotspotRows.push(travelRow);
+                  
+                  // Add hotspot segment
+                  const visitStartTime = addSeconds(routeStartTime, travelSeconds);
+                  const { row: hotspotRow } = await this.hotspotBuilder.build(tx, {
+                    planId,
+                    routeId: route.itinerary_route_ID,
+                    order: insertOrder,
+                    hotspotId: sh.hotspot_ID,
+                    startTime: visitStartTime,
+                    userId: createdByUserId,
+                    totalAdult: plan.total_adult,
+                    totalChildren: plan.total_children,
+                    totalInfants: plan.total_infants,
+                    nationality: plan.nationality,
+                    itineraryPreference: plan.itinerary_preference,
+                  });
+                  
+                  hotspotRows.push(hotspotRow);
+                  addedHotspotIds.add(sh.hotspot_ID);
+                  
+                  // Add parking
+                  const parkingRowsForHotspot = await this.parkingBuilder.buildForHotspot(tx, {
+                    planId,
+                    routeId: route.itinerary_route_ID,
+                    hotspotId: sh.hotspot_ID,
+                    userId: createdByUserId,
+                  });
+                  
+                  if (parkingRowsForHotspot && parkingRowsForHotspot.length > 0) {
+                    parkingRows.push(...parkingRowsForHotspot);
+                  }
+                  
+                  try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] DAY1 GAP-FILLED: Inserted before first hotspot at ${visitStartTime}\n`); } catch(e) {}
+                  
+                  // ✅ Update the first hotspot's segments to start AFTER the gap-filled hotspot
+                  const visitEndTime = addSeconds(visitStartTime, hotspotDurationSeconds);
+                  
+                  // Find travel and visit segments for first hotspot (same order)
+                  const firstHotspotTravelRow = hotspotRows.find(r => 
+                    r.item_type === 3 && r.hotspot_order === firstHotspotRow.hotspot_order
+                  );
+                  
+                  if (firstHotspotTravelRow && firstHotspotRow) {
+                    // Get first hotspot data for recalculating travel
+                    const firstHotspotData = await tx.dvi_hotspot_place.findUnique({
+                      where: { hotspot_ID: firstHotspotRow.hotspot_ID },
+                      select: { hotspot_location: true, hotspot_latitude: true, hotspot_longitude: true },
+                    });
+                    
+                    if (firstHotspotData) {
+                      const firstHotspotLocation = firstHotspotData.hotspot_location as string;
+                      const firstHotspotCoords = {
+                        lat: Number(firstHotspotData.hotspot_latitude ?? 0),
+                        lon: Number(firstHotspotData.hotspot_longitude ?? 0),
+                      };
+                      
+                      // Calculate travel from gap-filled hotspot to first hotspot
+                      const travelToFirst = await this.calculateTravelTimeWithCoords(
+                        tx,
+                        hotspotLocationName,
+                        firstHotspotLocation,
+                        destCoords,
+                        firstHotspotCoords,
+                      );
+                      
+                      const travelToFirstSeconds = timeToSeconds(travelToFirst);
+                      const travelEndTime = addSeconds(visitEndTime, travelToFirstSeconds);
+                      
+                      // Update travel segment times
+                      firstHotspotTravelRow.hotspot_start_time = TimeConverter.toDate(visitEndTime);
+                      firstHotspotTravelRow.hotspot_end_time = TimeConverter.toDate(travelEndTime);
+                      
+                      // Update first hotspot visit start time
+                      firstHotspotRow.hotspot_start_time = TimeConverter.toDate(travelEndTime);
+                      // End time stays as it is (will be waiting time until opening)
+                      
+                      try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  Updated first hotspot travel: ${visitEndTime} → ${travelEndTime}\n`); } catch(e) {}
+                    }
+                  }
+                  
+                  break; // Only insert one hotspot to avoid complexity
+                } else {
+                  try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] Cannot gap-fill: would cause arrival at ${secondsToTime(projectedArrivalSeconds)}\n`); } catch(e) {}
+                }
+              } else {
+                try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] Cannot gap-fill: needs ${Math.floor(totalNeeded/60)} mins but gap is ${Math.floor(gapBeforeFirst/60)} mins\n`); } catch(e) {}
+              }
+            }
+          }
+        }
+        
       } else {
         // OTHER DAYS: Multi-pass scheduling with deferred hotspots
         const maxPasses = 5; // Prevent infinite loops
@@ -792,10 +1011,26 @@ export class TimelineBuilder {
         let addedInLastPass = true;
         const deferredHotspots: Array<typeof selectedHotspots[0] & { deferredAtTime: string; opensAt: string }> = [];
         
-        // ⚠️ NOTE: The cutoff must be RECALCULATED after each hotspot is added
-        // because the user will be at the LAST HOTSPOT LOCATION, not the starting location
-        // For now, use starting location as a conservative estimate
-        // TODO: Consider updating cutoff dynamically as hotspots are added
+        // ✅ CALCULATE INITIAL CUTOFF from starting location → destination
+        // This ensures we don't add hotspots that would make 10 PM deadline impossible
+        if (!isLastRoute) {
+          const rawDestination = (route.next_visiting_location as string) || currentLocationName;
+          const destinationCity = rawDestination.split('|')[0].trim();
+          const hotelCutoffSeconds = timeToSeconds("22:00:00"); // 10 PM deadline
+          
+          const initialTravelResult = await this.distanceHelper.fromSourceAndDestination(
+            tx,
+            currentLocationName,
+            destinationCity,
+            2, // type=2: outstation
+          );
+          
+          const initialTravelTimeSeconds =
+            timeToSeconds(initialTravelResult.travelTime) +
+            timeToSeconds(initialTravelResult.bufferTime);
+          
+          latestAllowedHotspotEndSeconds = Math.max(0, hotelCutoffSeconds - initialTravelTimeSeconds);
+        }
         
         while (pass <= maxPasses && addedInLastPass) {
           addedInLastPass = false;
