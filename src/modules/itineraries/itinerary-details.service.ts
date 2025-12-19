@@ -604,48 +604,50 @@ export class ItineraryDetailsService {
           continue;
         }
 
-        if (itemType === 6) {
-          // HOTEL CHECK-IN / RETURN segment
-          // Fetch assigned hotel for this route using the selected group_type
-          const hotelWhere: any = {
-            itinerary_plan_id: planId,
-            itinerary_route_id: route.itinerary_route_ID,
-            deleted: 0,
-          };
-          
-          // Use selected group_type (hotel recommendation tab), default to 1
-          if (groupType !== undefined) {
-            hotelWhere.group_type = groupType;
-          } else {
-            hotelWhere.group_type = 1;
-          }
-          
-          const hotelAssignment = await this.prisma.dvi_itinerary_plan_hotel_details.findFirst({
-            where: hotelWhere,
-          });
+        if (itemType === 5) {
+          // TRAVEL TO HOTEL segment
+          // Show travel from last hotspot to hotel with time and distance
+          const toName = 'Hotel'; // Will show actual hotel name when selected
 
-          let hotelName = 'Hotel';
-          let hotelAddress = '';
-
-          if (hotelAssignment && hotelAssignment.hotel_id) {
-            const hotel = await this.prisma.dvi_hotel.findFirst({
-              where: {
-                hotel_id: hotelAssignment.hotel_id,
-                deleted: false,
-              },
-            });
-
-            if (hotel) {
-              hotelName = hotel.hotel_name ?? 'Hotel';
-              hotelAddress = hotel.hotel_address ?? '';
-            }
+          if (!Number.isNaN(distanceNum)) {
+            totalDistanceKm += distanceNum;
           }
 
           segments.push({
+            type: 'travel' as const,
+            from: previousStopName,
+            to: toName,
+            timeRange:
+              startTimeText && endTimeText
+                ? `${startTimeText} - ${endTimeText}`
+                : null,
+            distance: travelDistance,
+            duration: this.formatDuration(travelDuration),
+            note: 'This may vary due to traffic conditions',
+          });
+
+          previousStopName = toName;
+          continue;
+        }
+
+        if (itemType === 6) {
+          // HOTEL CHECK-IN / RETURN segment
+          // ✅ GENERIC - Show "Check in to Hotel" without assigning specific hotel
+          // Hotels will be confirmed later by the user
+
+          // ✅ Use ARRIVAL time for check-in (end time), not start time
+          // Fallback: startTimeText, then route end time
+          const checkInTime =
+            endTimeText ??
+            startTimeText ??
+            this.formatTime(route.route_end_time as any) ??
+            null;
+
+          segments.push({
             type: 'checkin' as const,
-            hotelName,
-            hotelAddress,
-            time: startTimeText,
+            hotelName: 'Hotel',  // Generic placeholder
+            hotelAddress: '',
+            time: checkInTime,
           });
 
           continue;

@@ -51,11 +51,9 @@ export class HotspotSegmentBuilder {
     // PHP uses hotspot_duration directly (sql_functions.php line 15117)
     let stayTime = "01:00:00"; // Default 1 hour
     if (hotspot?.hotspot_duration) {
-      const durDate = hotspot.hotspot_duration;
-      const h = String(durDate.getUTCHours()).padStart(2, '0');
-      const m = String(durDate.getUTCMinutes()).padStart(2, '0');
-      const s = String(durDate.getUTCSeconds()).padStart(2, '0');
-      stayTime = `${h}:${m}:${s}`;
+      // hotspot_duration is a Date object (TIME field)
+      // Use TimeConverter to extract it as HH:MM:SS string
+      stayTime = TimeConverter.toTimeString(hotspot.hotspot_duration);
     }
     const endTime = addTimes(startTime, stayTime);
 

@@ -100,8 +100,6 @@ export class HotelPricingService {
     const cityTrim = (city ?? "").trim();
     const whereBase: any = { hotel_category: hotelCategory };
 
-    console.log(`[HotelPricing] Searching for category ${hotelCategory} hotel in "${cityTrim}" for date ${onDate?.toISOString().slice(0,10)}`);
-
     if (cityTrim) {
       const cityCandidates = [cityTrim, cityTrim.toUpperCase(), cityTrim.toLowerCase()];
       for (const c of cityCandidates) {
@@ -117,31 +115,24 @@ export class HotelPricingService {
           },
         });
 
-        console.log(`[HotelPricing] Found ${hotels.length} hotels in "${c}"`);
-
         if (hotels.length > 0) {
           // Filter hotels to only those with valid rates for the date
           if (onDate) {
             const validHotels = [];
             for (const h of hotels) {
               const hasRates = await this.hasValidRates(h.hotel_id, onDate);
-              console.log(`[HotelPricing] Hotel ${h.hotel_id} (${h.hotel_city}) has valid rates: ${hasRates}`);
               if (hasRates) {
                 validHotels.push(h);
               }
             }
-            console.log(`[HotelPricing] ${validHotels.length} hotels with valid rates in "${c}"`);
             if (validHotels.length > 0) {
               const hotel = validHotels[Math.floor(Math.random() * validHotels.length)];
-              console.log(`[HotelPricing] ✅ Selected hotel ${hotel.hotel_id} in ${hotel.hotel_city}`);
               return hotel;
             }
             // No valid hotels in this city, continue to fallback
-            console.log(`[HotelPricing] ⚠️ No valid hotels found in "${c}", trying next variant or fallback...`);
           } else {
             // No date provided, pick any hotel (backward compatibility)
             const hotel = hotels[Math.floor(Math.random() * hotels.length)];
-            console.log(`[HotelPricing] ✅ Selected hotel ${hotel.hotel_id} (no date filter)`);
             return hotel;
           }
         }
@@ -160,8 +151,6 @@ export class HotelPricingService {
       },
     });
 
-    console.log(`[HotelPricing] ⚠️ Fallback: Found ${fallbacks.length} hotels in category ${hotelCategory} (any city)`);
-
     if (fallbacks.length > 0) {
       // Filter fallback hotels by valid rates
       if (onDate) {
@@ -169,26 +158,20 @@ export class HotelPricingService {
         for (const h of fallbacks) {
           if (await this.hasValidRates(h.hotel_id, onDate)) {
             validFallbacks.push(h);
-            console.log(`[HotelPricing] Fallback hotel ${h.hotel_id} in ${h.hotel_city} has valid rates`);
           }
         }
-        console.log(`[HotelPricing] ${validFallbacks.length} fallback hotels with valid rates`);
         if (validFallbacks.length > 0) {
           const selected = validFallbacks[Math.floor(Math.random() * validFallbacks.length)];
-          console.log(`[HotelPricing] ❌ FALLBACK USED: Selected hotel ${selected.hotel_id} in ${selected.hotel_city} (wanted: ${cityTrim})`);
           return selected;
         }
         // No hotels with valid rates found at all
-        console.log(`[HotelPricing] ❌ No hotels found with valid rates for ${onDate.toISOString().slice(0,10)}`);
         return null;
       }
       // No date filtering
       const selected = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-      console.log(`[HotelPricing] ❌ FALLBACK USED: Selected hotel ${selected.hotel_id} in ${selected.hotel_city} (no date filter)`);
       return selected;
     }
 
-    console.log(`[HotelPricing] ❌ No hotels found at all in category ${hotelCategory}`);
     return null;
   }
 

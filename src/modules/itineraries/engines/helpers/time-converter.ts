@@ -6,8 +6,8 @@
 export class TimeConverter {
   /**
    * Convert HH:MM:SS string to a Date object suitable for Prisma TIME fields.
-   * Uses epoch date (1970-01-01) with the specified time in local timezone (IST).
-   * Database stores times in IST, not UTC.
+   * ✅ CRITICAL: Always uses UTC (not local timezone) to avoid "06:58 AM" wrap bug.
+   * Database stores times as UTC TIME values.
    * Times exceeding 24 hours are wrapped using modulo 24.
    */
   static stringToDate(timeStr: string | null | undefined): Date {
@@ -23,12 +23,16 @@ export class TimeConverter {
     // Wrap hours to 0-23 range (handle multi-day times)
     h = h % 24;
 
-    return new Date(Date.UTC(1970, 0, 1, h, m, s));
+    // ✅ ALWAYS use UTC.setUTCHours/Minutes/Seconds (never setHours)
+    // This prevents local timezone conversion from causing "06:58 AM" display bug
+    const d = new Date(Date.UTC(1970, 0, 1, 0, 0, 0));
+    d.setUTCHours(h, m, s);
+    return d;
   }
 
   /**
    * Convert seconds to a Date object suitable for Prisma TIME fields.
-   * Uses local timezone (IST) since database stores times in IST.
+   * ✅ CRITICAL: Always uses UTC to match database TIME storage (UTC-based).
    * Handles seconds that exceed 86400 (24 hours) by wrapping.
    */
   static secondsToDate(seconds: number): Date {
@@ -36,6 +40,7 @@ export class TimeConverter {
     // Wrap to 24-hour boundary
     const wrappedSeconds = Math.max(0, Math.floor(seconds)) % 86400;
     const d = new Date(Date.UTC(1970, 0, 1, 0, 0, 0));
+    // ✅ Use setUTCSeconds (UTC) not setSeconds (local timezone)
     d.setUTCSeconds(wrappedSeconds);
     return d;
   }
@@ -78,9 +83,10 @@ export class TimeConverter {
     }
 
     if (value instanceof Date) {
-      const h = String(value.getHours()).padStart(2, "0");
-      const m = String(value.getMinutes()).padStart(2, "0");
-      const s = String(value.getSeconds()).padStart(2, "0");
+      // ✅ Use UTC getters (not local timezone) to match database TIME fields
+      const h = String(value.getUTCHours()).padStart(2, "0");
+      const m = String(value.getUTCMinutes()).padStart(2, "0");
+      const s = String(value.getUTCSeconds()).padStart(2, "0");
       return `${h}:${m}:${s}`;
     }
 

@@ -1,5 +1,5 @@
 /**
- * Test script to rebuild hotspots for plan 2
+ * Test script to rebuild hotspots for plan
  * Run with: npx ts-node src/modules/itineraries/test-rebuild.ts
  */
 
@@ -8,9 +8,9 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("\n=== REBUILDING HOTSPOTS FOR PLAN 2 ===\n");
-
-  const planId = 2;
+  const planId = 33958;
+  
+  console.log(`\n=== REBUILDING HOTSPOTS FOR PLAN ${planId} ===\n`);
 
   // Delete old hotspot data
   console.log("Deleting old hotspot details...");

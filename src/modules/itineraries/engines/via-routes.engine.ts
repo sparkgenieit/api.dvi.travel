@@ -17,8 +17,6 @@ export class ViaRoutesEngine {
     routeIds: number[],
     userId: number,
   ): Promise<void> {
-    console.log('[ViaRoutesEngine] Starting via routes rebuild for plan', planId);
-
     // 1. Delete all existing via routes for this plan
     const deletedCount = await tx.dvi_itinerary_via_route_details.updateMany({
       where: {
@@ -28,8 +26,6 @@ export class ViaRoutesEngine {
         deleted: 1,
       },
     });
-
-    console.log('[ViaRoutesEngine] Soft-deleted', deletedCount.count, 'existing via routes');
 
     // 2. Insert new via routes
     let insertedCount = 0;
@@ -42,10 +38,6 @@ export class ViaRoutesEngine {
       if (!route.via_routes || route.via_routes.length === 0) {
         continue;
       }
-
-      console.log(
-        `[ViaRoutesEngine] Inserting ${route.via_routes.length} via routes for route ${routeId}: ${route.location_name} → ${route.next_visiting_location}`,
-      );
 
       for (const viaRoute of route.via_routes) {
         await tx.dvi_itinerary_via_route_details.create({
@@ -66,7 +58,5 @@ export class ViaRoutesEngine {
         insertedCount++;
       }
     }
-
-    console.log('[ViaRoutesEngine] Inserted', insertedCount, 'new via routes');
   }
 }

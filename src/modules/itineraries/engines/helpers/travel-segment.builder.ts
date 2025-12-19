@@ -83,6 +83,7 @@ export class TravelSegmentBuilder {
     );
 
     const endTime = addTimes(startTime, totalSegmentTime);
+    
     const now = new Date();
 
     const row: HotspotDetailRow = {

@@ -84,12 +84,8 @@ export class ItinerariesService {
         userId,
       );
 
-      console.log('[ItinerariesService] Routes rebuilt, now rebuilding permit charges...');
-      
       // Rebuild permit charges after routes are created
       await this.routeEngine.rebuildPermitCharges(tx, planId, userId);
-      
-      console.log('[ItinerariesService] Permit charges rebuilt');
 
       // Rebuild via routes AFTER routes are created and BEFORE hotspots
       const routeIds = routes.map((r: any) => r.itinerary_route_ID);

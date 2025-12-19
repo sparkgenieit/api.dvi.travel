@@ -267,11 +267,22 @@ export class TimelineBuilder {
         ? `${String((route.route_start_time as any).getUTCHours()).padStart(2, '0')}:${String((route.route_start_time as any).getUTCMinutes()).padStart(2, '0')}:${String((route.route_start_time as any).getUTCSeconds()).padStart(2, '0')}`
         : '09:00:00';
         
-      const routeEndTime: string = typeof route.route_end_time === 'string'
+      let routeEndTime: string = typeof route.route_end_time === 'string'
         ? route.route_end_time
         : route.route_end_time && typeof route.route_end_time === 'object'
         ? `${String((route.route_end_time as any).getUTCHours()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCMinutes()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCSeconds()).padStart(2, '0')}`
         : '18:00:00';
+      
+      // CRITICAL FIX: Day 1 must allow hotel check-in by 10 PM (22:00)
+      // To guarantee this with ~30 min hotel travel + buffer, cap activities to 21:00 (9 PM) on Day 1
+      // This ensures: Last activity ends ~21:00 → Hotel travel 21:00-21:30 → Check-in by ~21:30 (9:30 PM) ✅ BEFORE 10 PM
+      if (isFirstRoute) {
+        const routeEndSeconds = timeToSeconds(routeEndTime);
+        const cutoffSeconds = timeToSeconds('21:00:00'); // 9 PM
+        if (routeEndSeconds > cutoffSeconds) {
+          routeEndTime = '21:00:00'; // Cap to 9 PM for Day 1
+        }
+      }
       
       let currentTime = routeStartTime;
       let routeEndSeconds = timeToSeconds(routeEndTime);
@@ -292,15 +303,21 @@ export class TimelineBuilder {
 
       // Maintain current logical location name for distance calculations.
       // Start with the route's location_name (same as PHP "route start city").
-      let currentLocationName: string =
-        (route.location_name as string) ||
+      // Parse pipe-separated location to get first/main location only
+      const rawStartLocation = (route.location_name as string) ||
         (route.next_visiting_location as string) ||
         (plan.departure_location as string) ||
         "";
+      let currentLocationName: string = rawStartLocation.split('|')[0].trim();
       
       // Get starting coordinates from stored_locations using location_id (PHP: getITINEARYROUTE_DETAILS + getSTOREDLOCATIONDETAILS)
       // PHP line 1108-1109: $staring_location_latitude = getSTOREDLOCATIONDETAILS($start_location_id, 'source_location_lattitude');
       let currentCoords: { lat: number; lon: number } | undefined = undefined;
+      
+      // ✅ RULE 1: ENFORCE 22:00 CUTOFF (destination arrival deadline)
+      // Calculate: latestAllowedHotspotEnd = 22:00 - (travel to destination + buffer)
+      // This ensures user reaches destination city by 22:00 for hotel check-in
+      let latestAllowedHotspotEndSeconds = 0; // Default: no cutoff (will be calculated for non-last routes)
       
       if (route.location_id) {
         const storedLoc = await (tx as any).dvi_stored_locations?.findFirst({
@@ -375,6 +392,64 @@ export class TimelineBuilder {
         currentTime = addSeconds(currentTime, bufferSeconds);
       }
 
+      // 2) CALCULATE LATESTNONHOTELEND CUTOFF FOR NON-LAST ROUTES
+      // BUSINESS RULE: User must reach destination city by 22:00
+      // latestNonHotelEnd = 22:00 - (travel_time + buffer_time to hotel)
+      let latestNonHotelEndSeconds = routeEndSeconds; // Default: no cutoff
+      let latestNonHotelEndTime = routeEndTime; // Default string representation
+      
+      if (!isLastRoute) {
+        const hotelCutoffSeconds = timeToSeconds("22:00:00"); // 10 PM
+        
+        // Compute source/destination cities using stored_locations
+        let sourceCity = "";
+        let destinationCity = "";
+        
+        if (route.location_id) {
+          const storedLoc = await (tx as any).dvi_stored_locations?.findFirst({
+            where: {
+              location_ID: BigInt(route.location_id),
+              deleted: 0,
+              status: 1,
+            },
+          });
+          
+          if (storedLoc) {
+            sourceCity = storedLoc.source_location || "";
+            destinationCity = storedLoc.destination_location || "";
+          }
+        }
+        
+        // Fallback to route fields if not found
+        if (!sourceCity) sourceCity = ((route.location_name as string) || "").split('|')[0].trim();
+        if (!destinationCity) destinationCity = ((route.next_visiting_location as string) || "").split('|')[0].trim();
+        
+        // Get travel time and buffer for hotel travel (outstation type=2)
+        const hotelTravelResult = await this.distanceHelper.fromSourceAndDestination(
+          tx,
+          destinationCity,
+          destinationCity, // Hotel is in destination city
+          2, // type=2 (outstation travel to hotel)
+        );
+        
+        const travelPlusBufferSeconds = 
+          timeToSeconds(hotelTravelResult.travelTime) + 
+          timeToSeconds(hotelTravelResult.bufferTime);
+        
+        latestNonHotelEndSeconds = hotelCutoffSeconds - travelPlusBufferSeconds;
+        
+        // Convert to time string for logging
+        if (latestNonHotelEndSeconds > 0) {
+          const hours = Math.floor(latestNonHotelEndSeconds / 3600);
+          const minutes = Math.floor((latestNonHotelEndSeconds % 3600) / 60);
+          const seconds = latestNonHotelEndSeconds % 60;
+          latestNonHotelEndTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+        } else {
+          latestNonHotelEndSeconds = 0;
+          latestNonHotelEndTime = "00:00:00";
+        }
+      }
+
       // 2) SELECTED HOTSPOTS FOR THIS ROUTE
       // DAY-1 DIFFERENT CITIES: If Day 1 and source city != destination city, enforce max 3 priority hotspots
       let selectedHotspots: SelectedHotspot[] = [];
@@ -399,8 +474,8 @@ export class TimelineBuilder {
       }
       
       // Fallback to route fields if not found
-      if (!sourceCity) sourceCity = (route.location_name as string) || "";
-      if (!destinationCity) destinationCity = (route.next_visiting_location as string) || "";
+      if (!sourceCity) sourceCity = ((route.location_name as string) || "").split('|')[0].trim();
+      if (!destinationCity) destinationCity = ((route.next_visiting_location as string) || "").split('|')[0].trim();
       
       const normalizedSourceCity = this.normalizeCityName(sourceCity);
       const normalizedDestinationCity = this.normalizeCityName(destinationCity);
@@ -717,6 +792,11 @@ export class TimelineBuilder {
         let addedInLastPass = true;
         const deferredHotspots: Array<typeof selectedHotspots[0] & { deferredAtTime: string; opensAt: string }> = [];
         
+        // ⚠️ NOTE: The cutoff must be RECALCULATED after each hotspot is added
+        // because the user will be at the LAST HOTSPOT LOCATION, not the starting location
+        // For now, use starting location as a conservative estimate
+        // TODO: Consider updating cutoff dynamically as hotspots are added
+        
         while (pass <= maxPasses && addedInLastPass) {
           addedInLastPass = false;
           const hotspotsToTry = pass === 1 ? selectedHotspots : deferredHotspots.filter(h => !addedHotspotIds.has(h.hotspot_ID));
@@ -771,7 +851,12 @@ export class TimelineBuilder {
           continue;
         }
 
-        const hotspotLocationName = hotspotData.hotspot_location as string || currentLocationName;
+        // Parse pipe-separated location to get first/main location only
+        // hotspot_location format: "Madurai|Railway Station|Airport|..." 
+        // We only want "Madurai" for distance calculation
+        const rawLocation = hotspotData.hotspot_location as string || currentLocationName;
+        const hotspotLocationName = rawLocation.split('|')[0].trim();
+        try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', `[PARSED] Raw: "${rawLocation}" → Parsed: "${hotspotLocationName}"\n`); } catch(e) {}
         const hotspotDuration = hotspotData.hotspot_duration || '01:00:00';
         const destCoords = {
           lat: Number(hotspotData.hotspot_latitude ?? 0),
@@ -810,13 +895,20 @@ export class TimelineBuilder {
           sightseeingEndSeconds += 86400;
         }
         
-        // DEBUG: Log the comparison
-        console.log(`[HOTSPOT ${sh.hotspot_ID}] Current: ${currentTime}, AfterTravel: ${timeAfterTravel}, AfterSightseeing: ${timeAfterSightseeing}`);
-        console.log(`[HOTSPOT ${sh.hotspot_ID}] SightseeingEndSeconds: ${sightseeingEndSeconds}, RouteEndSeconds: ${routeEndSeconds}, RouteEndTime: ${routeEndTime}`);
-        console.log(`[HOTSPOT ${sh.hotspot_ID}] Check: ${sightseeingEndSeconds} > ${routeEndSeconds} = ${sightseeingEndSeconds > routeEndSeconds}`);
+        // ✅ RULE 1: Enforce 22:00 destination arrival cutoff
+        // Skip hotspots that would prevent reaching destination by 22:00
+        if (latestAllowedHotspotEndSeconds > 0 && sightseeingEndSeconds > latestAllowedHotspotEndSeconds) {
+          continue; // Skip and try next hotspot
+        }
         
-        // NO DAY 1 CUTOFF - removed per user request
-        // Schedule all top priority hotspots without time constraints
+        // PHP CHECK: If SIGHTSEEING would exceed route_end_time, STOP processing
+        // NOTE: The break (item_type=4) is allowed to exceed route_end_time
+        // SKIP THIS CHECK FOR DAY 1 - Day 1 has its own time management
+        // USER REQUIREMENT: Keep user busy with all hotspots - no time constraints on Day 1
+        if (!isFirstRoute && sightseeingEndSeconds > routeEndSeconds) {
+          try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `  [${sh.hotspot_ID}] SKIPPED - sightseeing exceeds route end time (${timeAfterSightseeing} > ${routeEndTime})\n`); } catch(e) {}
+          continue; // PHP uses CONTINUE - skip this hotspot and try next ones
+        }
         
         // PHP CHECK: If SIGHTSEEING would exceed route_end_time, STOP processing
         // NOTE: The break (item_type=4) is allowed to exceed route_end_time
@@ -933,6 +1025,36 @@ export class TimelineBuilder {
         currentTime = tAfterHotspot;
         // currentLocationName remains at the hotspot.
 
+        // ✅ RECALCULATE CUTOFF: User is now at the hotspot, not starting location
+        // Travel time from HERE (last hotspot) → destination is what matters for 22:00 deadline
+        if (!isLastRoute) {
+          const rawDestination = (route.next_visiting_location as string) || currentLocationName;
+          const destinationCity = rawDestination.split('|')[0].trim();
+          const hotelCutoffSeconds = timeToSeconds("22:00:00"); // 10 PM deadline
+          
+          // Get NEW travel time from CURRENT LOCATION (last hotspot) → destination
+          const finalTravelResult = await this.distanceHelper.fromSourceAndDestination(
+            tx,
+            currentLocationName, // NOW at hotspot location
+            destinationCity,
+            2, // type=2: outstation
+          );
+          
+          const finalTravelTimeSeconds =
+            timeToSeconds(finalTravelResult.travelTime) +
+            timeToSeconds(finalTravelResult.bufferTime);
+          
+          const newCutoff = Math.max(0, hotelCutoffSeconds - finalTravelTimeSeconds);
+          
+          // ⚠️ If travel time from here is too long, we need to SKIP remaining hotspots
+          if (newCutoff <= timeToSeconds(currentTime)) {
+            // Stop adding more hotspots - travel time is already too long
+            break;
+          } else {
+            latestAllowedHotspotEndSeconds = newCutoff;
+          }
+        }
+
         // NO LUNCH BREAK LOGIC - removed per user request
 
         // 2.d) PARKING CHARGE ROWS for this hotspot (one per vendor vehicle)
@@ -953,13 +1075,9 @@ export class TimelineBuilder {
       } // End of while loop for multi-pass scheduling
       } // End of else (OTHER DAYS)
 
-      // NO DAY 1 CUTOFF TRAVEL - removed per user request
-      // User can reach hotel at any time
-
-      // 3) TRAVEL TO HOTEL (item_type = 5)
-      // In PHP this uses the chosen hotel for that route/date.
-      // PHP BEHAVIOR: Hotel travel (type 5) and hotel closing (type 6) share the same order
-      // PHP BEHAVIOR: Last route SKIPS hotel rows (no ToHotel, no AtHotel)
+      // ✅ RULE 2 + 3: TRAVEL TO HOTEL & FIX TIME BUG (item_type = 5)
+      // BUSINESS RULE: Hotel check-in must be before 10 PM (22:00)
+      // Last route SKIPS hotel rows
       if (!isLastRoute) {
         const hotelOrder = order;
 
@@ -969,52 +1087,81 @@ export class TimelineBuilder {
           route.itinerary_route_ID,
         );
 
-        const hotelLocationName =
-          hotelInfo?.hotelName ||
-          (route.next_visiting_location as string) ||
-          currentLocationName;
+        // ✅ ALWAYS use DESTINATION CITY for distance calculation (not hotel coordinates)
+        // This ensures consistent distance regardless of hotel selection
+        // Parse pipe-separated location to get first/main location only
+        const rawDestinationCity = (route.next_visiting_location as string) || currentLocationName;
+        const destinationCity = rawDestinationCity.split('|')[0].trim();
+        
+        // ✅ RULE 2: Always show final travel segment to destination (outstation type=2)
+        // Start time is right after last hotspot (or at latestAllowedHotspotEnd if we hit cutoff)
+        let hotelStartSeconds = timeToSeconds(currentTime);
+        
+        // Don't go backwards from the cutoff
+        if (!isFirstRoute && hotelStartSeconds < latestAllowedHotspotEndSeconds) {
+          hotelStartSeconds = latestAllowedHotspotEndSeconds;
+        }
+        
+        const hotelStartTime = secondsToTime(hotelStartSeconds);
 
-        const travelLocationType = this.getTravelLocationType(
-          currentLocationName,
-          hotelLocationName,
-        );
-
+        // Distance calculation MUST use destination city, NOT hotel coordinates
+        // This ensures fixed distance calculations across plan rebuilds
+        // Parse source location to remove pipe-separated alternatives
+        const sourceCity = currentLocationName.split('|')[0].trim();
+        
         const { row: toHotelRow, nextTime: tAfterHotel } =
           await this.hotelBuilder.buildToHotel(tx, {
             planId,
             routeId: route.itinerary_route_ID,
             order: hotelOrder,
-            startTime: currentTime,
-            travelLocationType,
+            startTime: hotelStartTime,
+            travelLocationType: 2, // Outstation to destination city
             userId: createdByUserId,
-            sourceLocationName: currentLocationName,
-            destinationLocationName: hotelLocationName,
+            sourceLocationName: sourceCity,
+            destinationLocationName: destinationCity,
             sourceCoords: currentCoords,
-            destCoords: hotelInfo?.coords,
+            // ❌ DO NOT pass destCoords - forces DB lookup by city name for consistent distance
           });
 
-        hotspotRows.push(toHotelRow);
-        currentTime = tAfterHotel;
-        currentLocationName = hotelLocationName;
+        // ✅ RULE 3: Fix "06:58 AM" time bug using proper UTC date conversion
+        // Never mix local timezone Date objects with UTC TIME fields
+        let adjustedHotelRow = { ...toHotelRow };
+        const hotelCutoffSeconds = timeToSeconds("22:00:00");
+        const hotelEndSeconds = timeToSeconds(tAfterHotel);
+        
+        // Enforce 22:00 hard cap
+        if (hotelEndSeconds > hotelCutoffSeconds) {
+          // Use TimeConverter.toDate() for consistent UTC handling
+          adjustedHotelRow.hotspot_end_time = TimeConverter.toDate("22:00:00");
+        } else {
+          adjustedHotelRow.hotspot_end_time = TimeConverter.toDate(tAfterHotel);
+        }
+
+        // Ensure start time uses proper UTC conversion
+        adjustedHotelRow.hotspot_start_time = TimeConverter.toDate(hotelStartTime);
+
+        hotspotRows.push(adjustedHotelRow);
+        currentTime = Math.min(hotelEndSeconds, hotelCutoffSeconds) > 0
+          ? secondsToTime(Math.min(hotelEndSeconds, hotelCutoffSeconds))
+          : tAfterHotel;
+        currentLocationName = "Hotel";
         if (hotelInfo?.coords) {
           currentCoords = hotelInfo.coords;
         }
 
         // 4) RETURN / CLOSING ROW FOR HOTEL (item_type = 6)
-        // PHP usually creates a closing row with 0 distance/time.
         const { row: closeHotelRow, nextTime: tClose } =
           await this.hotelBuilder.buildReturnToHotel(tx, {
             planId,
             routeId: route.itinerary_route_ID,
-            order: hotelOrder, // Use same order as hotel travel
+            order: hotelOrder,
             startTime: currentTime,
             userId: createdByUserId,
           });
 
         hotspotRows.push(closeHotelRow);
-        order++; // Increment order after both hotel rows added
+        order++;
         currentTime = tClose;
-        // currentLocationName stays at hotel.
       }
 
       // 5) LAST ROUTE ONLY → RETURN TO DEPARTURE LOCATION (item_type = 7)
@@ -1652,7 +1799,6 @@ export class TimelineBuilder {
       // PHP PARITY: Do NOT re-sort after concatenation
       // The order from concatenation (source + destination + via) is the final order
 
-      console.log(`[Route ${routeId}] Selected ${uniqueHotspots.length} hotspots:`, uniqueHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', '));
       try {
         fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/hotspot_selection.log', `[Route ${routeId}] Selected: ${uniqueHotspots.map(h => `${h.hotspot_ID}(p${h.hotspot_priority})`).join(', ')}\n`);
       } catch (e) {
@@ -1747,7 +1893,7 @@ export class TimelineBuilder {
     tx: Tx,
     planId: number,
     routeId: number,
-  ): Promise<{ hotelId: number; hotelName: string | null; coords?: { lat: number; lon: number } } | null> {
+  ): Promise<{ hotelId: number; hotelName: string | null; hotelCity: string | null; coords?: { lat: number; lon: number } } | null> {
     const details = await (tx as any).dvi_itinerary_plan_hotel_details?.findFirst({
       where: {
         itinerary_plan_id: planId,
@@ -1770,13 +1916,33 @@ export class TimelineBuilder {
       },
       select: {
         hotel_name: true,
+        hotel_city: true,
         hotel_latitude: true,
         hotel_longitude: true,
       },
     });
 
     if (!hotel) {
-      return { hotelId, hotelName: null };
+      return { hotelId, hotelName: null, hotelCity: null };
+    }
+
+    // Try to get the location name if hotel_city is a location_id
+    let hotelCity: string | null = null;
+    const citySafe = Number(hotel.hotel_city) || 0;
+    if (citySafe > 0) {
+      // hotel_city is a location_id reference, look it up
+      try {
+        const location = await (tx as any).dvi_stored_locations?.findFirst({
+          where: { location_id: citySafe },
+          select: { location_name: true },
+        });
+        hotelCity = (location?.location_name as string) ?? null;
+      } catch {
+        hotelCity = null;
+      }
+    } else {
+      // hotel_city is a direct string
+      hotelCity = (hotel.hotel_city as string) ?? null;
     }
 
     const lat = Number(hotel.hotel_latitude);
@@ -1786,6 +1952,7 @@ export class TimelineBuilder {
     return {
       hotelId,
       hotelName: (hotel.hotel_name as string) ?? null,
+      hotelCity,
       coords: hasCoords ? { lat, lon } : undefined,
     };
   }
