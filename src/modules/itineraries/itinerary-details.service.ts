@@ -272,6 +272,23 @@ export class ItineraryDetailsService {
     return `${m} Min`;
   }
 
+  /** Convert time string "HH:MM AM/PM" to minutes since midnight */
+  private timeToMinutes(timeStr: string | null): number {
+    if (!timeStr) return 0;
+    
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!match) return 0;
+    
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const ampm = match[3].toUpperCase();
+    
+    if (ampm === 'PM' && hours !== 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    
+    return hours * 60 + minutes;
+  }
+
   // ---------------------------------------------------------------------------
   // Itinerary DETAILS (parity-ish with PHP, WITHOUT hotels)
   // ---------------------------------------------------------------------------
@@ -367,6 +384,21 @@ export class ItineraryDetailsService {
         : [];
 
       const hotspotMap = new Map(hotspotMasters.map((h) => [h.hotspot_ID, h]));
+
+      // Fetch hotspot timing data for opening hours
+      const hotspotTimings = hotspotIds.length
+        ? await this.prisma.dvi_hotspot_timing.findMany({
+            where: {
+              hotspot_ID: { in: hotspotIds },
+              deleted: 0,
+              status: 1,
+            },
+          })
+        : [];
+
+      const hotspotTimingMap = new Map(
+        hotspotTimings.map((t) => [t.hotspot_ID, t])
+      );
 
       const segments: any[] = [];
 
@@ -581,14 +613,33 @@ export class ItineraryDetailsService {
             };
           });
 
+          // Check if there's wait time due to opening hours
+          let visitTimeDisplay = 
+            startTimeText && endTimeText
+              ? `${startTimeText} - ${endTimeText}`
+              : null;
+
+          if (visitTimeDisplay && rh.hotspot_ID) {
+            const timing = hotspotTimingMap.get(rh.hotspot_ID as number);
+            if (timing && timing.hotspot_start_time && timing.hotspot_open_all_time !== 1) {
+              const openingTime = this.formatTime(timing.hotspot_start_time as any);
+              
+              // Convert times to minutes for comparison
+              const arrivalMins = this.timeToMinutes(startTimeText);
+              const openingMins = this.timeToMinutes(openingTime);
+              
+              // If arrival is before opening time, show opening info
+              if (arrivalMins < openingMins && openingMins > 0) {
+                visitTimeDisplay = `${startTimeText} - ${endTimeText} (opens at ${openingTime})`;
+              }
+            }
+          }
+
           segments.push({
             type: 'attraction' as const,
             name: master.hotspot_name,
             description: master.hotspot_description ?? '',
-            visitTime:
-              startTimeText && endTimeText
-                ? `${startTimeText} - ${endTimeText}`
-                : null,
+            visitTime: visitTimeDisplay,
             duration: this.formatDuration(stayDuration),
             amount: hotspotAmount > 0 ? Number(hotspotAmount) : null,
             image: null,

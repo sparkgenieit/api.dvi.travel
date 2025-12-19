@@ -1329,15 +1329,8 @@ export class TimelineBuilder {
         const destinationCity = rawDestinationCity.split('|')[0].trim();
         
         // ✅ RULE 2: Always show final travel segment to destination (outstation type=2)
-        // Start time is right after last hotspot (or at latestAllowedHotspotEnd if we hit cutoff)
-        let hotelStartSeconds = timeToSeconds(currentTime);
-        
-        // Don't go backwards from the cutoff
-        if (!isFirstRoute && hotelStartSeconds < latestAllowedHotspotEndSeconds) {
-          hotelStartSeconds = latestAllowedHotspotEndSeconds;
-        }
-        
-        const hotelStartTime = secondsToTime(hotelStartSeconds);
+        // Start time is right after last hotspot ends
+        const hotelStartTime = currentTime;
 
         // Distance calculation MUST use destination city, NOT hotel coordinates
         // This ensures fixed distance calculations across plan rebuilds
