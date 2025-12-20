@@ -1,3 +1,4 @@
+// REPLACE-WHOLE-FILE
 // FILE: src/modules/itinerary-dropdowns/itinerary-dropdowns.service.ts
 
 import { Injectable } from '@nestjs/common';
@@ -14,6 +15,10 @@ export type LocationOption = {
 };
 
 type LocationType = 'source' | 'destination';
+
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.trim().length > 0;
+}
 
 @Injectable()
 export class ItineraryDropdownsService {
@@ -42,10 +47,9 @@ export class ItineraryDropdownsService {
     } as any);
 
     let locations = rows
-      .map((r) =>
-        (isDestination ? r.destination_location : r.source_location) as string,
-      )
-      .filter(Boolean);
+      .map((r) => (isDestination ? r.destination_location : r.source_location))
+      .filter(isNonEmptyString)
+      .map((s) => s.trim());
 
     // Filter locations to only those that have hotels (overnight stay requirement)
     // 1. Get all city IDs that have active hotels
@@ -57,9 +61,14 @@ export class ItineraryDropdownsService {
 
     const cityIdsWithHotels = hotels
       .map((h) => h.hotel_city)
-      .filter(Boolean)
-      .map((id) => parseInt(id))
-      .filter((id) => !isNaN(id));
+      .filter(isNonEmptyString)
+      .map((id) => parseInt(id, 10))
+      .filter((id) => Number.isFinite(id));
+
+    if (!cityIdsWithHotels.length) {
+      // no hotel cities found; return whatever stored_locations gave
+      return locations.map((loc) => ({ id: loc, name: loc }));
+    }
 
     // 2. Get names of these cities
     const cities = await (this.prisma as any).dvi_cities.findMany({
@@ -67,7 +76,11 @@ export class ItineraryDropdownsService {
       select: { name: true },
     });
 
-    const cityNamesWithHotels = cities.map((c: any) => c.name.toLowerCase());
+    // ✅ FIX TS2345: name can be null -> guard before toLowerCase()
+    const cityNamesWithHotels: string[] = (cities as Array<{ name: string | null }>)
+
+      .map((c) => (isNonEmptyString(c?.name) ? c.name.trim().toLowerCase() : ''))
+      .filter(isNonEmptyString);
 
     // Add common aliases to the list of valid city names
     const CITY_ALIASES: Record<string, string[]> = {
@@ -79,19 +92,19 @@ export class ItineraryDropdownsService {
       bengaluru: ['bangalore'],
     };
 
-    const allValidNames = [...cityNamesWithHotels];
-    cityNamesWithHotels.forEach((name) => {
-      if (CITY_ALIASES[name]) {
-        allValidNames.push(...CITY_ALIASES[name]);
-      }
+    const allValidNames: string[] = [...cityNamesWithHotels];
+
+    // ✅ FIX TS7006: type the param
+    cityNamesWithHotels.forEach((name: string) => {
+      const aliases = CITY_ALIASES[name];
+      if (aliases?.length) allValidNames.push(...aliases);
     });
 
     // 3. Filter locations: keep if it matches or contains a city name with hotels
     locations = locations.filter((loc) => {
       const lowerLoc = loc.toLowerCase();
       return allValidNames.some(
-        (cityName) =>
-          lowerLoc.includes(cityName) || cityName.includes(lowerLoc),
+        (cityName) => lowerLoc.includes(cityName) || cityName.includes(lowerLoc),
       );
     });
 
@@ -212,13 +225,7 @@ export class ItineraryDropdownsService {
     const dest = (destination || '').trim();
 
     if (!src || !dest) {
-      console.warn(
-        '[ViaRoutes] Missing source or destination',
-        'source=',
-        src,
-        'destination=',
-        dest,
-      );
+      console.warn('[ViaRoutes] Missing source or destination', 'source=', src, 'destination=', dest);
       return [];
     }
 
@@ -270,9 +277,7 @@ export class ItineraryDropdownsService {
       },
     } as any);
 
-    if (!viaRoutes.length) {
-      return [];
-    }
+    if (!viaRoutes.length) return [];
 
     // 3) Map to SimpleOption[] (id = via_route_location_ID, label = name)
     return viaRoutes.map((r) => ({
