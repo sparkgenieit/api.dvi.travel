@@ -109,29 +109,18 @@ export class TimelineBuilder {
    * Returns object with:
    * - canVisitNow: true if BOTH start AND end time fall within THE SAME operating hours window
    * - nextWindowStart: start time of next available window (if canVisitNow is false)
+   * 
+   * @param timingMap - Pre-fetched timing data map for all hotspots (performance optimization)
    */
-  private async checkHotspotOperatingHours(
-    tx: any,
+  private checkHotspotOperatingHoursFromMap(
+    timingMap: Map<number, Map<number, any[]>>,
     hotspotId: number,
     dayOfWeek: number,
     visitStartTime: string,
     visitEndTime: string,
-  ): Promise<{ canVisitNow: boolean; nextWindowStart: string | null }> {
-    // Fetch timing records for this hotspot on this day
-    const timingRecords = await tx.dvi_hotspot_timing.findMany({
-      where: {
-        hotspot_ID: hotspotId,
-        hotspot_timing_day: dayOfWeek,
-        status: 1,
-        deleted: 0,
-      },
-      select: {
-        hotspot_start_time: true,
-        hotspot_end_time: true,
-        hotspot_open_all_time: true,
-        hotspot_closed: true,
-      },
-    });
+  ): { canVisitNow: boolean; nextWindowStart: string | null } {
+    // Get timing records from pre-fetched map (NO DB QUERY)
+    const timingRecords = timingMap.get(hotspotId)?.get(dayOfWeek) || [];
 
     if (!timingRecords || timingRecords.length === 0) {
       // No timing records = not open on this day
@@ -196,14 +185,20 @@ export class TimelineBuilder {
     tx: Tx,
     planId: number,
   ): Promise<{ hotspotRows: HotspotDetailRow[]; parkingRows: ParkingChargeRow[] }> {
+    const buildStart = Date.now();
+    console.log('[TIMELINE] buildTimelineForPlan started for planId:', planId);
+    
+    let opStart = Date.now();
     const plan = (await (tx as any).dvi_itinerary_plan_details.findFirst({
       where: { itinerary_plan_ID: planId, deleted: 0 },
     })) as PlanHeader | null;
+    console.log('[TIMELINE] Fetch plan:', Date.now() - opStart, 'ms');
 
     if (!plan) {
       return { hotspotRows: [], parkingRows: [] };
     }
 
+    opStart = Date.now();
     const routes = (await (tx as any).dvi_itinerary_route_details.findMany({
       where: { itinerary_plan_ID: planId, deleted: 0, status: 1 },
       orderBy: [
@@ -211,6 +206,7 @@ export class TimelineBuilder {
         { itinerary_route_ID: "asc" },
       ],
     })) as RouteRow[];
+    console.log('[TIMELINE] Fetch routes:', Date.now() - opStart, 'ms, count:', routes.length);
 
     if (!routes.length) {
       return { hotspotRows: [], parkingRows: [] };
@@ -233,6 +229,54 @@ export class TimelineBuilder {
     
     const shouldDeferDay1Sightseeing = isSameArrivalDepartureCity && departureTimeAfter4PM;
 
+    // ⚡ PERFORMANCE OPTIMIZATION: Fetch all hotspots ONCE instead of once per route
+    opStart = Date.now();
+    const allHotspots = (await (tx as any).dvi_hotspot_place?.findMany({
+      where: {
+        deleted: 0,
+        status: 1,
+      },
+    })) || [];
+    console.log('[TIMELINE] Fetch ALL hotspots ONCE:', Date.now() - opStart, 'ms, count:', allHotspots.length);
+
+    // ⚡ Create hotspot lookup map for O(1) access (avoid repeated DB queries)
+    const hotspotMap = new Map();
+    for (const h of allHotspots) {
+      hotspotMap.set(h.hotspot_ID, {
+        hotspot_location: h.hotspot_location,
+        hotspot_latitude: h.hotspot_latitude,
+        hotspot_longitude: h.hotspot_longitude,
+        hotspot_duration: h.hotspot_duration,
+      });
+    }
+    console.log('[TIMELINE] Created hotspot lookup map');
+
+    // ⚡ Batch-fetch ALL timing data for ALL days at once (avoid 42+ individual queries)
+    opStart = Date.now();
+    const allTimings = await (tx as any).dvi_hotspot_timing.findMany({
+      where: {
+        deleted: 0,
+        status: 1,
+      },
+    });
+    
+    // Group timings by hotspot_ID and day for O(1) lookup
+    const timingMap = new Map<number, Map<number, any[]>>();
+    for (const timing of allTimings) {
+      const hotspotId = Number(timing.hotspot_ID);
+      const day = Number(timing.hotspot_timing_day);
+      
+      if (!timingMap.has(hotspotId)) {
+        timingMap.set(hotspotId, new Map());
+      }
+      const dayMap = timingMap.get(hotspotId)!;
+      if (!dayMap.has(day)) {
+        dayMap.set(day, []);
+      }
+      dayMap.get(day)!.push(timing);
+    }
+    console.log('[TIMELINE] Batch-fetched ALL timing data:', Date.now() - opStart, 'ms, records:', allTimings.length);
+
     const hotspotRows: HotspotDetailRow[] = [];
     const parkingRows: ParkingChargeRow[] = [];
 
@@ -246,6 +290,9 @@ export class TimelineBuilder {
     let routeIndex = 0;
 
     for (const route of routes) {
+      const routeProcessStart = Date.now();
+      console.log('[TIMELINE] Processing route', routeIndex + 1, '/', routes.length, '- routeId:', route.itinerary_route_ID);
+      
       const isFirstRoute = routeIndex === 0;
       routeIndex++;
       
@@ -313,6 +360,9 @@ export class TimelineBuilder {
       // Get starting coordinates from stored_locations using location_id (PHP: getITINEARYROUTE_DETAILS + getSTOREDLOCATIONDETAILS)
       // PHP line 1108-1109: $staring_location_latitude = getSTOREDLOCATIONDETAILS($start_location_id, 'source_location_lattitude');
       let currentCoords: { lat: number; lon: number } | undefined = undefined;
+      let destCityCoords: { lat: number; lon: number } | undefined = undefined;
+      let sourceCity = "";
+      let destinationCity = "";
       
       // ✅ RULE 1: ENFORCE 22:00 CUTOFF (destination arrival deadline)
       // Calculate: latestAllowedHotspotEnd = 22:00 - (travel to destination + buffer)
@@ -329,12 +379,22 @@ export class TimelineBuilder {
         });
         
         if (storedLoc) {
+          sourceCity = storedLoc.source_location || "";
+          destinationCity = storedLoc.destination_location || "";
           currentCoords = {
             lat: Number(storedLoc.source_location_lattitude ?? 0),
             lon: Number(storedLoc.source_location_longitude ?? 0),
           };
+          destCityCoords = {
+            lat: Number(storedLoc.destination_location_lattitude ?? 0),
+            lon: Number(storedLoc.destination_location_longitude ?? 0),
+          };
         }
       }
+
+      // Fallback to route fields if not found
+      if (!sourceCity) sourceCity = ((route.location_name as string) || "").split('|')[0].trim();
+      if (!destinationCity) destinationCity = ((route.next_visiting_location as string) || "").split('|')[0].trim();
 
       // 1) ADD REFRESHMENT BREAK (PHP line 969-993)
       // PHP adds 1-hour refreshment at route start EXCEPT for last route
@@ -401,35 +461,14 @@ export class TimelineBuilder {
       if (!isLastRoute) {
         const hotelCutoffSeconds = timeToSeconds("22:00:00"); // 10 PM
         
-        // Compute source/destination cities using stored_locations
-        let sourceCity = "";
-        let destinationCity = "";
-        
-        if (route.location_id) {
-          const storedLoc = await (tx as any).dvi_stored_locations?.findFirst({
-            where: {
-              location_ID: BigInt(route.location_id),
-              deleted: 0,
-              status: 1,
-            },
-          });
-          
-          if (storedLoc) {
-            sourceCity = storedLoc.source_location || "";
-            destinationCity = storedLoc.destination_location || "";
-          }
-        }
-        
-        // Fallback to route fields if not found
-        if (!sourceCity) sourceCity = ((route.location_name as string) || "").split('|')[0].trim();
-        if (!destinationCity) destinationCity = ((route.next_visiting_location as string) || "").split('|')[0].trim();
-        
         // Get travel time and buffer for hotel travel (outstation type=2)
         const hotelTravelResult = await this.distanceHelper.fromSourceAndDestination(
           tx,
           destinationCity,
           destinationCity, // Hotel is in destination city
           2, // type=2 (outstation travel to hotel)
+          destCityCoords, // Use coordinates if available
+          destCityCoords,
         );
         
         const travelPlusBufferSeconds = 
@@ -454,32 +493,9 @@ export class TimelineBuilder {
       // DAY-1 DIFFERENT CITIES: If Day 1 and source city != destination city, enforce max 3 priority hotspots
       let selectedHotspots: SelectedHotspot[] = [];
       
-      // Compute source/destination cities using stored_locations
-      let sourceCity = "";
-      let destinationCity = "";
-      
-      if (route.location_id) {
-        const storedLoc = await (tx as any).dvi_stored_locations?.findFirst({
-          where: {
-            location_ID: BigInt(route.location_id),
-            deleted: 0,
-            status: 1,
-          },
-        });
-        
-        if (storedLoc) {
-          sourceCity = storedLoc.source_location || "";
-          destinationCity = storedLoc.destination_location || "";
-        }
-      }
-      
-      // Fallback to route fields if not found
-      if (!sourceCity) sourceCity = ((route.location_name as string) || "").split('|')[0].trim();
-      if (!destinationCity) destinationCity = ((route.next_visiting_location as string) || "").split('|')[0].trim();
-      
       const normalizedSourceCity = this.normalizeCityName(sourceCity);
       const normalizedDestinationCity = this.normalizeCityName(destinationCity);
-      const isDay1DifferentCities = isFirstRoute && normalizedSourceCity && normalizedDestinationCity && normalizedSourceCity !== normalizedDestinationCity;
+      const isDay1DifferentCities = isFirstRoute && normalizedSourceCity && normalizedDestinationCity && normalizedSourceCity !== normalizedDestinationCity && (route as any).direct_to_next_visiting_place !== 1;
       
       if (isDay1DifferentCities) {
         // Day-1 with different cities: fetch max 3 priority hotspots from source city only
@@ -530,6 +546,7 @@ export class TimelineBuilder {
               tx,
               planId,
               route.itinerary_route_ID,
+              allHotspots,
               undefined, // No source limit for direct travel
             );
           } else {
@@ -545,6 +562,7 @@ export class TimelineBuilder {
               tx,
               planId,
               route.itinerary_route_ID,
+              allHotspots,
               undefined, // No limit - schedule all top priority hotspots
               true, // Skip destination hotspots - they'll be added on Day 2
             );
@@ -568,6 +586,7 @@ export class TimelineBuilder {
             tx,
             planId,
             route.itinerary_route_ID,
+            allHotspots,
             undefined, // No source limit for direct travel (will skip source anyway)
           );
         } else {
@@ -584,6 +603,7 @@ export class TimelineBuilder {
             tx,
             planId,
             route.itinerary_route_ID,
+            allHotspots,
             undefined, // No limit - schedule all top priority hotspots
             true, // Skip destination hotspots - they'll be added on Day 2
           );
@@ -614,6 +634,7 @@ export class TimelineBuilder {
             tx,
             planId,
             route.itinerary_route_ID,
+            allHotspots,
           );
         } else {
           // Normal last route
@@ -621,6 +642,7 @@ export class TimelineBuilder {
             tx,
             planId,
             route.itinerary_route_ID,
+            allHotspots,
           );
         }
       } else {
@@ -629,6 +651,7 @@ export class TimelineBuilder {
           tx,
           planId,
           route.itinerary_route_ID,
+          allHotspots,
         );
       }
 
@@ -638,6 +661,12 @@ export class TimelineBuilder {
 
       // STRATEGY: For Day-1 different cities, process hotspots with strict priority walk
       // For other days, use multi-pass scheduling to fill gaps with deferred hotspots
+      
+      console.log('[TIMELINE] Selected hotspots for route:', selectedHotspots.length);
+      const routeLoopStart = Date.now();
+      let hotspotQueryCount = 0;
+      let distanceCalcCount = 0;
+      let operatingHoursCount = 0;
       
       if (isDay1DifferentCities) {
         // DAY-1 DIFFERENT CITIES: Strict priority walk with operating hour waiting
@@ -649,17 +678,8 @@ export class TimelineBuilder {
             continue;
           }
 
-          // Get hotspot details
-          const hotspotData = await tx.dvi_hotspot_place.findUnique({
-            where: { hotspot_ID: sh.hotspot_ID },
-            select: {
-              hotspot_location: true,
-              hotspot_latitude: true,
-              hotspot_longitude: true,
-              hotspot_duration: true,
-            },
-          });
-
+          // Get hotspot details from pre-fetched map (NO DB QUERY)
+          const hotspotData = hotspotMap.get(sh.hotspot_ID);
           if (!hotspotData) continue;
 
           const hotspotLocationName = hotspotData.hotspot_location as string || currentLocationName;
@@ -672,6 +692,7 @@ export class TimelineBuilder {
           if (!currentCoords) currentCoords = destCoords;
 
           // Calculate travel time
+          distanceCalcCount++;
           const travelTimeToHotspot = await this.calculateTravelTimeWithCoords(
             tx,
             currentLocationName,
@@ -692,6 +713,7 @@ export class TimelineBuilder {
           const destinationCity = rawDestination.split('|')[0].trim();
           const parsedHotspotLocation = hotspotLocationName.split('|')[0].trim();
           
+          distanceCalcCount++;
           const travelToDestResult = await this.distanceHelper.fromSourceAndDestination(
             tx,
             parsedHotspotLocation,
@@ -716,9 +738,10 @@ export class TimelineBuilder {
           const jsDay = route.itinerary_route_date ? new Date(route.itinerary_route_date).getDay() : 0;
           const dayOfWeek = (jsDay + 6) % 7;
 
-          // Check operating hours
-          let operatingCheck = await this.checkHotspotOperatingHours(
-            tx,
+          // Check operating hours (using pre-fetched timing map)
+          operatingHoursCount++;
+          let operatingCheck = this.checkHotspotOperatingHoursFromMap(
+            timingMap,
             sh.hotspot_ID,
             dayOfWeek,
             timeAfterTravel,
@@ -733,8 +756,8 @@ export class TimelineBuilder {
             timeAfterSightseeing = addSeconds(timeAfterTravel, hotspotDurationSeconds);
             
             // Re-check if it fits in the next window
-            operatingCheck = await this.checkHotspotOperatingHours(
-              tx,
+            operatingCheck = this.checkHotspotOperatingHoursFromMap(
+              timingMap,
               sh.hotspot_ID,
               dayOfWeek,
               timeAfterTravel,
@@ -995,6 +1018,8 @@ export class TimelineBuilder {
         
       } else {
         // OTHER DAYS: Multi-pass scheduling with deferred hotspots
+        console.log('[TIMELINE] Day 1 loop stats - Queries:', hotspotQueryCount, '| Distance calcs:', distanceCalcCount, '| Operating hours:', operatingHoursCount, '| Time:', Date.now() - routeLoopStart, 'ms');
+        
         const maxPasses = 5; // Prevent infinite loops
         let pass = 1;
         let addedInLastPass = true;
@@ -1034,6 +1059,8 @@ export class TimelineBuilder {
         // Build travel + hotspot segments in order (NO LUNCH BREAKS OR CUTOFF CHECKS)
         for (const sh of hotspotsToTry) {
         
+        hotspotQueryCount++;
+        
         // USER REQUIREMENT: Day 1 schedules ALL hotspots - no route time limit
         // Other days: stop if we have run out of route time
         if (!isFirstRoute) {
@@ -1058,17 +1085,8 @@ export class TimelineBuilder {
           continue;
         }
 
-        // 2.a) Get hotspot details including coordinates
-        const hotspotData = await tx.dvi_hotspot_place.findUnique({
-          where: { hotspot_ID: sh.hotspot_ID },
-          select: {
-            hotspot_location: true,
-            hotspot_latitude: true,
-            hotspot_longitude: true,
-            hotspot_duration: true,
-          },
-        });
-
+        // 2.a) Get hotspot details from pre-fetched map (NO DB QUERY)
+        const hotspotData = hotspotMap.get(sh.hotspot_ID);
         if (!hotspotData) {
           continue;
         }
@@ -1092,6 +1110,7 @@ export class TimelineBuilder {
         }
 
         // 2.b) Calculate travel time using coordinates (matches PHP)
+        distanceCalcCount++;
         const travelTimeToHotspot = await this.calculateTravelTimeWithCoords(
           tx,
           currentLocationName,
@@ -1150,8 +1169,9 @@ export class TimelineBuilder {
           : 0;
         const dayOfWeek = (jsDay + 6) % 7; // Convert to PHP convention (0=Monday)
         
-        const operatingHoursCheck = await this.checkHotspotOperatingHours(
-          tx,
+        operatingHoursCount++;
+        const operatingHoursCheck = this.checkHotspotOperatingHoursFromMap(
+          timingMap,
           sh.hotspot_ID,
           dayOfWeek,
           timeAfterTravel, // Visit starts after travel
@@ -1291,6 +1311,8 @@ export class TimelineBuilder {
       // End of hotspot scheduling loop
       pass++;
       } // End of while loop for multi-pass scheduling
+      
+      console.log('[TIMELINE] Other days loop stats - Queries:', hotspotQueryCount, '| Distance calcs:', distanceCalcCount, '| Operating hours:', operatingHoursCount, '| Time:', Date.now() - routeLoopStart, 'ms');
       } // End of else (OTHER DAYS)
 
       // ✅ RULE 2 + 3: TRAVEL TO HOTEL & FIX TIME BUG (item_type = 5)
@@ -1330,8 +1352,10 @@ export class TimelineBuilder {
             userId: createdByUserId,
             sourceLocationName: sourceCity,
             destinationLocationName: destinationCity,
-            sourceCoords: currentCoords,
-            // ❌ DO NOT pass destCoords - forces DB lookup by city name for consistent distance
+            // ✅ PHP PARITY: Only use coordinates (Haversine) if we actually visited hotspots.
+            // If no hotspots were visited, PHP uses the direct city-to-city distance from DB.
+            sourceCoords: addedHotspotIds.size > 0 ? currentCoords : undefined,
+            destCoords: addedHotspotIds.size > 0 ? destCityCoords : undefined,
           });
 
         // ✅ RULE 3: Fix "06:58 AM" time bug using proper UTC date conversion
@@ -1387,6 +1411,8 @@ export class TimelineBuilder {
             travelLocationType: 2, // outstation by default
             userId: createdByUserId,
             currentLocationName,
+            // ✅ PHP PARITY: Only use coordinates (Haversine) if we actually visited hotspots.
+            destCoords: addedHotspotIds.size > 0 ? destCityCoords : undefined,
           });
 
         hotspotRows.push(returnRow);
@@ -1552,17 +1578,21 @@ export class TimelineBuilder {
    * Instead, it has hotspot_location (text) which must be matched against
    * the route's location_name or next_visiting_location.
    * 
+   * @param allHotspots - Pre-fetched array of all active hotspots (performance optimization)
    * @param maxSourceHotspots - Optional limit for source location hotspots (for Day 1 arrival city)
    */
   private async fetchSelectedHotspotsForRoute(
     tx: Tx,
     planId: number,
     routeId: number,
+    allHotspots: any[],
     maxSourceHotspots?: number,
     skipDestinationHotspots?: boolean,
   ): Promise<SelectedHotspot[]> {
+    const fetchStart = Date.now();
     try {
       // 1) Load route context (dates + locations)
+      let opStart = Date.now();
       const route = (await (tx as any).dvi_itinerary_route_details?.findFirst({
         where: {
           itinerary_plan_ID: planId,
@@ -1571,6 +1601,7 @@ export class TimelineBuilder {
           status: 1,
         },
       })) as RouteRow | null;
+      console.log('[TIMELINE] fetchSelectedHotspotsForRoute - fetch route:', Date.now() - opStart, 'ms');
 
       if (!route) {
         return [];
@@ -1579,6 +1610,7 @@ export class TimelineBuilder {
       // PHP LINE 1023-1033: Get location names from stored_locations table, NOT from route fields
       // $location_name = getSTOREDLOCATIONDETAILS($start_location_id, 'SOURCE_LOCATION');
       // $next_visiting_name = getSTOREDLOCATIONDETAILS($start_location_id, 'DESTINATION_LOCATION');
+      opStart = Date.now();
       let targetLocation = "";
       let nextLocation = "";
       
@@ -1677,6 +1709,7 @@ export class TimelineBuilder {
       if (!targetLocation && !nextLocation) {
         return [];
       }
+      console.log('[TIMELINE] fetchSelectedHotspotsForRoute - location lookup:', Date.now() - opStart, 'ms');
 
       // PHP uses day-of-week filtering via dvi_hotspot_timing (date('N')-1 => Monday=0)
       const routeDate = route.itinerary_route_date
@@ -1688,6 +1721,7 @@ export class TimelineBuilder {
 
       // 2) Preload hotspot timings for this day (if available)
       // PHP uses LEFT JOIN without filtering hotspot_closed - includes all hotspots with timing records
+      opStart = Date.now();
       let allowedHotspotIds: Set<number> | null = null;
       if (phpDow !== undefined) {
         const timingRows = await (tx as any).dvi_hotspot_timing?.findMany({
@@ -1701,15 +1735,10 @@ export class TimelineBuilder {
           (timingRows || []).map((t: any) => Number(t.hotspot_ID ?? 0)).filter(Boolean),
         );
       }
+      console.log('[TIMELINE] fetchSelectedHotspotsForRoute - fetch timings:', Date.now() - opStart, 'ms');
 
-      // 3) Fetch all active hotspots (don't sort yet - will sort after calculating distances)
-      const allHotspots =
-        (await (tx as any).dvi_hotspot_place?.findMany({
-          where: {
-            deleted: 0,
-            status: 1,
-          },
-        })) || [];
+      // 3) Use pre-fetched hotspots array (passed as parameter for performance)
+      // Note: allHotspots is now passed from buildTimelineForPlan to avoid redundant queries
 
       // 3b) Fetch operating hours for all hotspots to enable time-aware sorting
       // PHP behavior: sortHotspots() re-orders to prioritize time-critical hotspots

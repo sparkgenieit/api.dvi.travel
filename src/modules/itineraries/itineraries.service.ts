@@ -3,6 +3,8 @@
 
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma.service";
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   CreateItineraryDto,
 } from "./dto/create-itinerary.dto";
@@ -35,6 +37,10 @@ export class ItinerariesService {
 
   async createPlan(dto: CreateItineraryDto) {
     const userId = 1;
+    const perfStart = Date.now();
+    const perfLog = path.join(__dirname, '../../../tmp/perf_log.txt');
+    fs.appendFileSync(perfLog, `\n\n=== NEW OPTIMIZATION RUN ${new Date().toISOString()} ===\n`);
+    fs.appendFileSync(perfLog, `[PERF] createPlan started\n`);
 
     // Validate hotel availability BEFORE starting the transaction
     // Only validate if hotels are needed (itinerary_preference 1 or 3)
@@ -67,15 +73,21 @@ export class ItinerariesService {
       }
     }
 
+    fs.appendFileSync(perfLog, `[PERF] Hotel validation completed: ${Date.now() - perfStart} ms\n`);
+    const txStart = Date.now();
+    
     // Increase interactive transaction timeout; hotspot rebuild + hotel lookups can exceed default 5s
     const result = await this.prisma.$transaction(async (tx) => {
+      const opStart = Date.now();
       const planId = await this.planEngine.upsertPlanHeader(
         dto.plan,
         dto.travellers,
         tx,
         userId,
       );
+      console.log('[PERF] upsertPlanHeader:', Date.now() - opStart, 'ms');
 
+      let opStart2 = Date.now();
       const routes = await this.routeEngine.rebuildRoutes(
         planId,
         dto.plan,
@@ -83,48 +95,66 @@ export class ItinerariesService {
         tx,
         userId,
       );
+      console.log('[PERF] rebuildRoutes:', Date.now() - opStart2, 'ms');
 
       // Rebuild permit charges after routes are created
+      opStart2 = Date.now();
       await this.routeEngine.rebuildPermitCharges(tx, planId, userId);
+      console.log('[PERF] rebuildPermitCharges:', Date.now() - opStart2, 'ms');
 
       // Rebuild via routes AFTER routes are created and BEFORE hotspots
+      opStart2 = Date.now();
       const routeIds = routes.map((r: any) => r.itinerary_route_ID);
       await this.viaRoutesEngine.rebuildViaRoutes(tx, planId, dto.routes, routeIds, userId);
+      console.log('[PERF] rebuildViaRoutes:', Date.now() - opStart2, 'ms');
 
+      opStart2 = Date.now();
       await this.planEngine.updateNoOfRoutes(planId, tx);
+      console.log('[PERF] updateNoOfRoutes:', Date.now() - opStart2, 'ms');
 
+      opStart2 = Date.now();
       await this.travellersEngine.rebuildTravellers(
         planId,
         dto.travellers,
         tx,
         userId,
       );
+      console.log('[PERF] rebuildTravellers:', Date.now() - opStart2, 'ms');
 
+      opStart2 = Date.now();
       await this.vehiclesEngine.rebuildPlanVehicles(
         planId,
         dto.vehicles,
         tx,
         userId,
       );
+      console.log('[PERF] rebuildPlanVehicles:', Date.now() - opStart2, 'ms');
 
       if (
         dto.plan.itinerary_preference === 1 ||
         dto.plan.itinerary_preference === 3
       ) {
+        opStart2 = Date.now();
         await this.hotelEngine.rebuildPlanHotels(
           planId,
           tx,
           userId,
           
         );
+        console.log('[PERF] rebuildPlanHotels:', Date.now() - opStart2, 'ms');
       }
 
+      opStart2 = Date.now();
       await this.hotspotEngine.rebuildRouteHotspots(tx, planId);
+      console.log('[PERF] rebuildRouteHotspots:', Date.now() - opStart2, 'ms');
 
+      opStart2 = Date.now();
       const planRow = await (tx as any).dvi_itinerary_plan_details.findUnique({
         where: { itinerary_plan_ID: planId },
         select: { itinerary_quote_ID: true },
       });
+      console.log('[PERF] getPlanRow:', Date.now() - opStart2, 'ms');
+      console.log('[PERF] TOTAL TRANSACTION:', Date.now() - txStart, 'ms');
 
       return {
         planId,
@@ -133,17 +163,22 @@ export class ItinerariesService {
         message:
           "Plan created/updated with routes, vehicles, travellers, hotspots, and hotels.",
       };
-    }, { timeout: 60000, maxWait: 10000 });
+    }, { timeout: 120000, maxWait: 20000 }); // Increased to 120s while we optimize further
 
     // Rebuild parking charges AFTER routes and hotspots
+    let postStart = Date.now();
     await this.hotspotEngine.rebuildParkingCharges(result.planId, userId);
+    console.log('[PERF] rebuildParkingCharges:', Date.now() - postStart, 'ms');
 
     // Rebuild vendor eligible list and vendor vehicle details AFTER transaction completes
     // (requires committed routes & hotspots data)
+    postStart = Date.now();
     await this.itineraryVehiclesEngine.rebuildEligibleVendorList({
       planId: result.planId,
       createdBy: userId,
     });
+    console.log('[PERF] rebuildEligibleVendorList:', Date.now() - postStart, 'ms');
+    console.log('[PERF] TOTAL createPlan:', Date.now() - perfStart, 'ms');
 
     return result;
   }

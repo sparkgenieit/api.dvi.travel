@@ -3042,6 +3042,7 @@ model dvi_hotel {
   @@index([hotel_state], map: "idx_hotel_hotel_state")
   @@index([status], map: "idx_hotel_status")
   @@index([updatedon], map: "idx_hotel_updatedon")
+  @@index([hotel_category, hotel_city], map: "idx_hotel_category_city")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -3267,6 +3268,7 @@ model dvi_hotel_meal_price_book {
   @@index([status], map: "idx_hotel_meal_price_book_status")
   @@index([updatedon], map: "idx_hotel_meal_price_book_updatedon")
   @@index([year], map: "idx_hotel_meal_price_book_year")
+  @@index([hotel_id, year, month], map: "idx_hotel_meal_pricing_lookup")
 }
 
 model dvi_hotel_review_details {
@@ -3398,6 +3400,7 @@ model dvi_hotel_room_price_book {
   @@index([status], map: "idx_hotel_room_price_book_status")
   @@index([updatedon], map: "idx_hotel_room_price_book_updatedon")
   @@index([year], map: "idx_hotel_room_price_book_year")
+  @@index([hotel_id, year, month], map: "idx_hotel_pricing_lookup")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -4768,6 +4771,7 @@ model dvi_stored_locations {
   @@index([deleted], map: "idx_stored_locations_deleted")
   @@index([status], map: "idx_stored_locations_status")
   @@index([source_location(length: 768)], map: "source_location_2")
+  @@index([deleted, status, source_location(length: 255), destination_location(length: 255)], map: "idx_location_lookup_composite")
   @@index([destination_location_lattitude(length: 768)], map: "idx_dvi_stored_locations_destination_location_lattitude")
   @@index([destination_location_longitude(length: 768)], map: "idx_dvi_stored_locations_destination_location_longitude")
   @@index([source_location_lattitude(length: 768)], map: "idx_dvi_stored_locations_source_location_lattitude")

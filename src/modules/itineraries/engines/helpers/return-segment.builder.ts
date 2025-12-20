@@ -24,6 +24,7 @@ export class ReturnSegmentBuilder {
       userId: number;
       currentLocationName: string;
       transportMode?: 'road' | 'train' | 'flight';
+      destCoords?: { lat: number; lon: number };
     },
   ): Promise<{ row: HotspotDetailRow; nextTime: string }> {
     // TODO: adjust field names if departure_location differs.
@@ -43,6 +44,7 @@ export class ReturnSegmentBuilder {
       userId: opts.userId,
       sourceLocationName: opts.currentLocationName,
       destinationLocationName,
+      destCoords: opts.destCoords,
     });
   }
 }

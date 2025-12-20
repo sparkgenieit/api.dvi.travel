@@ -166,6 +166,9 @@ export class RouteEngineService {
         destination_location: trimmedDest,
         deleted: 0,
       },
+      orderBy: {
+        location_ID: "desc",
+      },
       select: {
         location_ID: true,
         distance: true,
@@ -310,7 +313,7 @@ export class RouteEngineService {
           itinerary_route_date: routeDate,
           no_of_days: 1, // PHP: $selected_NO_OF_DAYS = 1
           no_of_km: distanceKm, // from master distance; "" or "0" if missing
-          direct_to_next_visiting_place: 0, // PHP currently sets $selected_DIRECT_DESTINATION_VISIT_CHECK = 0
+          direct_to_next_visiting_place: Number(r.direct_to_next_visiting_place || 0),
           next_visiting_location: destName,
           route_start_time: timeStringToPrismaTime(startHms),
           route_end_time: timeStringToPrismaTime(endHms),
