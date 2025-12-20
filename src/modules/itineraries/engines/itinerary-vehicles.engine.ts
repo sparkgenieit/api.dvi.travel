@@ -3,8 +3,6 @@
 
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../prisma.service";
-import * as fs from "fs";
-import * as path from "path";
 import {
   VehicleCalculationContext,
   RouteData,
@@ -76,37 +74,14 @@ async function getPhpTotalVehicleQty(tx: any, whereBase: any): Promise<number> {
 
 @Injectable()
 export class ItineraryVehiclesEngine {
-  private readonly LOG_DIR = path.resolve(process.cwd(), "logs");
-  private readonly LOG_FILE = path.join(this.LOG_DIR, "vehicles-engine.log");
-
   constructor(private readonly prisma: PrismaService) {}
 
   // ---------------------------------------------------------------------------
-  // FILE LOGGING
+  // LOGGING
   // ---------------------------------------------------------------------------
   private writeLog(line: string) {
     if (!ENABLE_LOG) return;
-    let wrote = false;
-    try {
-      if (!fs.existsSync(this.LOG_DIR)) {
-        fs.mkdirSync(this.LOG_DIR, { recursive: true });
-      }
-      fs.appendFileSync(this.LOG_FILE, line + "\n", { encoding: "utf8" });
-      wrote = true;
-    } catch (err) {
-      // fallback to console if file logging fails
-      console.error("[vehiclesEngine] LOG FILE ERROR", err);
-    }
-    // Always also try to write to tmp/vehicles-engine-debug.log
-    try {
-      const tmpLog = path.resolve(process.cwd(), "tmp", "vehicles-engine-debug.log");
-      fs.appendFileSync(tmpLog, line + "\n", { encoding: "utf8" });
-    } catch (err2) {
-      if (!wrote) {
-        // If both fail, fallback to console
-        console.error("[vehiclesEngine] TMP LOG FILE ERROR", err2);
-      }
-    }
+    console.log(`[vehiclesEngine] ${line}`);
   }
 
   private escapeString(value: string): string {

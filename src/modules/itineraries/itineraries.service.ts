@@ -3,8 +3,6 @@
 
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma.service";
-import * as fs from 'fs';
-import * as path from 'path';
 import {
   CreateItineraryDto,
 } from "./dto/create-itinerary.dto";
@@ -38,9 +36,6 @@ export class ItinerariesService {
   async createPlan(dto: CreateItineraryDto) {
     const userId = 1;
     const perfStart = Date.now();
-    const perfLog = path.join(__dirname, '../../../tmp/perf_log.txt');
-    fs.appendFileSync(perfLog, `\n\n=== NEW OPTIMIZATION RUN ${new Date().toISOString()} ===\n`);
-    fs.appendFileSync(perfLog, `[PERF] createPlan started\n`);
 
     // Validate hotel availability BEFORE starting the transaction
     // Only validate if hotels are needed (itinerary_preference 1 or 3)
@@ -73,7 +68,6 @@ export class ItinerariesService {
       }
     }
 
-    fs.appendFileSync(perfLog, `[PERF] Hotel validation completed: ${Date.now() - perfStart} ms\n`);
     const txStart = Date.now();
     
     // Increase interactive transaction timeout; hotspot rebuild + hotel lookups can exceed default 5s
