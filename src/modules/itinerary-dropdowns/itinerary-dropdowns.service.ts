@@ -26,44 +26,79 @@ export class ItineraryDropdownsService {
     type: LocationType = 'source',
     sourceLocation?: string,
   ): Promise<LocationOption[]> {
-    if (type === 'destination') {
-      const rows = await this.prisma.dvi_stored_locations.findMany({
-        where: {
-          deleted: 0,
-          status: 1,
-          ...(sourceLocation ? { source_location: sourceLocation } : {}),
-        } as any,
-        select: {
-          destination_location: true,
-        },
-        distinct: ['destination_location'],
-      } as any);
-
-      return rows
-        .filter((r) => !!r.destination_location)
-        .map((r) => ({
-          id: r.destination_location as string,
-          name: r.destination_location as string,
-        }));
-    }
+    const isDestination = type === 'destination';
 
     const rows = await this.prisma.dvi_stored_locations.findMany({
       where: {
         deleted: 0,
         status: 1,
+        ...(isDestination && sourceLocation ? { source_location: sourceLocation } : {}),
       } as any,
       select: {
         source_location: true,
+        destination_location: true,
       },
-      distinct: ['source_location'],
+      distinct: isDestination ? ['destination_location'] : ['source_location'],
     } as any);
 
-    return rows
-      .filter((r) => !!r.source_location)
-      .map((r) => ({
-        id: r.source_location as string,
-        name: r.source_location as string,
-      }));
+    let locations = rows
+      .map((r) =>
+        (isDestination ? r.destination_location : r.source_location) as string,
+      )
+      .filter(Boolean);
+
+    // Filter locations to only those that have hotels (overnight stay requirement)
+    // 1. Get all city IDs that have active hotels
+    const hotels = await this.prisma.dvi_hotel.findMany({
+      where: { status: 1, deleted: false },
+      select: { hotel_city: true },
+      distinct: ['hotel_city'],
+    });
+
+    const cityIdsWithHotels = hotels
+      .map((h) => h.hotel_city)
+      .filter(Boolean)
+      .map((id) => parseInt(id))
+      .filter((id) => !isNaN(id));
+
+    // 2. Get names of these cities
+    const cities = await (this.prisma as any).dvi_cities.findMany({
+      where: { id: { in: cityIdsWithHotels }, deleted: 0 },
+      select: { name: true },
+    });
+
+    const cityNamesWithHotels = cities.map((c: any) => c.name.toLowerCase());
+
+    // Add common aliases to the list of valid city names
+    const CITY_ALIASES: Record<string, string[]> = {
+      alappuzha: ['alleppey', 'alleppe'],
+      kochi: ['cochin'],
+      kozhikode: ['calicut'],
+      thiruvananthapuram: ['trivandrum'],
+      puducherry: ['pondicherry'],
+      bengaluru: ['bangalore'],
+    };
+
+    const allValidNames = [...cityNamesWithHotels];
+    cityNamesWithHotels.forEach((name) => {
+      if (CITY_ALIASES[name]) {
+        allValidNames.push(...CITY_ALIASES[name]);
+      }
+    });
+
+    // 3. Filter locations: keep if it matches or contains a city name with hotels
+    locations = locations.filter((loc) => {
+      const lowerLoc = loc.toLowerCase();
+      return allValidNames.some(
+        (cityName) =>
+          lowerLoc.includes(cityName) || cityName.includes(lowerLoc),
+      );
+    });
+
+    return locations.map((loc) => ({
+      id: loc,
+      name: loc,
+    }));
   }
 
   async getItineraryTypes(): Promise<SimpleOption[]> {
