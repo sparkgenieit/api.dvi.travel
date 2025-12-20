@@ -159,7 +159,7 @@ export class HotelEngineService {
 
     // Insert all room records
     for (const result of hotelResults) {
-      const routeForInsert = routes.find(r => r.itinerary_route_ID === result.routeId);
+      const routeForInsert = routes.find((r: any) => r.itinerary_route_ID === result.routeId);
       if (!routeForInsert) continue;
 
       if (!result.hotel) {
