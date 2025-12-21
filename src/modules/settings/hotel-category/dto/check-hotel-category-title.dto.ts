@@ -7,7 +7,7 @@ export class CheckHotelCategoryTitleDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(65535)
-  title: string;
+  title!: string;
 
   @IsOptional()
   @Type(() => Number)

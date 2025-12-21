@@ -9,15 +9,30 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AgentService } from './agent.service';
 import { ListAgentQueryDto } from './dto/list-agent.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
 @Controller('agents')
 export class AgentController {
   constructor(private readonly service: AgentService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  getProfile(@Req() req: any) {
+    const user = req.user;
+    // Role 4 is Agent
+    if (user.role === 4) {
+      return this.service.getById(Number(user.agentId));
+    }
+    throw new UnauthorizedException('Only agents can access this profile');
+  }
 
   /**
    * Lightweight list: [{ id, name }]
@@ -35,8 +50,14 @@ export class AgentController {
   }
 
   /** Paginated/DT list with rich fields (existing) */
+  @UseGuards(JwtAuthGuard)
   @Get()
-  list(@Query() query: ListAgentQueryDto) {
+  async list(@Req() req: any, @Query() query: ListAgentQueryDto) {
+    const user = req.user;
+    // Role 3 or 8 is Travel Expert / Staff
+    if ((user.role === 3 || user.role === 8 || (user.staffId && user.staffId > 0)) && user.role !== 4 && user.role !== 6) {
+      query.travelExpertId = Number(user.staffId);
+    }
     return this.service.list(query);
   }
 

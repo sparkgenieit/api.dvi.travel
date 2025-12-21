@@ -6,15 +6,34 @@ import {
   Get,
   Param,
   Patch,
+  Post,
+  Put,
   Query,
   Req,
 } from '@nestjs/common';
 import { DriversService } from './drivers.service';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
+import { CreateDriverDto } from './dto/create-driver.dto';
+import { UpdateDriverDto } from './dto/update-driver.dto';
 
 @Controller('drivers')
 export class DriversController {
   constructor(private readonly driversService: DriversService) {}
+
+  @Post()
+  async create(@Body() body: CreateDriverDto) {
+    return this.driversService.create(body);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.driversService.findOne(Number(id));
+  }
+
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() body: UpdateDriverDto) {
+    return this.driversService.update(Number(id), body);
+  }
 
   /**
    * GET /drivers

@@ -86,6 +86,7 @@ export interface CostBreakdownDto {
 export interface ItineraryDetailsResponseDto {
   quoteId: string;
   planId: number;
+  isConfirmed?: boolean;
   dateRange: string;
   roomCount: number;
   extraBed: number;
@@ -305,6 +306,10 @@ export class ItineraryDetailsService {
       throw new NotFoundException('Itinerary not found');
     }
     const planId = plan.itinerary_plan_ID;
+
+    const confirmedPlan = await this.prisma.dvi_confirmed_itinerary_plan_details.findFirst({
+      where: { itinerary_plan_ID: planId, deleted: 0 },
+    });
 
     // ------------------------- ROUTES + HOTSPOTS ----------------------
     const routes = await this.prisma.dvi_itinerary_route_details.findMany({
@@ -1190,6 +1195,7 @@ export class ItineraryDetailsService {
     const response: ItineraryDetailsResponseDto = {
       quoteId: plan.itinerary_quote_ID ?? '',
       planId: plan.itinerary_plan_ID,
+      isConfirmed: !!confirmedPlan,
       dateRange,
       roomCount,
       extraBed: plan.total_extra_bed ?? 0,

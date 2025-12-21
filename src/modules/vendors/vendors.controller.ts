@@ -119,6 +119,116 @@ export class VendorsController {
     return { success: true };
   }
 
+  // --- Step 3: Driver Costs ---
+
+  @Public()
+  @Get(':id/vehicle-types')
+  @ApiOperation({ summary: 'Get vendor vehicle types (Driver Costs)' })
+  async getVehicleTypes(@Param('id', ParseIntPipe) id: number): Promise<any[]> {
+    return this.vendorsService.getVendorVehicleTypes(id);
+  }
+
+  @Public()
+  @Post(':id/vehicle-types')
+  @ApiOperation({ summary: 'Update vendor vehicle type (Driver Cost)' })
+  async updateVehicleType(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: any,
+  ): Promise<any> {
+    return this.vendorsService.updateVendorVehicleType(id, body);
+  }
+
+  // --- Step 4: Vehicle Info ---
+
+  @Public()
+  @Get(':id/vehicles')
+  @ApiOperation({ summary: 'Get vendor vehicles' })
+  async getVehicles(@Param('id', ParseIntPipe) id: number): Promise<any[]> {
+    return this.vendorsService.getVendorVehicles(id);
+  }
+
+  @Public()
+  @Post(':id/vehicles')
+  @ApiOperation({ summary: 'Create vendor vehicle' })
+  async createVehicle(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: any,
+  ): Promise<any> {
+    return this.vendorsService.createVendorVehicle(id, body);
+  }
+
+  @Public()
+  @Put('vehicles/:vehicleId')
+  @ApiOperation({ summary: 'Update vendor vehicle' })
+  async updateVehicle(
+    @Param('vehicleId', ParseIntPipe) vehicleId: number,
+    @Body() body: any,
+  ): Promise<any> {
+    return this.vendorsService.updateVendorVehicle(vehicleId, body);
+  }
+
+  @Public()
+  @Delete('vehicles/:vehicleId')
+  @ApiOperation({ summary: 'Delete vendor vehicle' })
+  async deleteVehicle(@Param('vehicleId', ParseIntPipe) vehicleId: number): Promise<void> {
+    return this.vendorsService.softDeleteVehicle(vehicleId);
+  }
+
+  // --- Step 5: Pricebook ---
+
+  @Public()
+  @Get(':id/pricebook/local')
+  @ApiOperation({ summary: 'Get vendor local pricebook' })
+  async getLocalPricebook(@Param('id', ParseIntPipe) id: number): Promise<any[]> {
+    return this.vendorsService.getVendorLocalPricebook(id);
+  }
+
+  @Public()
+  @Post(':id/pricebook/local')
+  @ApiOperation({ summary: 'Update vendor local pricebook' })
+  async updateLocalPricebook(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: any,
+  ): Promise<any> {
+    return this.vendorsService.updateVendorLocalPricebook(id, body);
+  }
+
+  @Public()
+  @Get(':id/pricebook/outstation')
+  @ApiOperation({ summary: 'Get vendor outstation pricebook' })
+  async getOutstationPricebook(@Param('id', ParseIntPipe) id: number): Promise<any[]> {
+    return this.vendorsService.getVendorOutstationPricebook(id);
+  }
+
+  @Public()
+  @Post(':id/pricebook/outstation')
+  @ApiOperation({ summary: 'Update vendor outstation pricebook' })
+  async updateOutstationPricebook(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: any,
+  ): Promise<any> {
+    return this.vendorsService.updateVendorOutstationPricebook(id, body);
+  }
+
+  // --- Step 6: Permit Cost ---
+
+  @Public()
+  @Get(':id/permit-costs')
+  @ApiOperation({ summary: 'Get vendor permit costs' })
+  async getPermitCosts(@Param('id', ParseIntPipe) id: number): Promise<any[]> {
+    return this.vendorsService.getVendorPermitCosts(id);
+  }
+
+  @Public()
+  @Post(':id/permit-costs')
+  @ApiOperation({ summary: 'Update vendor permit cost' })
+  async updatePermitCost(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: any,
+  ): Promise<any> {
+    return this.vendorsService.updateVendorPermitCost(id, body);
+  }
+
   /**
    * List all branches for a vendor.
    * Can be used to hydrate a separate Branches tab if needed.
@@ -429,6 +539,37 @@ export class VendorsDropdownsController {
   })
   async gstPercents(): Promise<DropdownItem[]> {
     const { items } = await this.vendorsService.getGstPercentOptions();
+    return items;
+  }
+
+  @Get('vehicle-types')
+  @ApiOperation({
+    summary: 'Vehicle type dropdown (flat array)',
+  })
+  async vehicleTypes(): Promise<DropdownItem[]> {
+    const { items } = await this.vendorsService.getVehicleTypeOptions();
+    return items;
+  }
+
+  @Get('time-limits')
+  @ApiOperation({
+    summary: 'Time limit dropdown (flat array, filtered by vendorId)',
+  })
+  async timeLimits(
+    @Query('vendorId', ParseIntPipe) vendorId: number,
+  ): Promise<DropdownItem[]> {
+    const { items } = await this.vendorsService.getTimeLimitOptions(vendorId);
+    return items;
+  }
+
+  @Get('kms-limits')
+  @ApiOperation({
+    summary: 'KMS limit dropdown (flat array, filtered by vendorId)',
+  })
+  async kmsLimits(
+    @Query('vendorId', ParseIntPipe) vendorId: number,
+  ): Promise<DropdownItem[]> {
+    const { items } = await this.vendorsService.getKmsLimitOptions(vendorId);
     return items;
   }
 }

@@ -19,4 +19,7 @@ export class ListAgentQueryDto {
 
   @IsOptional() @IsString()
   draw?: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0)
+  travelExpertId?: number;
 }

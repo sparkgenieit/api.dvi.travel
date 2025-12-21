@@ -459,8 +459,8 @@ export class HotspotsService {
     const masterData: Prisma.dvi_hotspot_placeUncheckedCreateInput = {
       hotspot_name: input.hotspot_name.trim(),
       hotspot_type: input.hotspot_type ?? null,
-      hotspot_rating: (input as any).hotspot_rating ?? null,
-      hotspot_priority: (input as any).hotspot_priority ?? 0,
+      hotspot_rating: toNumber((input as any).hotspot_rating),
+      hotspot_priority: toNumber((input as any).hotspot_priority),
       hotspot_latitude: (input as any).hotspot_latitude ?? null,
       hotspot_longitude: (input as any).hotspot_longitude ?? null,
       hotspot_address: (input as any).hotspot_address ?? null,
@@ -470,12 +470,12 @@ export class HotspotsService {
 
       hotspot_location: normalizeLocationArrayToPipe((input as any).hotspot_location_list),
 
-      hotspot_adult_entry_cost: (input as any).hotspot_adult_entry_cost ?? null,
-      hotspot_child_entry_cost: (input as any).hotspot_child_entry_cost ?? null,
-      hotspot_infant_entry_cost: (input as any).hotspot_infant_entry_cost ?? null,
-      hotspot_foreign_adult_entry_cost: (input as any).hotspot_foreign_adult_entry_cost ?? null,
-      hotspot_foreign_child_entry_cost: (input as any).hotspot_foreign_child_entry_cost ?? null,
-      hotspot_foreign_infant_entry_cost: (input as any).hotspot_foreign_infant_entry_cost ?? null,
+      hotspot_adult_entry_cost: toNumber((input as any).hotspot_adult_entry_cost),
+      hotspot_child_entry_cost: toNumber((input as any).hotspot_child_entry_cost),
+      hotspot_infant_entry_cost: toNumber((input as any).hotspot_infant_entry_cost),
+      hotspot_foreign_adult_entry_cost: (input as any).hotspot_foreign_adult_entry_cost ?? 0,
+      hotspot_foreign_child_entry_cost: (input as any).hotspot_foreign_child_entry_cost ?? 0,
+      hotspot_foreign_infant_entry_cost: (input as any).hotspot_foreign_infant_entry_cost ?? 0,
 
       status: (input as any).status ?? 1,
       deleted: (input as any).deleted ?? 0,

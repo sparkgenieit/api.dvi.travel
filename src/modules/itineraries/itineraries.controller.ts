@@ -35,6 +35,7 @@ import {
 } from './dto/create-itinerary.dto';
 import { LatestItineraryQueryDto } from './dto/latest-itinerary-query.dto';
 import { ConfirmQuotationDto } from './dto/confirm-quotation.dto';
+import { CancelItineraryDto } from './dto/cancel-itinerary.dto';
 import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import {
@@ -230,8 +231,8 @@ export class ItinerariesController {
       },
     },
   })
-  async createPlan(@Body() dto: CreateItineraryDto) {
-    return this.svc.createPlan(dto);
+  async createPlan(@Body() dto: CreateItineraryDto, @Req() req: Request) {
+    return this.svc.createPlan(dto, req);
   }
 
   @Get('details/:quoteId')
@@ -309,8 +310,8 @@ export class ItinerariesController {
 
   @Get('latest/agents')
   @ApiOperation({ summary: 'Get agents for latest itineraries filter' })
-  async getLatestAgents() {
-    return this.svc.getAgentsForFilter();
+  async getLatestAgents(@Req() req: Request) {
+    return this.svc.getAgentsForFilter(req);
   }
 
   @Get('latest/locations')
@@ -534,38 +535,54 @@ export class ItinerariesController {
     return this.svc.confirmQuotation(dto);
   }
 
+  @Post('cancel')
+  @ApiOperation({ summary: 'Cancel a confirmed itinerary' })
+  @ApiBody({ type: CancelItineraryDto })
+  @ApiOkResponse({ description: 'Itinerary cancelled successfully' })
+  async cancelItinerary(@Body() dto: CancelItineraryDto) {
+    return this.svc.cancelItinerary(dto);
+  }
+
   @Get('confirmed')
   @ApiOperation({
     summary: 'Get confirmed itineraries list with pagination and filters',
   })
-  @ApiQuery({ name: 'draw', required: false, type: Number })
-  @ApiQuery({ name: 'start', required: false, type: Number })
-  @ApiQuery({ name: 'length', required: false, type: Number })
-  @ApiQuery({
-    name: 'start_date',
-    required: false,
-    type: String,
-    description: 'Format: DD/MM/YYYY',
-  })
-  @ApiQuery({
-    name: 'end_date',
-    required: false,
-    type: String,
-    description: 'Format: DD/MM/YYYY',
-  })
-  @ApiQuery({ name: 'source_location', required: false, type: String })
-  @ApiQuery({ name: 'destination_location', required: false, type: String })
-  @ApiQuery({ name: 'agent_id', required: false, type: Number })
-  @ApiQuery({ name: 'staff_id', required: false, type: Number })
-  async getConfirmedItineraries(@Query() query: LatestItineraryQueryDto) {
-    return this.svc.getConfirmedItineraries(query);
+  @ApiQuery({ type: LatestItineraryQueryDto })
+  async getConfirmedItineraries(
+    @Query() query: LatestItineraryQueryDto,
+    @Req() req: Request,
+  ) {
+    return this.svc.getConfirmedItineraries(query, req);
   }
 
+  @Get('cancelled')
+  @ApiOperation({
+    summary: 'Get cancelled itineraries list with pagination and filters',
+  })
+  @ApiQuery({ type: LatestItineraryQueryDto })
+  async getCancelledItineraries(
+    @Query() query: LatestItineraryQueryDto,
+    @Req() req: Request,
+  ) {
+    return this.svc.getCancelledItineraries(query, req);
+  }
+
+  @Get('accounts')
+  @ApiOperation({
+    summary: 'Get accounts itineraries list with pagination and filters',
+  })
+  @ApiQuery({ type: LatestItineraryQueryDto })
+  async getAccountsItineraries(
+    @Query() query: LatestItineraryQueryDto,
+    @Req() req: Request,
+  ) {
+    return this.svc.getAccountsItineraries(query, req);
+  }
   @Get('confirmed/agents')
   @ApiOperation({ summary: 'Get agents for confirmed itineraries filter' })
   @ApiOkResponse({ description: 'Returns list of agents with id and name' })
-  async getConfirmedAgents() {
-    return this.svc.getAgentsForFilter();
+  async getConfirmedAgents(@Req() req: any) {
+    return this.svc.getAgentsForFilter(req);
   }
 
   @Get('confirmed/locations')
@@ -573,6 +590,30 @@ export class ItinerariesController {
   @ApiOkResponse({ description: 'Returns unique locations from arrival and departure' })
   async getConfirmedLocations() {
     return this.svc.getLocationsForFilter();
+  }
+
+  @Get(':id/voucher-details')
+  @ApiOperation({ summary: 'Get voucher details for a confirmed itinerary' })
+  async getVoucherDetails(@Param('id', ParseIntPipe) id: number) {
+    return this.svc.getVoucherDetails(id);
+  }
+
+  @Get(':id/pluck-card-data')
+  @ApiOperation({ summary: 'Get pluck card data for a confirmed itinerary' })
+  async getPluckCardData(@Param('id', ParseIntPipe) id: number) {
+    return this.svc.getPluckCardData(id);
+  }
+
+  @Get('confirmed/:confirmedId/pluck-card-data')
+  @ApiOperation({ summary: 'Get pluck card data by confirmed plan id' })
+  async getPluckCardDataByConfirmedId(@Param('confirmedId', ParseIntPipe) confirmedId: number) {
+    return this.svc.getPluckCardDataByConfirmedId(confirmedId);
+  }
+
+  @Get(':id/invoice-data')
+  @ApiOperation({ summary: 'Get invoice data for a confirmed itinerary' })
+  async getInvoiceData(@Param('id', ParseIntPipe) id: number) {
+    return this.svc.getInvoiceData(id);
   }
 
   /**

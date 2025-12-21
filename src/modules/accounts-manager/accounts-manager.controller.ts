@@ -1,6 +1,6 @@
 // FILE: src/modules/accounts-manager/accounts-manager.controller.ts
 
-import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, UseGuards, Req } from "@nestjs/common";
 import { AccountsManagerService } from "./accounts-manager.service";
 import { AccountsManagerQueryDto } from "./dto/accounts-manager-query.dto";
 import { AccountsManagerRowDto } from "./dto/accounts-manager-row.dto";
@@ -18,6 +18,7 @@ import {
   ApiOperation,
   ApiTags,
 } from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../auth/jwt-auth.guard";
 
 @ApiTags("accounts-manager")
 @ApiBearerAuth() // uses default bearer auth from main.ts
@@ -31,6 +32,7 @@ export class AccountsManagerController {
    * Main list endpoint.
    * GET /accounts-manager
    */
+  @UseGuards(JwtAuthGuard)
   @Get()
   @ApiOperation({
     summary: "List account manager rows",
@@ -39,8 +41,19 @@ export class AccountsManagerController {
   })
   @ApiOkResponse({ type: AccountsManagerRowDto, isArray: true })
   async list(
+    @Req() req: any,
     @Query() query: AccountsManagerQueryDto,
   ): Promise<AccountsManagerRowDto[]> {
+    const user = req.user;
+    // Role 4 is Agent
+    if (user.role === 4) {
+      query.agentId = Number(user.agentId);
+    } else if (user.role === 6) {
+      // Accounts role - see everything
+    } else if (user.role === 3 || user.role === 8 || (user.staffId && user.staffId > 0)) {
+      // Travel Expert logic
+      (query as any).travelExpertId = Number(user.staffId);
+    }
     return this.service.list(query);
   }
 
@@ -49,6 +62,7 @@ export class AccountsManagerController {
    * as the list endpoint.
    * GET /accounts-manager/summary
    */
+  @UseGuards(JwtAuthGuard)
   @Get("summary")
   @ApiOperation({
     summary: "Get summary totals for current filter",
@@ -57,8 +71,18 @@ export class AccountsManagerController {
   })
   @ApiOkResponse({ type: AccountsManagerSummaryDto })
   async summary(
+    @Req() req: any,
     @Query() query: AccountsManagerQueryDto,
   ): Promise<AccountsManagerSummaryDto> {
+    const user = req.user;
+    // Role 4 is Agent
+    if (user.role === 4) {
+      query.agentId = Number(user.agentId);
+    } else if (user.role === 6) {
+      // Accounts role - see everything
+    } else if (user.role === 3 || user.role === 8 || (user.staffId && user.staffId > 0)) {
+      (query as any).travelExpertId = Number(user.staffId);
+    }
     return this.service.getSummary(query);
   }
 

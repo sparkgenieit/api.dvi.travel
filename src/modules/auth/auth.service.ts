@@ -57,6 +57,9 @@ console.log(user);
       sub: userId,
       email: user.useremail,
       role: user.roleID, // numeric roleID from dvi_users
+      agentId: user.agent_id,
+      staffId: user.staff_id,
+      guideId: user.guide_id,
     };
 
     const accessToken = await this.jwt.signAsync(payload);
@@ -67,6 +70,9 @@ console.log(user);
         id: userId,
         email: user.useremail,
         role: user.roleID,
+        agentId: user.agent_id,
+        staffId: user.staff_id,
+        guideId: user.guide_id,
         fullName: user.username ?? '', // map from username field
       },
     };

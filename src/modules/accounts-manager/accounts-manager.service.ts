@@ -43,6 +43,17 @@ export class AccountsManagerService {
       };
     }
 
+    if (query.agentId) {
+      detailsWhere.agent_id = Number(query.agentId);
+    } else if ((query as any).travelExpertId) {
+      const teAgents = await this.prisma.dvi_agent.findMany({
+        where: { travel_expert_id: Number((query as any).travelExpertId), deleted: 0 },
+        select: { agent_ID: true },
+      });
+      const teAgentIds = teAgents.map((a) => Number(a.agent_ID));
+      detailsWhere.agent_id = { in: teAgentIds };
+    }
+
     if (fromDate && toDate) {
       detailsWhere.trip_start_date_and_time = { gte: fromDate };
       detailsWhere.trip_end_date_and_time = { lte: toDate };
@@ -57,9 +68,12 @@ export class AccountsManagerService {
       select: {
         accounts_itinerary_details_ID: true,
         itinerary_quote_ID: true,
+        itinerary_plan_ID: true,
         agent_id: true,
         trip_start_date_and_time: true,
         trip_end_date_and_time: true,
+        total_received_amount: true,
+        total_payout_amount: true,
       },
     });
 
@@ -73,6 +87,26 @@ export class AccountsManagerService {
     for (const h of headers) {
       headersById.set(h.accounts_itinerary_details_ID, h);
       headerIds.push(h.accounts_itinerary_details_ID);
+    }
+
+    const planIds = Array.from(new Set(headers.map(h => h.itinerary_plan_ID).filter(id => id > 0)));
+    const plans = planIds.length 
+      ? await this.prisma.dvi_itinerary_plan_details.findMany({
+          where: { itinerary_plan_ID: { in: planIds } },
+          select: {
+            itinerary_plan_ID: true,
+            arrival_location: true,
+            departure_location: true,
+            total_adult: true,
+            total_children: true,
+            total_infants: true,
+          }
+        })
+      : [];
+    
+    const planMap = new Map<number, any>();
+    for (const p of plans) {
+      planMap.set(p.itinerary_plan_ID, p);
     }
 
     // 2️⃣ Agents map (for agent name filter + display)
@@ -135,6 +169,7 @@ export class AccountsManagerService {
       const header = headersById.get(detailHeaderId);
       if (!header) return null;
 
+      const plan = planMap.get(header.itinerary_plan_ID);
       const quoteId = header.itinerary_quote_ID || "";
       const agentName = agentMap.get(header.agent_id) || "";
 
@@ -173,6 +208,10 @@ export class AccountsManagerService {
         // per-component enrichments will fill these:
         vendorId: undefined,
         vehicleId: undefined,
+        arrivalLocation: plan?.arrival_location || "",
+        departureLocation: plan?.departure_location || "",
+        guestName: plan ? `Adult: ${plan.total_adult}, Child: ${plan.total_children}` : "",
+        inhandAmount: (header.total_received_amount || 0) - (header.total_payout_amount || 0),
       };
     };
 
@@ -191,6 +230,9 @@ export class AccountsManagerService {
             total_payable: true,
             total_paid: true,
             total_balance: true,
+            total_hotel_cost: true,
+            total_hotel_tax_amount: true,
+            total_purchase_cost: true,
           },
         });
 
@@ -224,6 +266,11 @@ export class AccountsManagerService {
         base.id = hd.accounts_itinerary_hotel_details_ID;
         // 🔹 match PHP: hotel_id as vendorId
         base.vendorId = hd.hotel_id || undefined;
+        
+        base.receivableFromAgentAmount = (hd.total_hotel_cost || 0) + (hd.total_hotel_tax_amount || 0);
+        base.marginAmount = (hd.total_hotel_cost || 0) - (hd.total_purchase_cost || 0);
+        base.tax = hd.total_hotel_tax_amount || 0;
+
         rows.push(base);
       }
     }
@@ -243,6 +290,7 @@ export class AccountsManagerService {
             total_payable: true,
             total_paid: true,
             total_balance: true,
+            guide_slot_cost: true,
           },
         });
 
@@ -409,6 +457,8 @@ export class AccountsManagerService {
             total_payable: true,
             total_paid: true,
             total_balance: true,
+            vehicle_grand_total: true,
+            total_purchase: true,
           },
         });
 
@@ -455,6 +505,11 @@ export class AccountsManagerService {
         base.vehicleId = vd.vehicle_id || undefined;
         // vendorId can also point to the same, like PHP often uses vendor/vehicle lookup
         base.vendorId = vd.vehicle_id || undefined;
+
+        base.receivableFromAgentAmount = (vd.vehicle_grand_total || 0);
+        base.marginAmount = (vd.vehicle_grand_total || 0) - (vd.total_purchase || 0);
+        base.tax = 0;
+
         rows.push(base);
       }
     }
@@ -499,6 +554,17 @@ export class AccountsManagerService {
       where.itinerary_quote_ID = {
         contains: query.quoteId,
       };
+    }
+
+    if (query.agentId) {
+      where.agent_id = Number(query.agentId);
+    } else if ((query as any).travelExpertId) {
+      const teAgents = await this.prisma.dvi_agent.findMany({
+        where: { travel_expert_id: Number((query as any).travelExpertId), deleted: 0 },
+        select: { agent_ID: true },
+      });
+      const teAgentIds = teAgents.map((a) => Number(a.agent_ID));
+      where.agent_id = { in: teAgentIds };
     }
 
     if (fromDate && toDate) {

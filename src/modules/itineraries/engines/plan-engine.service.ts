@@ -119,17 +119,12 @@ export class PlanEngineService {
         status: 1,
       },
       select: {
-        stored_location_ID: true,
-        location_id: true,
+        location_ID: true,
       },
     });
 
     if (fallback) {
-      return Number(
-        (fallback as any).location_id ??
-          (fallback as any).stored_location_ID ??
-          0,
-      );
+      return Number((fallback as any).location_ID ?? 0);
     }
 
     return 0;
