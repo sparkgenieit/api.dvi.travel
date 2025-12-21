@@ -27,9 +27,11 @@ import { ExportPricebookModule } from './modules/export-pricebook/export-pricebo
 import { InbuiltAmenitiesModule } from "./modules/settings/inbuilt-amenities/inbuilt-amenities.module";
 import { VehicleTypesModule } from './modules/settings/vehicle-types/vehicle-types.module';
 import { CitiesModule } from './modules/settings/cities/cities.module';
+import { IncidentalExpensesModule } from './modules/incidental-expenses/incidental-expenses.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, GstSettingsModule,InbuiltAmenitiesModule, VehicleTypesModule, CitiesModule, ExportPricebookModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, GstSettingsModule,InbuiltAmenitiesModule, VehicleTypesModule, CitiesModule, ExportPricebookModule, IncidentalExpensesModule, PaymentsModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
