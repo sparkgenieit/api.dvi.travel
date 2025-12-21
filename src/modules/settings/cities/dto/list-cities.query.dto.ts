@@ -1,10 +1,25 @@
-import { IsInt, IsOptional, Min } from "class-validator";
+import { IsInt, IsOptional, IsString, Min } from "class-validator";
 import { Type } from "class-transformer";
 
 export class ListCitiesQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  countryId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
-  countryId?: number; // default 101 like PHP
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

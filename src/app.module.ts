@@ -27,9 +27,14 @@ import { ExportPricebookModule } from './modules/export-pricebook/export-pricebo
 import { InbuiltAmenitiesModule } from "./modules/settings/inbuilt-amenities/inbuilt-amenities.module";
 import { VehicleTypesModule } from './modules/settings/vehicle-types/vehicle-types.module';
 import { CitiesModule } from './modules/settings/cities/cities.module';
+import { LanguageModule } from './modules/settings/language/language.module';
+import { RolePermissionModule } from './modules/settings/role-permission/role-permission.module';
+import { AgentSubscriptionPlanModule } from './modules/settings/agent-subscription-plan/agent-subscription-plan.module';
+import { HotelCategoryModule } from './modules/settings/hotel-category/hotel-category.module';
+import { GlobalSettingsModule } from './modules/settings/global-settings/global-settings.module';
 
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, GstSettingsModule,InbuiltAmenitiesModule, VehicleTypesModule, CitiesModule, ExportPricebookModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, GstSettingsModule,InbuiltAmenitiesModule, VehicleTypesModule, CitiesModule, ExportPricebookModule, LanguageModule, RolePermissionModule, AgentSubscriptionPlanModule, HotelCategoryModule, GlobalSettingsModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

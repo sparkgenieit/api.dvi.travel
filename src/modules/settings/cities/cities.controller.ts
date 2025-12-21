@@ -20,25 +20,29 @@ import { CheckCityDuplicateDto } from "./dto/check-city.dto";
 export class CitiesController {
   constructor(private readonly service: CitiesService) {}
 
-  // ✅ DEBUG: confirms Prisma DB + counts
-  @Get("debug")
-  debug(@Query() q: ListCitiesQueryDto) {
-    return this.service.debug(q.countryId ?? 101);
-  }
-
-  @Get()
-  list(@Query() q: ListCitiesQueryDto) {
-  return {
-    __handler: "CitiesController.list",
-    countryId: q.countryId ?? 101,
-    ts: new Date().toISOString(),
-  };
-}
-
+  // GET /cities/states?countryId=101
   @Get("states")
   listStates(@Query() q: ListCitiesQueryDto) {
     return this.service.listStates(q.countryId ?? 101);
   }
+
+  // ✅ NEW: GET /cities/by-state/:stateId
+  // Fetch cities only for a specific state_id
+  @Get("by-state/:stateId")
+  listByState(@Param("stateId", ParseIntPipe) stateId: number) {
+    return this.service.listByState(stateId);
+  }
+
+  // (Keep your existing endpoints)
+  @Get()
+  list(@Query() q: ListCitiesQueryDto) {
+    return this.service.list(q.countryId ?? 101);
+  }
+
+@Get("by-country")
+listByCountry(@Query() q: ListCitiesQueryDto) {
+  return this.service.listByCountry(q.countryId ?? 101, q);
+}
 
   @Post("suggest")
   suggest(@Body() dto: SuggestCitiesDto) {
@@ -50,7 +54,6 @@ export class CitiesController {
     return this.service.checkDuplicate(dto);
   }
 
-  // ✅ must be before ":id"
   @Get(":id/delete-usage")
   deleteUsage(@Param("id", ParseIntPipe) id: number) {
     return this.service.getDeleteUsageCount(id);

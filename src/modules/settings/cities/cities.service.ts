@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../prisma.service";
 import { CreateCityDto } from "./dto/create-city.dto";
 import { UpdateCityDto } from "./dto/update-city.dto";
@@ -266,6 +267,113 @@ async debug(countryId = 101) {
     citiesTotal,
     citiesDeleted0,
     joinCount: Number(joinCount?.[0]?.join_count ?? 0),
+  };
+}
+  // ✅ NEW: list cities by state_id
+  async listByState(stateId: number) {
+  const st = await this.prisma.dvi_states.findUnique({
+    where: { id: stateId },
+    select: { id: true, name: true, deleted: true, country_id: true },
+  });
+
+  if (!st || st.deleted === 1) {
+    return { data: [] };
+  }
+
+  const cities = await this.prisma.dvi_cities.findMany({
+    where: { deleted: 0, state_id: stateId },
+    orderBy: { id: "desc" }, // PHP style (latest first)
+    select: { id: true, name: true, state_id: true, status: true, deleted: true },
+  });
+
+  return {
+    data: cities.map((c) => ({
+      id: c.id,
+      city_id: c.id,
+      city_name: c.name,
+      name: c.name,
+      state_id: c.state_id,
+      state_name: st.name,
+      status: c.status,
+      deleted: c.deleted,
+      country_id: st.country_id,
+    })),
+  };
+}
+  // ✅ NEW: list cities by countryId with pagination and search
+  async listByCountry(
+  countryId = 101,
+  q?: { page?: number; pageSize?: number; search?: string }
+) {
+  const cid = await this.resolveCountryId(countryId);
+
+  const page = Math.max(1, Number(q?.page ?? 1));
+  const pageSize = Math.min(2000, Math.max(1, Number(q?.pageSize ?? 500)));
+  const search = (q?.search ?? "").trim();
+
+  // 1) Fetch states for the country (this is your "JOIN base")
+  const states = await this.prisma.dvi_states.findMany({
+    where: { country_id: cid, deleted: 0 },
+    select: { id: true, name: true },
+  });
+
+  const stateIds = states.map((s) => s.id);
+  if (stateIds.length === 0) {
+    return { data: [], meta: { page, pageSize, total: 0 } };
+  }
+
+  const stateMap = new Map(states.map((s) => [s.id, s.name]));
+
+  // If user searches by STATE name, we must include cities under those matched states too
+  const matchedStateIdsByName =
+    search.length > 0
+      ? states
+          .filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
+          .map((s) => s.id)
+      : [];
+
+  // 2) Build Prisma where for cities
+  const where: Prisma.dvi_citiesWhereInput = {
+    deleted: 0,
+    state_id: { in: stateIds },
+    ...(search
+      ? {
+          OR: [
+            // search city name
+            { name: { contains: search } },
+            // search state name (translated to state_id IN matched list)
+            ...(matchedStateIdsByName.length
+              ? [{ state_id: { in: matchedStateIdsByName } }]
+              : []),
+          ],
+        }
+      : {}),
+  };
+
+  // total count
+  const total = await this.prisma.dvi_cities.count({ where });
+
+  // paginated rows
+  const rows = await this.prisma.dvi_cities.findMany({
+    where,
+    orderBy: { id: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+    select: { id: true, name: true, state_id: true, status: true },
+  });
+
+  return {
+    data: rows.map((c) => ({
+      city_id: c.id,
+      city_name: c.name,
+      state_id: c.state_id,
+      state: {
+        state_id: c.state_id,
+        state_name: stateMap.get(c.state_id) ?? "",
+      },
+      status: (c.status === 1 ? 1 : 0) as 0 | 1,
+    })),
+    meta: { page, pageSize, total },
   };
 }
 }
