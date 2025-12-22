@@ -28,16 +28,15 @@ export class GlobalSettingsService {
   }
 
   /**
-   * Mirrors __ajax_manage_global_setting.php (type=global_settings_update):
+   * Mirrors __ajax_manage_global_setting.php:
+   * type = global_settings_update
+   *
    * Update the single global settings row (all config values) and return it.
    *
    * NOTE: we intentionally use updateMany(with deleted=0) instead of id=1
    * to be robust if the id is not exactly 1.
    */
-  async updateGlobalSettings(
-    dto: UpdateGlobalSettingsDto,
-    userId?: number
-  ) {
+  async updateGlobalSettings(dto: UpdateGlobalSettingsDto, userId?: number) {
     const data: Prisma.dvi_global_settingsUpdateManyMutationInput = {
       ...(dto as any),
       updatedon: new Date(),
@@ -102,7 +101,9 @@ export class GlobalSettingsService {
   }
 
   /**
-   * Mirrors __ajax_manage_global_setting.php (type=state_config_update):
+   * Mirrors __ajax_manage_global_setting.php:
+   * type = state_config_update
+   *
    * Update the two vehicle support numbers for a state.
    */
   async updateStateConfig(dto: StateConfigUpdateDto): Promise<StateConfigResultDto> {
@@ -143,18 +144,42 @@ export class GlobalSettingsService {
    * Helper for the Global Settings screen:
    * List states (optionally by country) for the dropdown.
    * Mirrors the old PHP helper that filled the "State" select.
+   *
+   * IMPORTANT:
+   * - If countryId is not provided, we default to India (country_id = 101),
+   *   which matches the legacy PHP behavior for Global Settings.
    */
   async listStatesByCountry(countryId?: number) {
+    const effectiveCountryId =
+      typeof countryId === "number" && !Number.isNaN(countryId) ? countryId : 101; // 101 = India
+
     return this.prisma.dvi_states.findMany({
       where: {
         deleted: 0,
-        ...(typeof countryId === "number" ? { country_id: countryId } : {}),
+        country_id: effectiveCountryId,
       },
       orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
         country_id: true,
+      },
+    });
+  }
+
+  async listCountries() {
+    return this.prisma.dvi_countries.findMany({
+      where: {
+        deleted: 0,
+      },
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        shortname: true, // e.g. "IN", "AE", "US"
+        phonecode: true,
       },
     });
   }
