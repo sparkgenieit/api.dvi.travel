@@ -65,6 +65,7 @@ export class GlobalSettingsController {
   /**
    * GET /global-settings/states?countryId=101
    * Convenience endpoint for Global Settings screen to populate State dropdown.
+   * If countryId is missing/invalid, service will default to India (country_id = 101).
    */
   @Get("states")
   listStates(@Query("countryId") countryId?: string) {
@@ -73,5 +74,10 @@ export class GlobalSettingsController {
       cid !== undefined && !Number.isNaN(cid) ? cid : undefined;
 
     return this.service.listStatesByCountry(normalized);
+  }
+
+  @Get("countries")
+  listCountries() {
+    return this.service.listCountries();
   }
 }

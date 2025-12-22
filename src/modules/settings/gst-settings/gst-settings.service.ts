@@ -21,6 +21,26 @@ function toBoolStatus(v: any): boolean {
   return false;
 }
 
+/** ✅ Convert dto.status (boolean/0|1/"true"/"false") into DB 0|1 */
+function toDb01(v: any): 0 | 1 | undefined {
+  if (v === undefined || v === null) return undefined;
+
+  if (typeof v === 'boolean') return v ? 1 : 0;
+
+  if (typeof v === 'number') return v === 1 ? 1 : 0;
+
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === '1' || s === 'true') return 1;
+    if (s === '0' || s === 'false') return 0;
+    // fallback: try number
+    const n = Number(s);
+    if (Number.isFinite(n)) return n === 1 ? 1 : 0;
+  }
+
+  return undefined;
+}
+
 @Injectable()
 export class GstSettingsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -91,7 +111,7 @@ export class GstSettingsService {
         sgst_value: String(dto.sgst ?? 0),
         igst_value: String(dto.igst ?? 0),
         createdby: loggedUserId || 0,
-        status: 1,      // PHP forces active
+        status: 1, // PHP forces active on create
         deleted: 0,
       },
       select: {
@@ -109,9 +129,10 @@ export class GstSettingsService {
   }
 
   /**
-   * PHP parity update:
-   * - overwrites createdby
-   * - forces status = 1 (even if you try to keep it inactive)
+   * ✅ FIXED UPDATE:
+   * - DO NOT force status=1
+   * - If dto.status provided, persist it
+   * - Otherwise keep existing status unchanged
    */
   async update(
     id: number,
@@ -120,13 +141,13 @@ export class GstSettingsService {
   ): Promise<{ data: GstSettingDto }> {
     const existing = await this.prisma.dvi_gst_setting.findFirst({
       where: { gst_setting_id: id, deleted: 0 },
-      select: { gst_setting_id: true },
+      select: { gst_setting_id: true, status: true },
     });
     if (!existing) throw new NotFoundException('GST setting not found');
 
     const data: any = {
       createdby: loggedUserId || 0,
-      status: 1, // PHP parity (forces active on edit)
+      // ✅ status is NOT forced anymore
     };
 
     if (dto.gstTitle !== undefined) data.gst_title = dto.gstTitle.trim();
@@ -134,6 +155,12 @@ export class GstSettingsService {
     if (dto.cgst !== undefined) data.cgst_value = String(dto.cgst);
     if (dto.sgst !== undefined) data.sgst_value = String(dto.sgst);
     if (dto.igst !== undefined) data.igst_value = String(dto.igst);
+
+    // ✅ apply status only if provided
+    const nextStatus = toDb01((dto as any).status);
+    if (nextStatus !== undefined) {
+      data.status = nextStatus;
+    }
 
     const updated = await this.prisma.dvi_gst_setting.update({
       where: { gst_setting_id: id },

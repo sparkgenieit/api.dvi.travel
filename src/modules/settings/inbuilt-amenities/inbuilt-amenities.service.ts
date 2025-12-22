@@ -1,6 +1,3 @@
-// REPLACE-WHOLE-FILE
-// FILE: src/modules/inbuilt-amenities/inbuilt-amenities.service.ts
-
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../../prisma.service";
 import { CreateInbuiltAmenityDto } from "./dto/create-inbuilt-amenity.dto";
@@ -56,7 +53,6 @@ export class InbuiltAmenitiesService {
    * PHP parity:
    * - Always inserts status=1
    * - Writes createdby = logged_user_id
-   * - Does NOT set createdon explicitly in code (DB may handle / or remain null)
    */
   async create(dto: CreateInbuiltAmenityDto, userId = 0): Promise<AmenityRow> {
     const title = String(dto.title ?? "").trim();
@@ -80,43 +76,23 @@ export class InbuiltAmenitiesService {
   }
 
   /**
-   * PHP parity for update:
-   * - When editing title, PHP sets status=1 AND overwrites createdby again.
-   * - When toggling status, PHP FLIPS based on current status passed.
+   * ✅ FIXED update behavior for modern API:
+   * - If dto.status is provided, it is treated as the FINAL status (0|1) to store.
+   *   (NOT "current status to flip")
+   * - If dto.title is provided, update title and (PHP parity) force status=1.
+   * - Supports title-only, status-only, and title+status (title wins parity logic).
    */
   async update(id: number, dto: UpdateInbuiltAmenityDto, userId = 0): Promise<AmenityRow> {
-    // Make sure record exists (PHP doesn't check deleted, but list/get do)
     const existing = await this.prisma.dvi_inbuilt_amenities.findFirst({
-      where: { inbuilt_amenity_type_id: id },
+      where: { inbuilt_amenity_type_id: id, deleted: 0 },
       select: {
         inbuilt_amenity_type_id: true,
-        inbuilt_amenity_title: true,
-        status: true,
-        deleted: true,
       },
     });
 
     if (!existing) throw new NotFoundException("Inbuilt amenity not found");
 
-    // CASE 1: Status toggle (PHP expects CURRENT status and flips it)
-    if (typeof dto.status === "number" && dto.title === undefined) {
-      const current = dto.status;
-      const newStatus = (current === 0 ? 1 : 0) as 0 | 1;
-
-      const updated = await this.prisma.dvi_inbuilt_amenities.update({
-        where: { inbuilt_amenity_type_id: id },
-        data: { status: newStatus },
-        select: {
-          inbuilt_amenity_type_id: true,
-          inbuilt_amenity_title: true,
-          status: true,
-        },
-      });
-
-      return this.toRow(updated);
-    }
-
-    // CASE 2: Title update (PHP sets status=1 and overwrites createdby)
+    // CASE 1: Title update (keep PHP parity: set status=1 and overwrite createdby)
     if (dto.title !== undefined) {
       const title = String(dto.title ?? "").trim();
       if (!title) throw new BadRequestException("title is required");
@@ -126,7 +102,7 @@ export class InbuiltAmenitiesService {
         data: {
           inbuilt_amenity_title: title,
           createdby: Number(userId) || 0,
-          status: 1, // PHP hardcodes 1 on add/update
+          status: 1, // PHP parity on edit/add
         },
         select: {
           inbuilt_amenity_type_id: true,
@@ -138,7 +114,23 @@ export class InbuiltAmenitiesService {
       return this.toRow(updated);
     }
 
-    // If nothing to update
+    // CASE 2: Status update (store FINAL status directly)
+    if (dto.status !== undefined) {
+      const nextStatus = (Number(dto.status) === 1 ? 1 : 0) as 0 | 1;
+
+      const updated = await this.prisma.dvi_inbuilt_amenities.update({
+        where: { inbuilt_amenity_type_id: id },
+        data: { status: nextStatus },
+        select: {
+          inbuilt_amenity_type_id: true,
+          inbuilt_amenity_title: true,
+          status: true,
+        },
+      });
+
+      return this.toRow(updated);
+    }
+
     throw new BadRequestException("Nothing to update");
   }
 
@@ -148,7 +140,7 @@ export class InbuiltAmenitiesService {
    */
   async remove(id: number): Promise<{ result: true }> {
     const existing = await this.prisma.dvi_inbuilt_amenities.findFirst({
-      where: { inbuilt_amenity_type_id: id },
+      where: { inbuilt_amenity_type_id: id, deleted: 0 },
       select: { inbuilt_amenity_type_id: true },
     });
 
