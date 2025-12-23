@@ -25,8 +25,8 @@ export class LocationsService {
       where.OR = [
         { source_location: { contains: q.search } },
         { destination_location: { contains: q.search } },
-        { source_city: { contains: q.search } },
-        { destination_city: { contains: q.search } },
+        { source_location_city: { contains: q.search } },
+        { destination_location_city: { contains: q.search } },
       ];
     }
 
@@ -66,9 +66,10 @@ export class LocationsService {
 
   // ------ CRUD ------
   async create(payload: any) {
+    const data = this.mapDtoToSchema(payload);
     const created = await this.prisma.dvi_stored_locations.create({
       data: {
-        ...payload,
+        ...data,
         status: 1,
         deleted: 0,
         createdon: new Date(),
@@ -87,10 +88,32 @@ export class LocationsService {
 
   async update(id: number, payload: any) {
     await this.get(id);
+    const data = this.mapDtoToSchema(payload);
     return this.prisma.dvi_stored_locations.update({
       where: { location_ID: id },
-      data: { ...payload, updatedon: new Date() },
+      data: { ...data, updatedon: new Date() },
     });
+  }
+
+  private mapDtoToSchema(dto: any) {
+    const mapped: any = {};
+    if (dto.source_location !== undefined) mapped.source_location = dto.source_location;
+    if (dto.source_city !== undefined) mapped.source_location_city = dto.source_city;
+    if (dto.source_state !== undefined) mapped.source_location_state = dto.source_state;
+    if (dto.source_latitude !== undefined) mapped.source_location_lattitude = dto.source_latitude;
+    if (dto.source_longitude !== undefined) mapped.source_location_longitude = dto.source_longitude;
+
+    if (dto.destination_location !== undefined) mapped.destination_location = dto.destination_location;
+    if (dto.destination_city !== undefined) mapped.destination_location_city = dto.destination_city;
+    if (dto.destination_state !== undefined) mapped.destination_location_state = dto.destination_state;
+    if (dto.destination_latitude !== undefined) mapped.destination_location_lattitude = dto.destination_latitude;
+    if (dto.destination_longitude !== undefined) mapped.destination_location_longitude = dto.destination_longitude;
+
+    if (dto.distance_km !== undefined) mapped.distance = Number(dto.distance_km);
+    if (dto.duration_text !== undefined) mapped.duration = dto.duration_text;
+    if (dto.location_description !== undefined) mapped.location_description = dto.location_description;
+
+    return mapped;
   }
 
   async softDelete(id: number) {

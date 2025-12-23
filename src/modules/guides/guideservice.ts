@@ -359,11 +359,10 @@ export class GuidesService {
       guide_bank_branch_name: input.guide_bank_branch_name ?? null,
       guide_ifsc_code: input.guide_ifsc_code ?? null,
       guide_account_number: input.guide_account_number ?? null,
-      guide_confirm_account_number: input.guide_confirm_account_number ?? null,
 
       guide_preffered_for: Array.isArray(input.guide_preffered_for)
-        ? input.guide_preffered_for.join(',')
-        : null,
+        ? toNum(input.guide_preffered_for.join(','))
+        : toNum(input.guide_preffered_for),
 
       status: (input.status ?? 1) as any,
       deleted: (input.deleted ?? 0) as any,

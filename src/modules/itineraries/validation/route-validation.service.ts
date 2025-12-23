@@ -58,6 +58,27 @@ export class RouteValidationService {
       if (!citySearchTerms.includes(firstWord)) {
         citySearchTerms.push(firstWord);
       }
+
+      // Add common aliases (e.g., "Alleppey" -> "Alappuzha")
+      const CITY_ALIASES: Record<string, string[]> = {
+        alleppey: ['Alappuzha'],
+        alleppe: ['Alappuzha'],
+        cochin: ['Kochi'],
+        calicut: ['Kozhikode'],
+        trivandrum: ['Thiruvananthapuram', 'TRIVANDRUM'],
+        pondicherry: ['Puducherry'],
+        bangalore: ['Bengaluru'],
+      };
+
+      const extraTerms: string[] = [];
+      for (const term of citySearchTerms) {
+        const lowerTerm = term.toLowerCase();
+        if (CITY_ALIASES[lowerTerm]) {
+          extraTerms.push(...CITY_ALIASES[lowerTerm]);
+        }
+      }
+      citySearchTerms.push(...extraTerms);
+
       // Try to find city in dvi_cities
       let cityId: number | null = null;
       for (const searchTerm of citySearchTerms) {

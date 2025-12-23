@@ -2,9 +2,11 @@
 
 import { Prisma } from "@prisma/client";
 import { minutesToDurationTime, minutesToTime } from "./time.helper";
-import * as fs from "fs";
 
 type Tx = Prisma.TransactionClient;
+
+// In-memory cache for distance lookups
+const distanceCache = new Map<string, any>();
 
 export interface DistanceResult {
   distanceKm: number; // e.g. 8.42
@@ -133,22 +135,49 @@ export class DistanceHelper {
     sourceCoords?: { lat: number; lon: number },
     destCoords?: { lat: number; lon: number },
   ): Promise<DistanceResult> {
-    const logMsg = `[DistanceHelper] Looking up: "${sourceLocation}" → "${destinationLocation}"\n`;
-    try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', logMsg); } catch(e) {}
+    const trimmedSource = String(sourceLocation ?? "").trim();
+    const trimmedDest = String(destinationLocation ?? "").trim();
+
+    // ✅ PHP PARITY: For hotspots (which provide coordinates), PHP ALWAYS uses 
+    // Haversine formula instead of looking up in dvi_stored_locations.
+    // This prevents using city-to-city distances for specific hotspots.
+    if (sourceCoords && destCoords && 
+        (sourceCoords.lat !== 0 || sourceCoords.lon !== 0) && 
+        (destCoords.lat !== 0 || destCoords.lon !== 0)) {
+      return this.fromCoordinates(
+        tx,
+        sourceCoords.lat,
+        sourceCoords.lon,
+        destCoords.lat,
+        destCoords.lon,
+        travelLocationType,
+      );
+    }
+
+    const logMsg = `[DistanceHelper] Looking up: "${trimmedSource}" → "${trimmedDest}"\n`;
     
-    const loc = await (tx as any).dvi_stored_locations.findFirst({
-      where: {
-        deleted: 0,
-        status: 1,
-        source_location: sourceLocation,
-        destination_location: destinationLocation,
-      },
-      orderBy: { location_ID: "desc" },
-    });
+    // Check cache first
+    const cacheKey = `${trimmedSource}|${trimmedDest}`;
+    let loc = distanceCache.get(cacheKey);
+
+    if (!loc) {
+      // Query DB and cache result
+      loc = await (tx as any).dvi_stored_locations.findFirst({
+        where: {
+          deleted: 0,
+          source_location: trimmedSource,
+          destination_location: trimmedDest,
+        },
+        orderBy: { location_ID: "desc" },
+      });
+      
+      if (loc) {
+        distanceCache.set(cacheKey, loc);
+      }
+    }
 
     if (loc) {
       const foundMsg = `[DistanceHelper] Found in DB: ${loc.distance} km\n`;
-      try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', foundMsg); } catch(e) {}
       const distance = Number(loc.distance ?? 0);
 
       const totalMinutes = parseDurationToMinutes(loc.duration);
@@ -161,19 +190,7 @@ export class DistanceHelper {
     }
 
     const notFoundMsg = `[DistanceHelper] NOT found in DB, using coordinates fallback\n`;
-    try { fs.appendFileSync('d:/wamp64/www/dvi_fullstack/dvi_backend/tmp/distance_lookup.log', notFoundMsg); } catch(e) {}
     
-    if (sourceCoords && destCoords) {
-      return this.fromCoordinates(
-        tx,
-        sourceCoords.lat,
-        sourceCoords.lon,
-        destCoords.lat,
-        destCoords.lon,
-        travelLocationType,
-      );
-    }
-
     return { distanceKm: 0, travelTime: "00:00:00", bufferTime: "00:00:00" };
   }
 

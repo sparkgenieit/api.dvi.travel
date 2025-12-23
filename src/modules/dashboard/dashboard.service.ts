@@ -224,4 +224,177 @@ export class DashboardService {
         : null,
     };
   }
+
+  async getAgentDashboardStats(agentId: number) {
+    const now = new Date();
+    const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const [
+      totalCustomers,
+      paidInvoices,
+      subscription,
+      lastMonthProfit,
+      agentDetails,
+    ] = await Promise.all([
+      // Total Customers
+      this.prisma.dvi_itinerary_plan_details.count({
+        where: { agent_id: agentId, deleted: 0 },
+      }),
+
+      // Paid Invoices
+      this.prisma.dvi_itinerary_plan_details.count({
+        where: { agent_id: agentId, quotation_status: 1, deleted: 0 },
+      }),
+
+      // Validity Ends
+      this.prisma.dvi_agent_subscribed_plans.findFirst({
+        where: { agent_ID: agentId, status: 1, deleted: 0 },
+        orderBy: { validity_end: 'desc' },
+      }),
+
+      // Last Month Profit
+      this.prisma.dvi_itinerary_plan_details.aggregate({
+        _sum: { agent_margin: true },
+        where: {
+          agent_id: agentId,
+          deleted: 0,
+          createdon: {
+            gte: firstDayLastMonth,
+            lte: lastDayLastMonth,
+          },
+        },
+      }),
+
+      // Agent Details for Wallet
+      this.prisma.dvi_agent.findUnique({
+        where: { agent_ID: agentId },
+        select: { total_cash_wallet: true },
+      }),
+    ]);
+
+    return {
+      totalCustomers,
+      paidInvoices,
+      validityEnds: subscription?.validity_end || null,
+      planId: subscription?.subscription_plan_ID || null,
+      staffCount: subscription?.staff_count || 0,
+      lastMonthProfit: lastMonthProfit._sum.agent_margin || 0,
+      totalCashWallet: agentDetails?.total_cash_wallet || 0,
+    };
+  }
+
+  async getTravelExpertDashboardStats(staffId: number) {
+    // Travel Expert manages a set of agents
+    const agents = await this.prisma.dvi_agent.findMany({
+      where: { travel_expert_id: staffId, deleted: 0 },
+      select: { agent_ID: true },
+    });
+    const agentIds = agents.map((a) => a.agent_ID);
+
+    const [
+      totalAgents,
+      totalItineraries,
+      confirmedBookings,
+    ] = await Promise.all([
+      agentIds.length,
+      this.prisma.dvi_itinerary_plan_details.count({
+        where: {
+          OR: [
+            { staff_id: staffId },
+            ...(agentIds.length ? [{ agent_id: { in: agentIds } }] : []),
+          ],
+          deleted: 0,
+        },
+      }),
+      this.prisma.dvi_itinerary_plan_details.count({
+        where: {
+          OR: [
+            { staff_id: staffId },
+            ...(agentIds.length ? [{ agent_id: { in: agentIds } }] : []),
+          ],
+          quotation_status: 1,
+          deleted: 0,
+        },
+      }),
+    ]);
+
+    return {
+      totalAgents,
+      totalItineraries,
+      confirmedBookings,
+    };
+  }
+
+  async getGuideDashboardStats(guideId: number) {
+    const [
+      totalAssignments,
+      completedAssignments,
+      pendingAssignments,
+    ] = await Promise.all([
+      this.prisma.dvi_confirmed_itinerary_route_guide_details.count({
+        where: { guide_id: guideId, deleted: 0 },
+      }),
+      this.prisma.dvi_confirmed_itinerary_route_guide_details.count({
+        where: { guide_id: guideId, guide_status: 1, deleted: 0 },
+      }),
+      this.prisma.dvi_confirmed_itinerary_route_guide_details.count({
+        where: { guide_id: guideId, guide_status: 0, deleted: 0 },
+      }),
+    ]);
+
+    return {
+      totalAssignments,
+      completedAssignments,
+      pendingAssignments,
+    };
+  }
+
+  async getAccountsDashboardStats() {
+    const [summary, pendingPayouts] = await Promise.all([
+      this.prisma.dvi_accounts_itinerary_details.aggregate({
+        _sum: {
+          total_payable_amount: true,
+          total_received_amount: true,
+          total_receivable_amount: true,
+        },
+        where: { deleted: 0 },
+      }),
+      // Count pending payouts across components (simplified for dashboard)
+      this.prisma.dvi_accounts_itinerary_details.count({
+        where: {
+          total_receivable_amount: { gt: 0 },
+          deleted: 0,
+        },
+      }),
+    ]);
+
+    return {
+      totalPayable: summary._sum.total_payable_amount || 0,
+      totalPaid: summary._sum.total_received_amount || 0,
+      totalBalance: summary._sum.total_receivable_amount || 0,
+      pendingPayouts,
+    };
+  }
+
+  async getVendorDashboardStats(vendorId: number) {
+    const [totalAssignments, completedAssignments, pendingAssignments] =
+      await Promise.all([
+        this.prisma.dvi_confirmed_itinerary_plan_vendor_eligible_list.count({
+          where: { vendor_id: vendorId, deleted: 0 },
+        }),
+        this.prisma.dvi_confirmed_itinerary_plan_vendor_eligible_list.count({
+          where: { vendor_id: vendorId, status: 1, deleted: 0 },
+        }),
+        this.prisma.dvi_confirmed_itinerary_plan_vendor_eligible_list.count({
+          where: { vendor_id: vendorId, status: 0, deleted: 0 },
+        }),
+      ]);
+
+    return {
+      totalAssignments,
+      completedAssignments,
+      pendingAssignments,
+    };
+  }
 }

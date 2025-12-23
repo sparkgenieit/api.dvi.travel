@@ -54,6 +54,26 @@ export class ConfirmQuotationDto {
   @IsArray()
   adult_age?: string[];
 
+  @ApiProperty({ type: [String], example: [], required: false })
+  @IsOptional()
+  @IsArray()
+  child_name?: string[];
+
+  @ApiProperty({ type: [String], example: [], required: false })
+  @IsOptional()
+  @IsArray()
+  child_age?: string[];
+
+  @ApiProperty({ type: [String], example: [], required: false })
+  @IsOptional()
+  @IsArray()
+  infant_name?: string[];
+
+  @ApiProperty({ type: [String], example: [], required: false })
+  @IsOptional()
+  @IsArray()
+  infant_age?: string[];
+
   @ApiProperty({ example: '12-12-2025 9:00 AM' })
   @IsString()
   arrival_date_time!: string;

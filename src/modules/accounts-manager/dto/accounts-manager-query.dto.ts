@@ -37,6 +37,9 @@ export class AccountsManagerQueryDto {
   @IsString()
   agent?: string;
 
+  @IsOptional()
+  agentId?: number;
+
   // Free text search on quoteId + hotel/vendor name
   @IsOptional()
   @IsString()

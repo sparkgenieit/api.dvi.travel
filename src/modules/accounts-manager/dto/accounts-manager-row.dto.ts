@@ -71,4 +71,14 @@ export class AccountsManagerRowDto {
   /** Optional IDs used by future Pay Now / drill-down flows */
   vehicleId?: number;
   vendorId?: number;
+
+  // --- NEW FIELDS FOR PARITY ---
+  receivableFromAgentAmount?: number;
+  inhandAmount?: number;
+  marginAmount?: number;
+  tax?: number;
+  guestName?: string;
+  arrivalLocation?: string;
+  departureLocation?: string;
+  roomCount?: number;
 }

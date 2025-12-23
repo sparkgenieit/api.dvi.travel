@@ -1,3 +1,4 @@
+// REPLACE-WHOLE-FILE
 // FILE: src/modules/itinerary-dropdowns/itinerary-dropdowns.service.ts
 
 import { Injectable } from '@nestjs/common';
@@ -15,6 +16,10 @@ export type LocationOption = {
 
 type LocationType = 'source' | 'destination';
 
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.trim().length > 0;
+}
+
 @Injectable()
 export class ItineraryDropdownsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -26,44 +31,87 @@ export class ItineraryDropdownsService {
     type: LocationType = 'source',
     sourceLocation?: string,
   ): Promise<LocationOption[]> {
-    if (type === 'destination') {
-      const rows = await this.prisma.dvi_stored_locations.findMany({
-        where: {
-          deleted: 0,
-          status: 1,
-          ...(sourceLocation ? { source_location: sourceLocation } : {}),
-        } as any,
-        select: {
-          destination_location: true,
-        },
-        distinct: ['destination_location'],
-      } as any);
-
-      return rows
-        .filter((r) => !!r.destination_location)
-        .map((r) => ({
-          id: r.destination_location as string,
-          name: r.destination_location as string,
-        }));
-    }
+    const isDestination = type === 'destination';
 
     const rows = await this.prisma.dvi_stored_locations.findMany({
       where: {
         deleted: 0,
         status: 1,
+        ...(isDestination && sourceLocation ? { source_location: sourceLocation } : {}),
       } as any,
       select: {
         source_location: true,
+        destination_location: true,
       },
-      distinct: ['source_location'],
+      distinct: isDestination ? ['destination_location'] : ['source_location'],
     } as any);
 
-    return rows
-      .filter((r) => !!r.source_location)
-      .map((r) => ({
-        id: r.source_location as string,
-        name: r.source_location as string,
-      }));
+    let locations = rows
+      .map((r) => (isDestination ? r.destination_location : r.source_location))
+      .filter(isNonEmptyString)
+      .map((s) => s.trim());
+
+    // Filter locations to only those that have hotels (overnight stay requirement)
+    // 1. Get all city IDs that have active hotels
+    const hotels = await this.prisma.dvi_hotel.findMany({
+      where: { status: 1, deleted: false },
+      select: { hotel_city: true },
+      distinct: ['hotel_city'],
+    });
+
+    const cityIdsWithHotels = hotels
+      .map((h) => h.hotel_city)
+      .filter(isNonEmptyString)
+      .map((id) => parseInt(id, 10))
+      .filter((id) => Number.isFinite(id));
+
+    if (!cityIdsWithHotels.length) {
+      // no hotel cities found; return whatever stored_locations gave
+      return locations.map((loc) => ({ id: loc, name: loc }));
+    }
+
+    // 2. Get names of these cities
+    const cities = await (this.prisma as any).dvi_cities.findMany({
+      where: { id: { in: cityIdsWithHotels }, deleted: 0 },
+      select: { name: true },
+    });
+
+    // ✅ FIX TS2345: name can be null -> guard before toLowerCase()
+    const cityNamesWithHotels: string[] = (cities as Array<{ name: string | null }>)
+
+      .map((c) => (isNonEmptyString(c?.name) ? c.name.trim().toLowerCase() : ''))
+      .filter(isNonEmptyString);
+
+    // Add common aliases to the list of valid city names
+    const CITY_ALIASES: Record<string, string[]> = {
+      alappuzha: ['alleppey', 'alleppe'],
+      kochi: ['cochin'],
+      kozhikode: ['calicut'],
+      thiruvananthapuram: ['trivandrum'],
+      puducherry: ['pondicherry'],
+      bengaluru: ['bangalore'],
+    };
+
+    const allValidNames: string[] = [...cityNamesWithHotels];
+
+    // ✅ FIX TS7006: type the param
+    cityNamesWithHotels.forEach((name: string) => {
+      const aliases = CITY_ALIASES[name];
+      if (aliases?.length) allValidNames.push(...aliases);
+    });
+
+    // 3. Filter locations: keep if it matches or contains a city name with hotels
+    locations = locations.filter((loc) => {
+      const lowerLoc = loc.toLowerCase();
+      return allValidNames.some(
+        (cityName) => lowerLoc.includes(cityName) || cityName.includes(lowerLoc),
+      );
+    });
+
+    return locations.map((loc) => ({
+      id: loc,
+      name: loc,
+    }));
   }
 
   async getItineraryTypes(): Promise<SimpleOption[]> {
@@ -177,13 +225,7 @@ export class ItineraryDropdownsService {
     const dest = (destination || '').trim();
 
     if (!src || !dest) {
-      console.warn(
-        '[ViaRoutes] Missing source or destination',
-        'source=',
-        src,
-        'destination=',
-        dest,
-      );
+      console.warn('[ViaRoutes] Missing source or destination', 'source=', src, 'destination=', dest);
       return [];
     }
 
@@ -235,9 +277,7 @@ export class ItineraryDropdownsService {
       },
     } as any);
 
-    if (!viaRoutes.length) {
-      return [];
-    }
+    if (!viaRoutes.length) return [];
 
     // 3) Map to SimpleOption[] (id = via_route_location_ID, label = name)
     return viaRoutes.map((r) => ({

@@ -114,6 +114,7 @@ export class AgentService {
 
     const where: any = {
       deleted: 0,
+      ...(query.travelExpertId ? { travel_expert_id: query.travelExpertId } : {}),
       ...(q
         ? {
             OR: [

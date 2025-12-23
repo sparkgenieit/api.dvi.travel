@@ -138,18 +138,28 @@ export class StaffService {
     return full || undefined;
   }
 
+  async getManagedAgentIds(staffId: number): Promise<number[]> {
+    const agents = await this.prisma.dvi_agent.findMany({
+      where: { travel_expert_id: staffId, deleted: 0 },
+      select: { agent_ID: true },
+    });
+    return agents.map((a) => Number(a.agent_ID));
+  }
+
   async list(params: {
     agentId?: number;
+    agentIds?: number[];
     search?: string;
     status?: number;
     page: number;
     pageSize: number;
   }): Promise<{ total: number; page: number; pageSize: number; data: StaffView[] }> {
-    const { agentId, search, status, page, pageSize } = params;
+    const { agentId, agentIds, search, status, page, pageSize } = params;
 
     const where: Prisma.dvi_staff_detailsWhereInput = {
       deleted: 0,
       ...(typeof agentId === 'number' ? { agent_id: agentId } : {}),
+      ...(agentIds && agentIds.length > 0 ? { agent_id: { in: agentIds } } : {}),
       ...(typeof status === 'number' ? { status } : {}),
       ...(search
         ? {
@@ -191,8 +201,8 @@ export class StaffService {
     const roleIds = rows.map((r) => Number(r.roleID)).filter((x) => !Number.isNaN(x));
     const roleMap = await this.getRoleMap(roleIds);
 
-    const agentIds = rows.map((r) => Number(r.agent_id)).filter((x) => !Number.isNaN(x));
-    const agentMap = await this.getAgentMap(agentIds);
+    const rowAgentIds = rows.map((r) => Number(r.agent_id)).filter((x) => !Number.isNaN(x));
+    const agentMap = await this.getAgentMap(rowAgentIds);
 
     const data: StaffView[] = rows.map((r) =>
       this.mapStaff({

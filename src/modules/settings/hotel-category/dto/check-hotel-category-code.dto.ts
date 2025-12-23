@@ -7,7 +7,7 @@ export class CheckHotelCategoryCodeDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  code: string;
+  code!: string;
 
   // When editing, exclude current record from uniqueness check
   @IsOptional()

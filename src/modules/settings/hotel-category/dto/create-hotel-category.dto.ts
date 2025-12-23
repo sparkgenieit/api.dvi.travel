@@ -6,12 +6,12 @@ export class CreateHotelCategoryDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(65535) // TEXT max (practically you'll keep it small)
-  title: string;
+  title!: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  code: string;
+  code!: string;
 
   // Optional: allow client to pass initial status (defaults to 1 in service)
   @IsOptional()

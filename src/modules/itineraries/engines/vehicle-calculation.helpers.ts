@@ -153,6 +153,7 @@ export async function getLocationIdFromSourceDest(
         deleted: 0,
         status: 1
       },
+      orderBy: { location_ID: "desc" },
       select: { location_ID: true }
     });
     return result?.location_ID ?? 0;

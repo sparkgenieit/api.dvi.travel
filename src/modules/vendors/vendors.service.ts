@@ -448,4 +448,198 @@ export class VendorsService {
 
     return { items };
   }
+
+  // =====================================================================================
+  // NEW: Vendor Wizard Steps 3-6
+  // =====================================================================================
+
+  // --- Step 3: Driver Costs (dvi_vendor_vehicle_types) ---
+
+  async getVendorVehicleTypes(vendorId: number): Promise<any[]> {
+    return this.prisma.dvi_vendor_vehicle_types.findMany({
+      where: { vendor_id: vendorId, deleted: 0 },
+    });
+  }
+
+  async updateVendorVehicleType(vendorId: number, data: any): Promise<any> {
+    const { vehicle_type_id, ...rest } = data;
+
+    // Check if exists
+    const existing = await this.prisma.dvi_vendor_vehicle_types.findFirst({
+      where: { vendor_id: vendorId, vehicle_type_id, deleted: 0 },
+    });
+
+    if (existing) {
+      return this.prisma.dvi_vendor_vehicle_types.update({
+        where: { vendor_vehicle_type_ID: existing.vendor_vehicle_type_ID },
+        data: { ...rest, updatedon: new Date() },
+      });
+    } else {
+      return this.prisma.dvi_vendor_vehicle_types.create({
+        data: {
+          vendor_id: vendorId,
+          vehicle_type_id,
+          ...rest,
+          createdon: new Date(),
+          status: 1,
+          deleted: 0,
+        },
+      });
+    }
+  }
+
+  // --- Step 4: Vehicle Info (dvi_vehicle) ---
+
+  async getVendorVehicles(vendorId: number): Promise<any[]> {
+    return this.prisma.dvi_vehicle.findMany({
+      where: { vendor_id: vendorId, deleted: 0 },
+    });
+  }
+
+  async createVendorVehicle(vendorId: number, data: any): Promise<any> {
+    return this.prisma.dvi_vehicle.create({
+      data: {
+        ...data,
+        vendor_id: vendorId,
+        createdon: new Date(),
+        status: 1,
+        deleted: 0,
+      },
+    });
+  }
+
+  async updateVendorVehicle(vehicleId: number, data: any): Promise<any> {
+    return this.prisma.dvi_vehicle.update({
+      where: { vehicle_id: vehicleId },
+      data: { ...data, updatedon: new Date() },
+    });
+  }
+
+  async softDeleteVehicle(vehicleId: number): Promise<void> {
+    await this.prisma.dvi_vehicle.update({
+      where: { vehicle_id: vehicleId },
+      data: { deleted: 1 },
+    });
+  }
+
+  // --- Step 5: Pricebook (dvi_vehicle_local_pricebook, dvi_vehicle_outstation_price_book) ---
+
+  async getVendorLocalPricebook(vendorId: number): Promise<any[]> {
+    return this.prisma.dvi_vehicle_local_pricebook.findMany({
+      where: { vendor_id: vendorId, deleted: 0 },
+    });
+  }
+
+  async updateVendorLocalPricebook(vendorId: number, data: any): Promise<any> {
+    const { vehicle_price_book_id, ...rest } = data;
+    if (vehicle_price_book_id) {
+      return this.prisma.dvi_vehicle_local_pricebook.update({
+        where: { vehicle_price_book_id },
+        data: { ...rest, updatedon: new Date() },
+      });
+    } else {
+      return this.prisma.dvi_vehicle_local_pricebook.create({
+        data: {
+          ...rest,
+          vendor_id: vendorId,
+          createdon: new Date(),
+          status: 1,
+          deleted: 0,
+        },
+      });
+    }
+  }
+
+  async getVendorOutstationPricebook(vendorId: number): Promise<any[]> {
+    return this.prisma.dvi_vehicle_outstation_price_book.findMany({
+      where: { vendor_id: vendorId, deleted: 0 },
+    });
+  }
+
+  async updateVendorOutstationPricebook(vendorId: number, data: any): Promise<any> {
+    const { vehicle_outstation_price_book_id, ...rest } = data;
+    if (vehicle_outstation_price_book_id) {
+      return this.prisma.dvi_vehicle_outstation_price_book.update({
+        where: { vehicle_outstation_price_book_id },
+        data: { ...rest, updatedon: new Date() },
+      });
+    } else {
+      return this.prisma.dvi_vehicle_outstation_price_book.create({
+        data: {
+          ...rest,
+          vendor_id: vendorId,
+          createdon: new Date(),
+          status: 1,
+          deleted: 0,
+        },
+      });
+    }
+  }
+
+  // --- Step 6: Permit Cost (dvi_permit_cost) ---
+
+  async getVendorPermitCosts(vendorId: number): Promise<any[]> {
+    return this.prisma.dvi_permit_cost.findMany({
+      where: { vendor_id: vendorId, deleted: 0 },
+    });
+  }
+
+  async updateVendorPermitCost(vendorId: number, data: any): Promise<any> {
+    const { permit_cost_id, ...rest } = data;
+    if (permit_cost_id) {
+      return this.prisma.dvi_permit_cost.update({
+        where: { permit_cost_id },
+        data: { ...rest, updatedon: new Date() },
+      });
+    } else {
+      return this.prisma.dvi_permit_cost.create({
+        data: {
+          ...rest,
+          vendor_id: vendorId,
+          createdon: new Date(),
+          status: 1,
+          deleted: 0,
+        },
+      });
+    }
+  }
+
+  // --- Dropdowns for Steps 3-6 ---
+
+  async getVehicleTypeOptions(): Promise<{ items: DropdownItem[] }> {
+    const rows = await this.prisma.dvi_vehicle_type.findMany({
+      where: { deleted: 0, status: 1 },
+      orderBy: { vehicle_type_title: 'asc' },
+    });
+    return {
+      items: rows.map((r) => ({
+        id: String(r.vehicle_type_id),
+        label: r.vehicle_type_title || '',
+      })),
+    };
+  }
+
+  async getTimeLimitOptions(vendorId: number): Promise<{ items: DropdownItem[] }> {
+    const rows = await this.prisma.dvi_time_limit.findMany({
+      where: { vendor_id: vendorId, deleted: 0 },
+    });
+    return {
+      items: rows.map((r) => ({
+        id: String(r.time_limit_id),
+        label: r.time_limit_title || '',
+      })),
+    };
+  }
+
+  async getKmsLimitOptions(vendorId: number): Promise<{ items: DropdownItem[] }> {
+    const rows = await this.prisma.dvi_kms_limit.findMany({
+      where: { vendor_id: vendorId, deleted: 0 },
+    });
+    return {
+      items: rows.map((r) => ({
+        id: String(r.kms_limit_id),
+        label: r.kms_limit_title || '',
+      })),
+    };
+  }
 }

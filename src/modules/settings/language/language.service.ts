@@ -85,9 +85,12 @@ export class LanguageService {
     const now = new Date();
     const statusInt = this.statusForCreate(dto.status);
 
+    // PHP uses ucwords()
+    const languageTitle = this.ucwords(dto.language.trim());
+
     const row = await this.prisma.dvi_language.create({
       data: {
-        language: dto.language.trim(),
+        language: languageTitle,
         createdby: createdByUserId,
         createdon: now,
         updatedon: now,
@@ -96,8 +99,6 @@ export class LanguageService {
       },
     });
 
-    // React expects either { ..row } or { data: row }.
-    // We'll just return row directly.
     return row;
   }
 
@@ -122,13 +123,16 @@ export class LanguageService {
 
     const statusInt = this.statusForUpdate(existing.status, dto.status);
 
+    // PHP uses ucwords()
+    const languageTitle =
+      typeof dto.language === 'string'
+        ? this.ucwords(dto.language.trim())
+        : existing.language;
+
     const row = await this.prisma.dvi_language.update({
       where: { language_id: id },
       data: {
-        language:
-          typeof dto.language === 'string'
-            ? dto.language.trim()
-            : existing.language,
+        language: languageTitle,
         status: statusInt,
         updatedon: now,
       },
@@ -140,7 +144,6 @@ export class LanguageService {
   /**
    * Soft delete – mirrors __ajax_manage_language.php?type=delete
    * NOTE: In PHP, there is a "used in guides" check before delete.
-   * You can add that later if you model guide tables in Prisma.
    */
   async softDelete(id: number) {
     const existing = await this.prisma.dvi_language.findFirst({
@@ -154,6 +157,23 @@ export class LanguageService {
       throw new NotFoundException(`Language with id ${id} not found`);
     }
 
+    // Parity check: used in guides (FIND_IN_SET)
+    // guide_language_proficiency is a comma-separated string of IDs
+    const usageCount: any[] = await this.prisma.$queryRaw`
+      SELECT COUNT(guide_id) as count 
+      FROM dvi_guide_details 
+      WHERE FIND_IN_SET(${id.toString()}, guide_language_proficiency) 
+      AND deleted = 0
+    `;
+
+    const count = Number(usageCount[0]?.count || 0);
+
+    if (count > 0) {
+      throw new Error(
+        'Sorry !!! You cannot delete this record. Since its assigned to specific guide with proficiency.',
+      );
+    }
+
     const now = new Date();
 
     const row = await this.prisma.dvi_language.update({
@@ -165,5 +185,13 @@ export class LanguageService {
     });
 
     return row;
+  }
+
+  private ucwords(str: string): string {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 }
