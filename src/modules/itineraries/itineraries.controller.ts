@@ -10,6 +10,7 @@ import {
   Param,
   Post,
   Get,
+  Patch,
   Query,
   Req,
   Delete,
@@ -396,12 +397,12 @@ export class ItinerariesController {
     );
   }
 
-  @Get('hotspots/available/:locationId')
-  @ApiOperation({ summary: 'Get available hotspots for a location' })
-  @ApiParam({ name: 'locationId', example: 123, description: 'Location ID' })
+  @Get('hotspots/available/:routeId')
+  @ApiOperation({ summary: 'Get available hotspots for a route' })
+  @ApiParam({ name: 'routeId', example: 123, description: 'Route ID' })
   @ApiOkResponse({ description: 'List of available hotspots' })
-  async getAvailableHotspots(@Param('locationId') locationId: string) {
-    return this.svc.getAvailableHotspots(Number(locationId));
+  async getAvailableHotspots(@Param('routeId') routeId: string) {
+    return this.svc.getAvailableHotspots(Number(routeId));
   }
 
   @Post('hotspots/add')
@@ -420,6 +421,24 @@ export class ItinerariesController {
   @ApiOkResponse({ description: 'Hotspot added successfully' })
   async addHotspot(@Body() body: any) {
     return this.svc.addHotspot(body);
+  }
+
+  @Post('hotspots/preview-add')
+  @ApiOperation({ summary: 'Preview adding a hotspot to an itinerary route' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 17940 },
+        routeId: { type: 'number', example: 1 },
+        hotspotId: { type: 'number', example: 456 },
+      },
+      required: ['planId', 'routeId', 'hotspotId'],
+    },
+  })
+  @ApiOkResponse({ description: 'Preview data for adding hotspot' })
+  async previewAddHotspot(@Body() body: any) {
+    return this.svc.previewAddHotspot(body);
   }
 
   @Get('hotels/available/:routeId')
@@ -614,6 +633,45 @@ export class ItinerariesController {
   @ApiOperation({ summary: 'Get invoice data for a confirmed itinerary' })
   async getInvoiceData(@Param('id', ParseIntPipe) id: number) {
     return this.svc.getInvoiceData(id);
+  }
+
+  @Post(':id/manual-hotspot/preview')
+  @ApiOperation({ summary: 'Preview adding a manual hotspot to a route' })
+  async previewManualHotspot(
+    @Param('id', ParseIntPipe) planId: number,
+    @Body() body: { routeId: number; hotspotId: number },
+  ) {
+    return this.svc.previewManualHotspot(planId, body.routeId, body.hotspotId);
+  }
+
+  @Post(':id/manual-hotspot')
+  @ApiOperation({ summary: 'Add a manual hotspot to a route and rebuild timeline' })
+  async addManualHotspot(
+    @Param('id', ParseIntPipe) planId: number,
+    @Body() body: { routeId: number; hotspotId: number },
+    @Req() req: any,
+  ) {
+    const userId = Number(req.user?.userId ?? 1);
+    return this.svc.addManualHotspot(planId, body.routeId, body.hotspotId, userId);
+  }
+
+  @Delete(':id/manual-hotspot/:hotspotId')
+  @ApiOperation({ summary: 'Remove a manual hotspot and rebuild timeline' })
+  async removeManualHotspot(
+    @Param('id', ParseIntPipe) planId: number,
+    @Param('hotspotId', ParseIntPipe) hotspotId: number,
+  ) {
+    return this.svc.removeManualHotspot(planId, hotspotId);
+  }
+
+  @Patch(':id/route/:routeId/times')
+  @ApiOperation({ summary: 'Update route start and end times' })
+  async updateRouteTimes(
+    @Param('id', ParseIntPipe) planId: number,
+    @Param('routeId', ParseIntPipe) routeId: number,
+    @Body() body: { startTime: string; endTime: string },
+  ) {
+    return this.svc.updateRouteTimes(planId, routeId, body.startTime, body.endTime);
   }
 
   /**

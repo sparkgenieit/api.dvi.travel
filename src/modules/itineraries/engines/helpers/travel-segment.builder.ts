@@ -33,6 +33,8 @@ export class TravelSegmentBuilder {
       hotspotId?: number; // For item_type=3 (site-seeing travel), set to target hotspot_ID
       sourceCoords?: { lat: number; lon: number };
       destCoords?: { lat: number; lon: number };
+      isConflict?: boolean;
+      conflictReason?: string;
     },
   ): Promise<{ row: HotspotDetailRow; nextTime: string }> {
     const {
@@ -51,6 +53,8 @@ export class TravelSegmentBuilder {
       hotspotId = 0,
       sourceCoords,
       destCoords,
+      isConflict = false,
+      conflictReason = "",
     } = opts;
 
     let distanceResult;
@@ -120,6 +124,8 @@ export class TravelSegmentBuilder {
       updatedon: null,
       status: 1,
       deleted: 0,
+      isConflict,
+      conflictReason,
     };
 
     return { row, nextTime: endTime };

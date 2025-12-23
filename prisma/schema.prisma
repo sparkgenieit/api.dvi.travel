@@ -3508,6 +3508,7 @@ model dvi_hotspot_place {
   hotspot_latitude                  String?   @db.VarChar(200)
   hotspot_longitude                 String?   @db.VarChar(200)
   hotspot_video_url                 String?   @db.Text
+  city_boundaries                   String?   @db.Text
   createdby                         Int       @default(0)
   createdon                         DateTime? @db.DateTime(0)
   updatedon                         DateTime? @db.DateTime(0)
@@ -4297,6 +4298,8 @@ model dvi_itinerary_route_hotspot_details {
   allow_via_route                   Int       @default(0)
   via_location_name                 String?   @db.VarChar(200)
   hotspot_plan_own_way              Int       @default(0)
+  is_conflict                       Int       @default(0) @db.TinyInt
+  conflict_reason                   String?   @db.Text
   createdby                         Int       @default(0)
   createdon                         DateTime? @db.DateTime(0)
   updatedon                         DateTime? @db.DateTime(0)

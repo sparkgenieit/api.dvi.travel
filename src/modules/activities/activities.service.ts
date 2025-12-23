@@ -79,60 +79,73 @@ export class ActivitiesService {
 
   // ====== LIST ======
   async list(opts: { q?: string; status?: StatusFilter }) {
-    const where: any = {
-      deleted: 0,
-    };
-    if (opts?.status === '0' || opts?.status === '1') {
-      where.status = toInt(opts.status);
-    }
-    if (opts?.q) {
-      where.OR = [{ activity_title: { contains: opts.q } }];
-    }
+    try {
+      console.log('[ActivitiesService] list called with opts:', opts);
+      const where: any = {
+        deleted: 0,
+      };
+      if (opts?.status === '0' || opts?.status === '1') {
+        where.status = toInt(opts.status);
+      }
+      if (opts?.q) {
+        where.OR = [{ activity_title: { contains: opts.q } }];
+      }
 
-    // Join hotspot for name/location
-    const rows = await this.prisma.dvi_activity.findMany({
-      where,
-      orderBy: { activity_id: 'desc' },
-      select: {
-        activity_id: true,
-        activity_title: true,
-        hotspot_id: true,
-        status: true,
-      },
-    });
+      console.log('[ActivitiesService] list where:', JSON.stringify(where));
 
-    // fetch hotspot details map
-    const hotspotIds = Array.from(new Set(rows.map((r) => r.hotspot_id).filter(Boolean)));
-    let hotspotMap = new Map<number, { name: string; location: string }>();
-    if (hotspotIds.length) {
-      const hotspots = await this.prisma.dvi_hotspot_place.findMany({
-        where: { hotspot_ID: { in: hotspotIds as any } },
+      // Join hotspot for name/location
+      const rows = await this.prisma.dvi_activity.findMany({
+        where,
+        orderBy: { activity_id: 'desc' },
         select: {
-          hotspot_ID: true,
-          hotspot_name: true,
-          hotspot_location: true,
+          activity_id: true,
+          activity_title: true,
+          hotspot_id: true,
+          status: true,
         },
       });
-      hotspotMap = new Map(
-        hotspots.map((h) => [h.hotspot_ID, { name: h.hotspot_name ?? '', location: h.hotspot_location ?? '' }]),
-      );
+      console.log('[ActivitiesService] found rows:', rows.length);
+
+      // fetch hotspot details map
+      const hotspotIds = Array.from(new Set(rows.map((r) => r.hotspot_id).filter((id) => id && id !== 0)));
+      let hotspotMap = new Map<number, { name: string; location: string }>();
+      if (hotspotIds.length) {
+        const hotspots = await this.prisma.dvi_hotspot_place.findMany({
+          where: { hotspot_ID: { in: hotspotIds as any } },
+          select: {
+            hotspot_ID: true,
+            hotspot_name: true,
+            hotspot_location: true,
+          },
+        });
+        hotspots.forEach((h) => {
+          hotspotMap.set(h.hotspot_ID, {
+            name: h.hotspot_name ?? '',
+            location: h.hotspot_location ?? '',
+          });
+        });
+      }
+
+      let counter = 0;
+      const data = rows.map((r) => {
+        const hp = hotspotMap.get(r.hotspot_id) ?? { name: '', location: '' };
+        return {
+          counter: ++counter,
+          modify: r.activity_id, // keep parity with PHP JSON field
+          activity_title: r.activity_title ?? '',
+          hotspot_name: hp.name,
+          hotspot_location: hp.location,
+          status: r.status,
+          activity_id: r.activity_id,
+        };
+      });
+      console.log('[ActivitiesService] returning data count:', data.length);
+
+      return { data };
+    } catch (error) {
+      console.error('[ActivitiesService] list error:', error);
+      throw error;
     }
-
-    let counter = 0;
-    const data = rows.map((r) => {
-      const hp = hotspotMap.get(r.hotspot_id) ?? { name: '', location: '' };
-      return {
-        counter: ++counter,
-        modify: r.activity_id, // keep parity with PHP JSON field
-        activity_title: r.activity_title ?? '',
-        hotspot_name: hp.name,
-        hotspot_location: hp.location,
-        status: r.status,
-        activity_id: r.activity_id,
-      };
-    });
-
-    return { data };
   }
 
   // ====== HOTSPOTS for dropdown ======
@@ -278,12 +291,25 @@ export class ActivitiesService {
   }
 
   async softDelete(id: number) {
-    const existing = await this.prisma.dvi_activity.findFirst({ where: { activity_id: id, deleted: 0 } });
-    if (!existing) throw new NotFoundException('Activity not found');
-    return this.prisma.dvi_activity.update({
-      where: { activity_id: id },
-      data: { deleted: 1, updatedon: new Date() },
-    });
+    try {
+      console.log('[ActivitiesService] softDelete called for id:', id);
+      const existing = await this.prisma.dvi_activity.findFirst({
+        where: { activity_id: id, deleted: 0 },
+      });
+      if (!existing) {
+        console.warn('[ActivitiesService] softDelete: activity not found or already deleted:', id);
+        throw new NotFoundException('Activity not found');
+      }
+      const result = await this.prisma.dvi_activity.update({
+        where: { activity_id: id },
+        data: { deleted: 1, updatedon: new Date() },
+      });
+      console.log('[ActivitiesService] softDelete success for id:', id);
+      return result;
+    } catch (error) {
+      console.error('[ActivitiesService] softDelete error for id:', id, error);
+      throw error;
+    }
   }
 
   // ====== GALLERY ======

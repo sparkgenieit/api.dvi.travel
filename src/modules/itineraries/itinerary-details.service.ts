@@ -241,7 +241,7 @@ export class ItineraryDetailsService {
    * - We must use UTC getters to read the time value without timezone conversion.
    * - Using local getters on an IST server would add +5:30 (12:00 → 17:30).
    */
-  private formatTime(d?: Date | string | null): string | null {
+  public formatTime(d?: Date | string | null): string | null {
     if (!d) return null;
     const dt = d instanceof Date ? d : new Date(d);
     if (isNaN(dt.getTime())) return null;
@@ -317,6 +317,36 @@ export class ItineraryDetailsService {
       orderBy: { itinerary_route_ID: 'asc' },
     });
 
+    // ------------------------- HOTELS FOR TIMELINE ----------------------
+    const timelineHotelWhere: any = { itinerary_plan_id: planId, deleted: 0 };
+    if (groupType !== undefined) {
+      timelineHotelWhere.group_type = groupType;
+    } else {
+      timelineHotelWhere.group_type = 1; // Default to first recommendation
+    }
+
+    const timelineHotelRows = await this.prisma.dvi_itinerary_plan_hotel_details.findMany({
+      where: timelineHotelWhere,
+    });
+
+    const hotelIds = Array.from(
+      new Set(timelineHotelRows.map((h) => h.hotel_id).filter((id) => id > 0)),
+    );
+    const hotelMasters = hotelIds.length
+      ? await this.prisma.dvi_hotel.findMany({
+          where: { hotel_id: { in: hotelIds } },
+          select: { hotel_id: true, hotel_name: true, hotel_address: true },
+        })
+      : [];
+
+    const hotelMasterMap = new Map(hotelMasters.map((h) => [h.hotel_id, h]));
+    const routeHotelMap = new Map(
+      timelineHotelRows.map((h) => [
+        h.itinerary_route_id,
+        hotelMasterMap.get(h.hotel_id),
+      ]),
+    );
+
     const days: any[] = [];
 
     for (let index = 0; index < routes.length; index++) {
@@ -359,6 +389,8 @@ export class ItineraryDetailsService {
             allow_via_route,
             via_location_name,
             hotspot_plan_own_way,
+            is_conflict,
+            conflict_reason,
             createdby,
             createdon,
             updatedon,
@@ -411,7 +443,17 @@ export class ItineraryDetailsService {
         location?.source_location ??
         route.location_name ??
         plan.arrival_location ??
-        '';
+        "";
+
+      // If starting from "Hotel", use the hotel name from the previous day's stay
+      if (previousStopName === "Hotel" && index > 0) {
+        const prevHotelInfo = routeHotelMap.get(
+          routes[index - 1].itinerary_route_ID,
+        );
+        if (prevHotelInfo?.hotel_name) {
+          previousStopName = prevHotelInfo.hotel_name;
+        }
+      }
 
       let totalDistanceKm = 0;
 
@@ -468,18 +510,25 @@ export class ItineraryDetailsService {
 
         if (itemType === 2) {
           // TRAVEL row (from source to next location)
-          const toName =
+          let toName =
             route.next_visiting_location ??
             location?.destination_location ??
             plan.departure_location ??
-            '';
+            "";
+
+          if (toName === "Hotel") {
+            const hotelInfo = routeHotelMap.get(route.itinerary_route_ID);
+            if (hotelInfo?.hotel_name) {
+              toName = hotelInfo.hotel_name;
+            }
+          }
 
           if (!Number.isNaN(distanceNum)) {
             totalDistanceKm += distanceNum;
           }
 
           segments.push({
-            type: 'travel' as const,
+            type: "travel" as const,
             from: previousStopName,
             to: toName,
             timeRange:
@@ -488,7 +537,7 @@ export class ItineraryDetailsService {
                 : null,
             distance: travelDistance,
             duration: this.formatDuration(travelDuration),
-            note: 'This may vary due to traffic conditions',
+            note: "This may vary due to traffic conditions",
           });
 
           previousStopName = toName;
@@ -539,17 +588,25 @@ export class ItineraryDetailsService {
           } else {
             // Regular travel to next hotspot or destination
             // When hotspot_ID is 0, use route's next_visiting_location as destination
-            const toName = master?.hotspot_name ?? 
-                          viaLocationName ?? 
-                          (rh.hotspot_ID === 0 ? route.next_visiting_location : null) ??
-                          previousStopName;
+            let toName =
+              master?.hotspot_name ??
+              viaLocationName ??
+              (rh.hotspot_ID === 0 ? route.next_visiting_location : null) ??
+              previousStopName;
+
+            if (toName === "Hotel") {
+              const hotelInfo = routeHotelMap.get(route.itinerary_route_ID);
+              if (hotelInfo?.hotel_name) {
+                toName = hotelInfo.hotel_name;
+              }
+            }
 
             if (!Number.isNaN(distanceNum)) {
               totalDistanceKm += distanceNum;
             }
 
             segments.push({
-              type: 'travel' as const,
+              type: "travel" as const,
               from: previousStopName,
               to: toName,
               timeRange:
@@ -558,7 +615,9 @@ export class ItineraryDetailsService {
                   : null,
               distance: travelDistance,
               duration: this.formatDuration(travelDuration),
-              note: 'This may vary due to traffic conditions',
+              note: "This may vary due to traffic conditions",
+              isConflict: (rh as any).is_conflict === 1,
+              conflictReason: (rh as any).conflict_reason ?? null,
             });
 
             previousStopName = toName;
@@ -640,6 +699,17 @@ export class ItineraryDetailsService {
             }
           }
 
+          // Format operating hours (timings)
+          let operatingHours = '';
+          const timing = rh.hotspot_ID ? hotspotTimingMap.get(rh.hotspot_ID as number) : null;
+          if (timing) {
+            if (timing.hotspot_open_all_time === 1) {
+              operatingHours = 'Open 24 Hours';
+            } else if (timing.hotspot_start_time && timing.hotspot_end_time) {
+              operatingHours = `${this.formatTime(timing.hotspot_start_time as any)} - ${this.formatTime(timing.hotspot_end_time as any)}`;
+            }
+          }
+
           segments.push({
             type: 'attraction' as const,
             name: master.hotspot_name,
@@ -647,6 +717,7 @@ export class ItineraryDetailsService {
             visitTime: visitTimeDisplay,
             duration: this.formatDuration(stayDuration),
             amount: hotspotAmount > 0 ? Number(hotspotAmount) : null,
+            timings: operatingHours,
             image: null,
             videoUrl: hotspotVideoUrl,
             planOwnWay: hotspotPlanOwnWay === 1,
@@ -654,6 +725,9 @@ export class ItineraryDetailsService {
             hotspotId: rh.hotspot_ID as number,
             routeHotspotId: rh.route_hotspot_ID,
             locationId: route.location_id ? Number(route.location_id) : null,
+            isConflict: (rh as any).is_conflict === 1,
+            conflictReason: (rh as any).conflict_reason ?? null,
+            isManual: hotspotPlanOwnWay === 1,
           });
 
           previousStopName = master.hotspot_name;
@@ -663,14 +737,15 @@ export class ItineraryDetailsService {
         if (itemType === 5) {
           // TRAVEL TO HOTEL segment
           // Show travel from last hotspot to hotel with time and distance
-          const toName = 'Hotel'; // Will show actual hotel name when selected
+          const hotelInfo = routeHotelMap.get(route.itinerary_route_ID);
+          const toName = hotelInfo?.hotel_name ?? "Hotel";
 
           if (!Number.isNaN(distanceNum)) {
             totalDistanceKm += distanceNum;
           }
 
           segments.push({
-            type: 'travel' as const,
+            type: "travel" as const,
             from: previousStopName,
             to: toName,
             timeRange:
@@ -679,7 +754,9 @@ export class ItineraryDetailsService {
                 : null,
             distance: travelDistance,
             duration: this.formatDuration(travelDuration),
-            note: 'This may vary due to traffic conditions',
+            note: "This may vary due to traffic conditions",
+            isConflict: (rh as any).is_conflict === 1,
+            conflictReason: (rh as any).conflict_reason ?? null,
           });
 
           previousStopName = toName;
@@ -688,8 +765,9 @@ export class ItineraryDetailsService {
 
         if (itemType === 6) {
           // HOTEL CHECK-IN / RETURN segment
-          // ✅ GENERIC - Show "Check in to Hotel" without assigning specific hotel
-          // Hotels will be confirmed later by the user
+          const hotelInfo = routeHotelMap.get(route.itinerary_route_ID);
+          const hotelName = hotelInfo?.hotel_name ?? "Hotel";
+          const hotelAddress = hotelInfo?.hotel_address ?? "";
 
           // ✅ Use ARRIVAL time for check-in (end time), not start time
           // Fallback: startTimeText, then route end time
@@ -700,9 +778,9 @@ export class ItineraryDetailsService {
             null;
 
           segments.push({
-            type: 'checkin' as const,
-            hotelName: 'Hotel',  // Generic placeholder
-            hotelAddress: '',
+            type: "checkin" as const,
+            hotelName: hotelName,
+            hotelAddress: hotelAddress,
             time: checkInTime,
           });
 
@@ -728,6 +806,8 @@ export class ItineraryDetailsService {
             distance: travelDistance,
             duration: this.formatDuration(travelDuration),
             note: 'This may vary due to traffic conditions',
+            isConflict: (rh as any).isConflict === true,
+            conflictReason: (rh as any).conflictReason ?? null,
           });
 
           previousStopName = toName;
@@ -842,6 +922,7 @@ export class ItineraryDetailsService {
         id: route.itinerary_route_ID,
         dayNumber: index + 1,
         date: route.itinerary_route_date,
+        locationId: Number(route.location_id || 0),
         departure:
           location?.source_location ??
           route.location_name ??

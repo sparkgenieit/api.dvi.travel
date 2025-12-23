@@ -41,6 +41,7 @@ export class HotelEngineService {
         total_children: true,
         total_infants: true,
         preferred_hotel_category: true,
+        no_of_nights: true,
       },
     });
 
@@ -89,8 +90,12 @@ export class HotelEngineService {
     for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
       const r = routes[routeIndex];
       const isLastRoute = (routeIndex === totalRoutes - 1);
+      const noOfNights = Number(plan?.no_of_nights || 0);
       
-      if (isLastRoute) continue; // No overnight stay needed on departure day
+      // Skip hotel generation for the last route (departure day)
+      // UNLESS it's a multi-day trip and we have fewer routes than nights (edge case)
+      // Standard: if routeIndex < noOfNights, we need a hotel for that night.
+      if (isLastRoute && routeIndex >= noOfNights) continue;
       
       const routeDate = r.itinerary_route_date ? new Date(r.itinerary_route_date) : new Date();
       const city = r.next_visiting_location;
@@ -263,9 +268,10 @@ export class HotelEngineService {
     for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
       const r = routes[routeIndex];
       const isLastRoute = (routeIndex === totalRoutes - 1);
+      const noOfNights = Number(plan?.no_of_nights || 0);
       
       // Skip last route (same as Phase 1)
-      if (isLastRoute) {
+      if (isLastRoute && routeIndex >= noOfNights) {
         continue;
       }
       

@@ -146,6 +146,16 @@ export class CreateRouteDto {
   @IsString()
   via_route?: string;
 
+  @ApiProperty({ example: '08:00:00', required: false })
+  @IsOptional()
+  @IsString()
+  route_start_time?: string;
+
+  @ApiProperty({ example: '20:00:00', required: false })
+  @IsOptional()
+  @IsString()
+  route_end_time?: string;
+
   @ApiProperty({
     type: () => [CreateViaRouteDto],
     required: false,

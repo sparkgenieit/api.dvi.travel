@@ -19,6 +19,8 @@ import { ViaRoutesEngine } from "./engines/via-routes.engine";
 import { ItineraryVehiclesEngine } from "./engines/itinerary-vehicles.engine";
 import { RouteValidationService } from "./validation/route-validation.service";
 import { ItineraryDetailsService } from "./itinerary-details.service";
+import { TimeConverter } from "./engines/helpers/time-converter";
+import { HotspotDetailRow } from "./engines/helpers/types";
 
 @Injectable()
 export class ItinerariesService {
@@ -233,14 +235,18 @@ export class ItinerariesService {
           updatedon: new Date(),
         },
       });
-    });
+
+      // Trigger a full rebuild of the hotspots for this plan
+      // This ensures travel times and hotel arrival are recalculated after deletion
+      await this.hotspotEngine.rebuildRouteHotspots(tx, planId);
+    }, { timeout: 60000 });
 
     // Rebuild parking charges after deletion
     await this.hotspotEngine.rebuildParkingCharges(planId, userId);
 
     return {
       success: true,
-      message: 'Hotspot deleted successfully',
+      message: 'Hotspot deleted and timeline recalculated successfully',
     };
   }
 
@@ -356,8 +362,8 @@ export class ItinerariesService {
         itinerary_route_ID: routeId,
       },
       data: {
-        modifiedDate: new Date(),
-        modifiedBy: userId,
+        updatedon: new Date(),
+        createdby: userId,
       },
     });
 
@@ -368,25 +374,40 @@ export class ItinerariesService {
   }
 
   /**
-   * Get available hotspots for a location
+   * Get available hotspots for a route
    */
-  async getAvailableHotspots(locationId: number) {
-    // Get the location details from dvi_stored_locations
-    const location = await (this.prisma as any).dvi_stored_locations.findFirst({
-      where: {
-        location_ID: locationId,
-        deleted: 0,
-      },
-      select: {
-        destination_location: true,
-      },
+  async getAvailableHotspots(routeId: number) {
+    // 1) Get the route details
+    const route = await (this.prisma as any).dvi_itinerary_route_details.findFirst({
+      where: { itinerary_route_ID: routeId, deleted: 0 },
     });
 
-    if (!location || !location.destination_location) {
+    if (!route || !route.location_id) {
       return [];
     }
 
-    const locationName = location.destination_location;
+    // 2) Get the location details from dvi_stored_locations
+    const location = await (this.prisma as any).dvi_stored_locations.findFirst({
+      where: {
+        location_ID: Number(route.location_id),
+        deleted: 0,
+      },
+    });
+
+    if (!location) {
+      return [];
+    }
+
+    // 3) Decide which city to show hotspots for based on direct flag
+    // If direct_to_next_visiting_place = 1, show destination hotspots
+    // If direct_to_next_visiting_place = 0, show source hotspots
+    const locationName = route.direct_to_next_visiting_place === 1
+      ? location.destination_location
+      : location.source_location;
+
+    if (!locationName) {
+      return [];
+    }
 
     const hotspots = await (this.prisma as any).dvi_hotspot_place.findMany({
       where: {
@@ -409,6 +430,49 @@ export class ItinerariesService {
       },
     });
 
+    // Fetch timings for these hotspots
+    const hotspotIds = hotspots.map((h: any) => h.hotspot_ID);
+    const timings = await (this.prisma as any).dvi_hotspot_timing.findMany({
+      where: {
+        hotspot_ID: { in: hotspotIds },
+        deleted: 0,
+        status: 1,
+      },
+      orderBy: {
+        hotspot_start_time: 'asc',
+      },
+    });
+
+    // Map timings to hotspots (summarized for quick view)
+    const timingMap = new Map<number, string>();
+    const formatTime = (date: Date | null) => {
+      if (!date) return '';
+      const h = date.getUTCHours();
+      const m = date.getUTCMinutes();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+    };
+
+    for (const t of timings) {
+      if (t.hotspot_closed === 1) continue;
+      
+      let timeStr = '';
+      if (t.hotspot_open_all_time === 1) {
+        timeStr = 'Open 24 Hours';
+      } else if (t.hotspot_start_time && t.hotspot_end_time) {
+        const start = formatTime(t.hotspot_start_time);
+        const end = formatTime(t.hotspot_end_time);
+        timeStr = `${start} - ${end}`;
+      }
+
+      if (timeStr) {
+        if (!timingMap.has(t.hotspot_ID)) {
+          timingMap.set(t.hotspot_ID, timeStr);
+        }
+      }
+    }
+
     return hotspots.map((h: any) => ({
       id: h.hotspot_ID,
       name: h.hotspot_name,
@@ -416,6 +480,7 @@ export class ItinerariesService {
       description: h.hotspot_description || '',
       timeSpend: h.hotspot_duration ? new Date(h.hotspot_duration).getUTCHours() : 0,
       locationMap: h.hotspot_location || null,
+      timings: timingMap.get(h.hotspot_ID) || 'No timings available',
     }));
   }
 
@@ -425,47 +490,15 @@ export class ItinerariesService {
   async addHotspot(data: { planId: number; routeId: number; hotspotId: number }) {
     const userId = 1;
 
-    // Get the hotspot details
-    const hotspot = await (this.prisma as any).dvi_hotspot_place.findUnique({
-      where: { hotspot_ID: data.hotspotId },
-    });
-
-    if (!hotspot) {
-      throw new BadRequestException('Hotspot not found');
-    }
-
-    // Get the max hotspot order for this route
-    const existingHotspots = await (this.prisma as any).dvi_itinerary_route_hotspot_details.findMany({
-      where: {
-        itinerary_plan_ID: data.planId,
-        itinerary_route_ID: data.routeId,
-        deleted: 0,
-      },
-      select: { hotspot_order: true },
-      orderBy: { hotspot_order: 'desc' },
-      take: 1,
-    });
-
-    const nextOrder = existingHotspots.length > 0 ? existingHotspots[0].hotspot_order + 1 : 1;
-
-    // Insert the hotspot
-    const result = await (this.prisma as any).dvi_itinerary_route_hotspot_details.create({
+    // 1) Insert the manual hotspot record first
+    // We mark it with hotspot_plan_own_way = 1 so the engine preserves it
+    await (this.prisma as any).dvi_itinerary_route_hotspot_details.create({
       data: {
         itinerary_plan_ID: data.planId,
         itinerary_route_ID: data.routeId,
         hotspot_ID: data.hotspotId,
         item_type: 4, // Hotspot/Attraction type
-        hotspot_order: nextOrder,
-        hotspot_adult_entry_cost: hotspot.hotspot_adult_entry_cost || 0,
-        hotspot_child_entry_cost: hotspot.hotspot_child_entry_cost || 0,
-        hotspot_infant_entry_cost: hotspot.hotspot_infant_entry_cost || 0,
-        hotspot_foreign_adult_entry_cost: hotspot.hotspot_foreign_adult_entry_cost || 0,
-        hotspot_foreign_child_entry_cost: hotspot.hotspot_foreign_child_entry_cost || 0,
-        hotspot_foreign_infant_entry_cost: hotspot.hotspot_foreign_infant_entry_cost || 0,
-        hotspot_amout: hotspot.hotspot_adult_entry_cost || 0,
-        hotspot_traveling_time: hotspot.hotspot_duration || null,
-        hotspot_start_time: new Date('1970-01-01T00:00:00.000Z'),
-        hotspot_end_time: new Date('1970-01-01T00:00:00.000Z'),
+        hotspot_plan_own_way: 1, // MARK AS MANUAL
         createdby: userId,
         createdon: new Date(),
         status: 1,
@@ -473,22 +506,34 @@ export class ItinerariesService {
       },
     });
 
-    // Update route details timestamp
-    await (this.prisma as any).dvi_itinerary_route_details.updateMany({
-      where: {
-        itinerary_plan_ID: data.planId,
-        itinerary_route_ID: data.routeId,
-      },
-      data: {
-        updatedon: new Date(),
-      },
-    });
+    // 2) Trigger a full rebuild of the hotspots for this plan
+    // The engine will now see the manual hotspot, keep it, and calculate all travel times/hotel shifts
+    const result = await this.prisma.$transaction(async (tx) => {
+      return await this.hotspotEngine.rebuildRouteHotspots(tx, data.planId);
+    }, { timeout: 60000 });
 
     return {
       success: true,
-      message: 'Hotspot added successfully',
-      hotspotId: result.route_hotspot_ID,
+      message: 'Hotspot added and timeline recalculated successfully',
+      shiftedItems: result.shiftedItems,
+      droppedItems: result.droppedItems,
     };
+  }
+
+  /**
+   * Preview adding a hotspot to an itinerary route
+   */
+  async previewAddHotspot(data: { planId: number; routeId: number; hotspotId: number }) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      return await this.hotspotEngine.previewManualHotspotAdd(
+        tx,
+        data.planId,
+        data.routeId,
+        data.hotspotId,
+      );
+    }, { timeout: 60000 });
+
+    return result;
   }
 
   /**
@@ -523,14 +568,12 @@ export class ItinerariesService {
     // Fetch hotels with Haversine distance calculation
     const hotels = await this.prisma.$queryRaw`
       SELECT 
-        h.hotel_ID,
+        h.hotel_id,
         h.hotel_name,
         h.hotel_address,
         h.hotel_latitude,
         h.hotel_longitude,
         h.hotel_category,
-        h.hotel_check_in,
-        h.hotel_check_out,
         (6371 * acos(
           cos(radians(${destLat})) * 
           cos(radians(h.hotel_latitude)) * 
@@ -549,12 +592,10 @@ export class ItinerariesService {
     `;
 
     return (hotels as any[]).map(h => ({
-      id: h.hotel_ID,
+      id: h.hotel_id,
       name: h.hotel_name,
       address: h.hotel_address,
       category: h.hotel_category,
-      checkIn: h.hotel_check_in,
-      checkOut: h.hotel_check_out,
       distance: Number(h.distance_in_km).toFixed(2),
     }));
   }
@@ -2116,5 +2157,148 @@ export class ItinerariesService {
       itinerary: plan,
       totalAmount: accounts?.total_billed_amount || 0,
     };
+  }
+
+  /**
+   * Preview manual hotspot addition.
+   */
+  async previewManualHotspot(planId: number, routeId: number, hotspotId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      // Use the timeline builder directly for preview
+      const { TimelineBuilder } = await import("./engines/helpers/timeline.builder");
+      const builder = new TimelineBuilder();
+      const result = await builder.previewManualHotspotAdd(tx, planId, routeId, hotspotId);
+
+      // Filter for the specific route we are previewing
+      const rows = (result.hotspotRows as HotspotDetailRow[]).filter(r => Number(r.itinerary_route_ID) === Number(routeId));
+      
+      // Fetch hotspot names for display
+      const hotspotIds = rows.map(r => r.hotspot_ID).filter((id): id is number => !!id && id > 0);
+      const hotspotMasters = await tx.dvi_hotspot_place.findMany({
+        where: { hotspot_ID: { in: hotspotIds } }
+      });
+      const hotspotMap = new Map(hotspotMasters.map(h => [Number(h.hotspot_ID), h.hotspot_name]));
+
+      // Map to frontend segment format
+      return rows.map(r => {
+        const startTime = this.itineraryDetails.formatTime(r.hotspot_start_time);
+        const endTime = this.itineraryDetails.formatTime(r.hotspot_end_time);
+        
+        let text = '';
+        switch(Number(r.item_type)) {
+          case 1: text = 'Start / Refreshment'; break;
+          case 2: text = 'Travel'; break;
+          case 3: text = 'Travel'; break;
+          case 4: text = hotspotMap.get(Number(r.hotspot_ID)) || 'Sightseeing'; break;
+          case 5: text = 'Travel to Hotel'; break;
+          case 6: text = 'Hotel Check-in'; break;
+          case 7: text = 'Travel to Departure'; break;
+          default: text = 'Activity';
+        }
+
+        return {
+          type: r.item_type === 4 ? 'hotspot' : 'other',
+          timeRange: startTime && endTime ? `${startTime} - ${endTime}` : (startTime || endTime || ''),
+          text: text,
+          isConflict: r.isConflict === true,
+          conflictReason: r.conflictReason || null,
+          locationId: r.hotspot_ID
+        };
+      });
+    }, { timeout: 30000 });
+  }
+
+  /**
+   * Add a manual hotspot to a route and rebuild the timeline.
+   */
+  async addManualHotspot(planId: number, routeId: number, hotspotId: number, userId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Insert the manual hotspot record
+      // We only need a minimal record; the engine will fill in the rest during rebuild
+      await (tx as any).dvi_itinerary_route_hotspot_details.create({
+        data: {
+          itinerary_plan_ID: Number(planId),
+          itinerary_route_ID: Number(routeId),
+          hotspot_ID: Number(hotspotId),
+          hotspot_plan_own_way: 1,
+          item_type: 4, // Hotspot visit
+          createdby: Number(userId),
+          status: 1,
+          deleted: 0,
+        },
+      });
+
+      // 2. Rebuild the timeline
+      await this.hotspotEngine.rebuildRouteHotspots(tx, planId);
+
+      return { success: true };
+    }, { timeout: 30000 });
+  }
+
+  /**
+   * Remove a manual hotspot and rebuild the timeline.
+   */
+  async removeManualHotspot(planId: number, hotspotId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
+        where: {
+          itinerary_plan_ID: Number(planId),
+          hotspot_ID: Number(hotspotId),
+          hotspot_plan_own_way: 1,
+        },
+      });
+
+      await this.hotspotEngine.rebuildRouteHotspots(tx, Number(planId));
+
+      return { success: true };
+    }, { timeout: 30000 });
+  }
+
+  /**
+   * Update route start and end times and rebuild the timeline.
+   */
+  async updateRouteTimes(planId: number, routeId: number, startTime: string, endTime: string) {
+    console.log(`[updateRouteTimes] planId=${planId}, routeId=${routeId}, startTime=${startTime}, endTime=${endTime}`);
+    
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Verify the record exists and belongs to the plan
+      const record = await (tx as any).dvi_itinerary_route_details.findFirst({
+        where: { 
+          itinerary_route_ID: routeId,
+          itinerary_plan_ID: planId
+        }
+      });
+
+      if (!record) {
+        console.error(`[updateRouteTimes] Record NOT found for routeId=${routeId} and planId=${planId}`);
+        // Check if it exists with a different planId for debugging
+        const otherRecord = await (tx as any).dvi_itinerary_route_details.findUnique({
+          where: { itinerary_route_ID: routeId }
+        });
+        if (otherRecord) {
+          console.error(`[updateRouteTimes] Record exists but belongs to planId=${otherRecord.itinerary_plan_ID}`);
+          throw new BadRequestException(`Route ${routeId} belongs to plan ${otherRecord.itinerary_plan_ID}, not ${planId}`);
+        }
+        throw new BadRequestException(`Route ${routeId} not found`);
+      }
+
+      console.log(`[updateRouteTimes] Found record. Updating...`);
+
+      // 2. Update the route details
+      await (tx as any).dvi_itinerary_route_details.update({
+        where: { itinerary_route_ID: routeId },
+        data: {
+          route_start_time: TimeConverter.toDate(startTime),
+          route_end_time: TimeConverter.toDate(endTime),
+          updatedon: new Date(),
+        },
+      });
+
+      // 3. Rebuild the timeline for the entire plan
+      console.log(`[updateRouteTimes] Rebuilding timeline for planId=${planId}...`);
+      await this.hotspotEngine.rebuildRouteHotspots(tx, planId);
+
+      return { success: true };
+    }, { timeout: 60000 });
   }
 }

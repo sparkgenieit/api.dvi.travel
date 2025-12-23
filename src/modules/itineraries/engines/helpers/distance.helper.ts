@@ -57,6 +57,54 @@ function parseDurationToMinutes(duration: any): number | null {
 }
 
 export class DistanceHelper {
+  private globalSettings: any = null;
+
+  /**
+   * Set global settings to avoid redundant DB queries.
+   */
+  setGlobalSettings(gs: any) {
+    this.globalSettings = gs;
+  }
+
+  /**
+   * Pre-populate the distance cache with provided locations.
+   */
+  prePopulateCache(locations: any[]) {
+    for (const loc of locations) {
+      const key = `${loc.source_location}|${loc.destination_location}`;
+      if (!distanceCache.has(key)) {
+        distanceCache.set(key, loc);
+      }
+    }
+  }
+
+  /**
+   * Standalone Haversine calculation for simple distance checks.
+   */
+  calculateHaversine(
+    startLat: number,
+    startLon: number,
+    endLat: number,
+    endLon: number,
+  ): number {
+    const earthRadius = 6371;
+
+    const startLatRad = (startLat * Math.PI) / 180;
+    const startLonRad = (startLon * Math.PI) / 180;
+    const endLatRad = (endLat * Math.PI) / 180;
+    const endLonRad = (endLon * Math.PI) / 180;
+
+    const latDiff = endLatRad - startLatRad;
+    const lonDiff = endLonRad - startLonRad;
+
+    const a =
+      Math.pow(Math.sin(latDiff / 2), 2) +
+      Math.cos(startLatRad) * Math.cos(endLatRad) * Math.pow(Math.sin(lonDiff / 2), 2);
+
+    const distance = 2 * earthRadius * Math.asin(Math.sqrt(a));
+    return distance * 1.5; // Apply same 1.5x correction factor as fromCoordinates
+  }
+
   async fromCoordinates(
     tx: Tx,
     startLat: number,
@@ -84,14 +132,21 @@ export class DistanceHelper {
     const correctionFactor = 1.5;
     const correctedDistance = distance * correctionFactor;
 
-    const gs = await (tx as any).dvi_global_settings.findFirst({
+    const gs = this.globalSettings || await (tx as any).dvi_global_settings.findFirst({
       where: { deleted: 0, status: 1 },
     });
 
-    const avgSpeedKmPerHr =
+    let avgSpeedKmPerHr =
       travelLocationType === 1
         ? Number(gs?.itinerary_local_speed_limit ?? 40)
         : Number(gs?.itinerary_outstation_speed_limit ?? 60);
+
+    // ⚡ PERFORMANCE/LOGIC: If distance is significant (> 10km), 
+    // don't use the very slow local speed (often 15km/h in DB).
+    // This handles cases where hotspots are in the same "city" but far apart.
+    if (travelLocationType === 1 && correctedDistance > 10 && avgSpeedKmPerHr < 40) {
+      avgSpeedKmPerHr = 40; 
+    }
 
     const durationHours = correctedDistance / avgSpeedKmPerHr;
     const wholeHours = Math.floor(durationHours);
@@ -195,18 +250,22 @@ export class DistanceHelper {
   }
 
   private async getBufferTime(tx: Tx, travelLocationType: 1 | 2): Promise<string> {
-    const gs = await (tx as any).dvi_global_settings.findFirst({
+    const gs = this.globalSettings || await (tx as any).dvi_global_settings.findFirst({
       where: { deleted: 0, status: 1 },
     });
 
     if (!gs) return "00:00:00";
 
-    const minutes =
-      travelLocationType === 1
-        ? Number(gs.itinerary_local_buffer_time ?? 0)
-        : Number(gs.itinerary_outstation_buffer_time ?? 0);
+    // PHP PARITY: Use itinerary_travel_by_road_buffer_time for road travel
+    // If not available, fallback to itinerary_common_buffer_time
+    const bufferTimeField = gs.itinerary_travel_by_road_buffer_time || gs.itinerary_common_buffer_time;
+    
+    if (bufferTimeField instanceof Date) {
+      const hours = bufferTimeField.getUTCHours();
+      const minutes = bufferTimeField.getUTCMinutes();
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+    }
 
-    // Buffer is a TIME amount; wrapping is fine here.
-    return minutesToTime(minutes);
+    return "00:00:00";
   }
 }

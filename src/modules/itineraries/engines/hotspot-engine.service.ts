@@ -21,35 +21,67 @@ export class HotspotEngineService {
    * Main entry called from ItinerariesService inside a prisma.$transaction.
    * Mirrors PHP: wipes old hotspot timeline & parking charges and rebuilds them.
    */
-  async rebuildRouteHotspots(tx: Tx, planId: number): Promise<void> {
-    // 1) Delete old hotspot details and parking charges before rebuilding
-    const deletedHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
+  async rebuildRouteHotspots(tx: Tx, planId: number): Promise<any> {
+    // 1) Fetch ALL current hotspots (manual and auto) so we can preserve them as conflicts if they no longer fit
+    const existingHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
+      where: {
+        itinerary_plan_ID: planId,
+        item_type: 4, // Only actual hotspot visits
+        deleted: 0,
+      },
+    });
+
+    // 2) Delete ALL old hotspot details and parking charges before rebuilding
+    await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
       where: { itinerary_plan_ID: planId },
     });
 
-    const deletedParking = await (tx as any).dvi_itinerary_route_hotspot_parking_charge.deleteMany({
+    await (tx as any).dvi_itinerary_route_hotspot_parking_charge.deleteMany({
       where: { itinerary_plan_ID: planId },
     });
 
-    // 2) Build new timeline rows in memory
-    const { hotspotRows, parkingRows } =
-      await this.timelineBuilder.buildTimelineForPlan(tx, planId);
+    // 3) Build new timeline rows in memory
+    // We pass the existing hotspots so the builder can try to keep them even if they conflict
+    const { hotspotRows, parkingRows, shiftedItems, droppedItems } =
+      await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
 
     if (!hotspotRows.length) {
-      return;
+      return { shiftedItems: [], droppedItems: [] };
     }
 
-    // 3) Insert hotspot details
-    await (tx as any).dvi_itinerary_route_hotspot_details.createMany({
-      data: hotspotRows,
+    // 4) Insert hotspot details
+    const dbHotspotRows = hotspotRows.map(row => {
+      // Strip out UI-only fields before saving to DB
+      const { 
+        isConflict, 
+        conflictReason, 
+        isManual, 
+        type, 
+        text, 
+        timeRange, 
+        locationId,
+        ...dbRow 
+      } = row as any;
+      
+      return {
+        ...dbRow,
+        is_conflict: isConflict ? 1 : 0,
+        conflict_reason: conflictReason || null,
+      };
     });
 
-    // 4) Insert parking charge rows (if any)
+    await (tx as any).dvi_itinerary_route_hotspot_details.createMany({
+      data: dbHotspotRows,
+    });
+
+    // 5) Insert parking charge rows (if any)
     if (parkingRows.length) {
       await (tx as any).dvi_itinerary_route_hotspot_parking_charge.createMany({
         data: parkingRows,
       });
     }
+
+    return { shiftedItems, droppedItems };
   }
 
   /**
@@ -94,5 +126,61 @@ export class HotspotEngineService {
         });
       }
     }, { timeout: 60000 });
+  }
+
+  /**
+   * Preview adding a manual hotspot without saving to DB.
+   */
+  async previewManualHotspotAdd(
+    tx: Tx,
+    planId: number,
+    routeId: number,
+    hotspotId: number,
+  ): Promise<any> {
+    // 1) Fetch all existing hotspots for this plan
+    const existingHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
+      where: {
+        itinerary_plan_ID: planId,
+        item_type: 4,
+        deleted: 0,
+      },
+    });
+
+    // 2) Add the new one to the list for the builder
+    // We mark it as manual so the builder prioritizes it and flags conflicts
+    existingHotspots.push({
+      itinerary_plan_ID: planId,
+      itinerary_route_ID: routeId,
+      hotspot_ID: hotspotId,
+      hotspot_plan_own_way: 1, // MARK AS MANUAL
+    });
+
+    // 3) Build the timeline in memory
+    const { hotspotRows, shiftedItems, droppedItems } = await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
+
+    // 4) Find the newly added hotspot in the results to show its timing/conflicts
+    const newHotspotRow = hotspotRows.find(
+      (r) => Number(r.itinerary_route_ID) === Number(routeId) && 
+             Number(r.hotspot_ID) === Number(hotspotId) && 
+             r.item_type === 4
+    );
+
+    // 5) Also check if it caused conflicts in OTHER hotspots
+    const otherConflicts = hotspotRows.filter(
+      (r) => r.item_type === 4 && 
+             (r as any).isConflict && 
+             !(Number(r.itinerary_route_ID) === Number(routeId) && Number(r.hotspot_ID) === Number(hotspotId))
+    );
+
+    return {
+      newHotspot: newHotspotRow,
+      otherConflicts: otherConflicts.map(c => ({
+        hotspotId: c.hotspot_ID,
+        reason: (c as any).conflictReason
+      })),
+      shiftedItems,
+      droppedItems,
+      fullTimeline: hotspotRows,
+    };
   }
 }

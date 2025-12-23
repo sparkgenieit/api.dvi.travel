@@ -287,7 +287,9 @@ export class RouteEngineService {
 
       // Start time defaults
       let startHms: string;
-      if (totalRoutes === 1 || (isFirst && sourceName === arrivalLocation)) {
+      if (r.route_start_time) {
+        startHms = r.route_start_time;
+      } else if (totalRoutes === 1 || (isFirst && sourceName === arrivalLocation)) {
         // First leg matching arrival location → trip_start_time (IST wall-clock)
         startHms = tripStartTimeHms;
       } else {
@@ -297,10 +299,13 @@ export class RouteEngineService {
 
       // End time defaults
       let endHms: string;
-
-      // PHP behavior: All sightseeing routes end at 20:00, regardless of being last route
-      // The trip_end_time is for the actual flight/train departure, not sightseeing end
-      endHms = "20:00:00";
+      if (r.route_end_time) {
+        endHms = r.route_end_time;
+      } else {
+        // PHP behavior: All sightseeing routes end at 20:00, regardless of being last route
+        // The trip_end_time is for the actual flight/train departure, not sightseeing end
+        endHms = "20:00:00";
+      }
 
       // Prisma requires a Date object for @db.Time fields. This helper builds a Date-like
       // value that Prisma can write into MySQL TIME. The IMPORTANT part is: startHms/endHms

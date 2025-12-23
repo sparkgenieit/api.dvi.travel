@@ -98,11 +98,16 @@ export class HotelPricingService {
   async pickHotelByCategory(hotel_category: number, city?: string | null, onDate?: Date) {
     const hotelCategory = Number(hotel_category) || 0;
     const cityTrim = (city ?? "").trim();
-    const whereBase: any = { hotel_category: hotelCategory };
+    const whereBase: any = { hotel_category: hotelCategory, deleted: false, status: 1 };
+
+    let targetStateId: string | null = null;
 
     if (cityTrim) {
-      const cityCandidates = [cityTrim, cityTrim.toUpperCase(), cityTrim.toLowerCase()];
-      for (const c of cityCandidates) {
+      // 1. Try to resolve city name to ID
+      const { candidates, stateId } = await this.resolveCityCandidates(cityTrim);
+      targetStateId = stateId;
+
+      for (const c of candidates) {
         const hotels = await this.prisma.dvi_hotel.findMany({
           where: { ...whereBase, hotel_city: c },
           select: {
@@ -112,6 +117,7 @@ export class HotelPricingService {
             hotel_margin_gst_percentage: true,
             hotel_hotspot_status: true,
             hotel_city: true,
+            hotel_state: true,
           },
         });
 
@@ -129,9 +135,7 @@ export class HotelPricingService {
               const hotel = validHotels[Math.floor(Math.random() * validHotels.length)];
               return hotel;
             }
-            // No valid hotels in this city, continue to fallback
           } else {
-            // No date provided, pick any hotel (backward compatibility)
             const hotel = hotels[Math.floor(Math.random() * hotels.length)];
             return hotel;
           }
@@ -139,6 +143,39 @@ export class HotelPricingService {
       }
     }
 
+    // 2. Fallback: Try hotels in the same STATE (if city search failed but we have a state)
+    if (targetStateId) {
+      const stateHotels = await this.prisma.dvi_hotel.findMany({
+        where: { ...whereBase, hotel_state: targetStateId },
+        select: {
+          hotel_id: true,
+          hotel_margin: true,
+          hotel_margin_gst_type: true,
+          hotel_margin_gst_percentage: true,
+          hotel_hotspot_status: true,
+          hotel_city: true,
+          hotel_state: true,
+        },
+      });
+
+      if (stateHotels.length > 0) {
+        if (onDate) {
+          const validStateHotels = [];
+          for (const h of stateHotels) {
+            if (await this.hasValidRates(h.hotel_id, onDate)) {
+              validStateHotels.push(h);
+            }
+          }
+          if (validStateHotels.length > 0) {
+            return validStateHotels[Math.floor(Math.random() * validStateHotels.length)];
+          }
+        } else {
+          return stateHotels[Math.floor(Math.random() * stateHotels.length)];
+        }
+      }
+    }
+
+    // 3. Final Fallback: Any hotel in category (only if city and state search failed)
     const fallbacks = await this.prisma.dvi_hotel.findMany({
       where: whereBase,
       select: {
@@ -148,6 +185,7 @@ export class HotelPricingService {
         hotel_margin_gst_percentage: true,
         hotel_hotspot_status: true,
         hotel_city: true,
+        hotel_state: true,
       },
     });
 
@@ -200,6 +238,86 @@ export class HotelPricingService {
 
     // Debug log removed for performance
     return mapped;
+  }
+
+  private async resolveCityCandidates(cityStr: string): Promise<{ candidates: string[], stateId: string | null }> {
+    const candidates: string[] = [];
+    let stateId: string | null = null;
+    if (!cityStr) return { candidates, stateId };
+
+    const cityTrim = cityStr.trim();
+
+    // 1. Try exact match or split by comma, parenthesis, or hyphen
+    const cityName = cityTrim.split(/[,\(\-]/)[0].trim();
+
+    // 2. Clean up common suffixes
+    let cleanCity = cityName
+      .replace(/International Airport/gi, "")
+      .replace(/Domestic Airport/gi, "")
+      .replace(/Airport/gi, "")
+      .replace(/Railway Station/gi, "")
+      .trim();
+
+    // 2b. Handle common aliases
+    const aliases: Record<string, string> = {
+      'Trichy': 'Thiruchirapalli',
+      'Tiruchirappalli': 'Thiruchirapalli',
+      'Trivandrum': 'Thiruvananthapuram',
+      'Cochin': 'Kochi',
+      'Calicut': 'Kozhikode',
+      'Ooty': 'Udhagamandalam',
+      'Pondicherry': 'Puducherry',
+      'Banaras': 'Varanasi',
+      'Bombay': 'Mumbai',
+      'Madras': 'Chennai',
+      'Bangalore': 'Bengaluru',
+      'Alleppey': 'Alappuzha',
+      'Mangaluru': 'Mangalore',
+      'Guruvayoor': 'Guruvayur',
+    };
+
+    if (aliases[cleanCity]) {
+      cleanCity = aliases[cleanCity];
+    }
+
+    // 3. Search in dvi_cities
+    const cityRecords = await this.prisma.dvi_cities.findMany({
+      where: {
+        OR: [
+          { name: { equals: cityName } },
+          { name: { equals: cleanCity } },
+          { name: { contains: cleanCity } },
+        ],
+        deleted: 0,
+      },
+      select: { id: true, name: true, state_id: true },
+    });
+
+    if (cityRecords.length > 0) {
+      // Sort by exact match first
+      cityRecords.sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        const targetName = cityName.toLowerCase();
+        const targetClean = cleanCity.toLowerCase();
+
+        if (aName === targetName) return -1;
+        if (bName === targetName) return 1;
+        if (aName === targetClean) return -1;
+        if (bName === targetClean) return 1;
+        return 0;
+      });
+
+      cityRecords.forEach((r) => candidates.push(String(r.id)));
+      stateId = String(cityRecords[0].state_id);
+    }
+
+    // Always include the strings as fallback
+    candidates.push(cityTrim);
+    candidates.push(cityName);
+    if (cleanCity !== cityName) candidates.push(cleanCity);
+
+    return { candidates: [...new Set(candidates)], stateId };
   }
 
   /**

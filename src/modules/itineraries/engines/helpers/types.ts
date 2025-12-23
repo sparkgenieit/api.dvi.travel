@@ -26,6 +26,11 @@ export interface HotspotDetailRow {
   allow_via_route?: 0 | 1;
   via_location_name?: string | null;
   hotspot_plan_own_way?: 0 | 1;
+  
+  // Conflict tracking (not in DB, used for UI/Preview)
+  isConflict?: boolean;
+  conflictReason?: string;
+  isManual?: boolean;
 
   createdby: number;
   createdon?: Date;

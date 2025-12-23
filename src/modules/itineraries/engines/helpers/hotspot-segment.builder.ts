@@ -26,6 +26,10 @@ export class HotspotSegmentBuilder {
       totalInfants: number;
       nationality: number; // from plan header
       itineraryPreference: number; // from plan header
+      hotspotPlanOwnWay?: number;
+      isConflict?: boolean;
+      conflictReason?: string;
+      isManual?: boolean;
     },
   ): Promise<{ row: HotspotDetailRow; nextTime: string }> {
     const {
@@ -40,6 +44,10 @@ export class HotspotSegmentBuilder {
       totalInfants,
       nationality,
       itineraryPreference,
+      hotspotPlanOwnWay = 0,
+      isConflict = false,
+      conflictReason = "",
+      isManual = false,
     } = opts;
 
     // TODO: adjust model & field names to match your hotspot master + pricebook.
@@ -117,13 +125,16 @@ export class HotspotSegmentBuilder {
       allow_break_hours: 0,
       allow_via_route: 0,
       via_location_name: null,
-      hotspot_plan_own_way: 0,
+      hotspot_plan_own_way: (hotspotPlanOwnWay === 1 ? 1 : 0) as 0 | 1,
 
       createdby: userId,
       createdon: now,
       updatedon: null,
       status: 1,
       deleted: 0,
+      isConflict,
+      conflictReason,
+      isManual,
     };
 
     return { row, nextTime: endTime };
