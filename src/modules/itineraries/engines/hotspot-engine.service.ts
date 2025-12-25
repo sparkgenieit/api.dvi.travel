@@ -5,6 +5,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../prisma.service";
 import { TimelineBuilder } from "./helpers/timeline.builder";
+import { TimelineEnricher } from "./helpers/timeline.enricher";
 
 type Tx = Prisma.TransactionClient;
 
@@ -166,15 +167,18 @@ export class HotspotEngineService {
     // 3) Build the timeline in memory
     const { hotspotRows, shiftedItems, droppedItems } = await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
 
-    // 4) Find the newly added hotspot in the results to show its timing/conflicts
-    const newHotspotRow = hotspotRows.find(
+    // 4) Enrich the timeline with UI fields (text, timeRange, type)
+    const enrichedTimeline = await TimelineEnricher.enrich(tx, planId, hotspotRows);
+
+    // 5) Find the newly added hotspot in the results to show its timing/conflicts
+    const newHotspotRow = enrichedTimeline.find(
       (r) => Number(r.itinerary_route_ID) === Number(routeId) && 
              Number(r.hotspot_ID) === Number(hotspotId) && 
              r.item_type === 4
     );
 
-    // 5) Also check if it caused conflicts in OTHER hotspots
-    const otherConflicts = hotspotRows.filter(
+    // 6) Also check if it caused conflicts in OTHER hotspots
+    const otherConflicts = enrichedTimeline.filter(
       (r) => r.item_type === 4 && 
              (r as any).isConflict && 
              !(Number(r.itinerary_route_ID) === Number(routeId) && Number(r.hotspot_ID) === Number(hotspotId))
@@ -188,7 +192,7 @@ export class HotspotEngineService {
       })),
       shiftedItems,
       droppedItems,
-      fullTimeline: hotspotRows,
+      fullTimeline: enrichedTimeline,
     };
   }
 }

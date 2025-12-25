@@ -397,113 +397,170 @@ export class ItinerariesService {
   /**
    * Get available hotspots for a route
    */
+  /**
+   * Get available hotspots for a route
+   *
+   * NEW RULES:
+   * - direct_to_next_visiting_place === 1  => destination pool only, priority DESC
+   * - direct_to_next_visiting_place === 0  => interleave source/destination in chunks of 3
+   * - already added hotspots => mark visitAgain=true (and include them even if not in pool)
+   */
   async getAvailableHotspots(routeId: number) {
-    // 1) Get the route details
+    // 1) Route
     const route = await (this.prisma as any).dvi_itinerary_route_details.findFirst({
       where: { itinerary_route_ID: routeId, deleted: 0 },
     });
 
-    if (!route || !route.location_id) {
-      return [];
-    }
+    if (!route || !route.location_id) return [];
 
-    // 2) Get the location details from dvi_stored_locations
+    // 2) Location master
     const location = await (this.prisma as any).dvi_stored_locations.findFirst({
-      where: {
-        location_ID: Number(route.location_id),
-        deleted: 0,
-      },
+      where: { location_ID: Number(route.location_id), deleted: 0 },
     });
 
-    if (!location) {
-      return [];
-    }
+    if (!location) return [];
 
-    // 3) Decide which city to show hotspots for based on direct flag
-    // If direct_to_next_visiting_place = 1, show destination hotspots
-    // If direct_to_next_visiting_place = 0, show source hotspots
-    const locationName = route.direct_to_next_visiting_place === 1
-      ? location.destination_location
-      : location.source_location;
+    const sourceName: string | null = (location as any).source_location ?? null;
+    const destName: string | null = (location as any).destination_location ?? null;
 
-    if (!locationName) {
-      return [];
-    }
+    const directDestination = Number(route.direct_to_next_visiting_place || 0) === 1;
 
-    const hotspots = await (this.prisma as any).dvi_hotspot_place.findMany({
+    // 3) Already-added hotspots for this route => visitAgain
+    const alreadyAddedRows = await (this.prisma as any).dvi_itinerary_route_hotspot_details.findMany({
       where: {
-        status: 1,
+        itinerary_route_ID: routeId,
         deleted: 0,
-        hotspot_location: {
-          contains: locationName,
+        status: 1,
+        item_type: 4,
+      },
+      select: { hotspot_ID: true },
+    });
+
+    const alreadyAddedIds = new Set<number>(
+      (alreadyAddedRows || [])
+        .map((r: any) => Number(r.hotspot_ID))
+        .filter((n: number) => Number.isFinite(n) && n > 0),
+    );
+
+    // 4) Pool fetcher (priority DESC + stable tie-break)
+    const fetchPool = async (cityName: string | null) => {
+      if (!cityName) return [];
+      return await (this.prisma as any).dvi_hotspot_place.findMany({
+        where: {
+          status: 1,
+          deleted: 0,
+          hotspot_location: { contains: cityName },
         },
-      },
-      select: {
-        hotspot_ID: true,
-        hotspot_name: true,
-        hotspot_adult_entry_cost: true,
-        hotspot_description: true,
-        hotspot_duration: true,
-        hotspot_location: true,
-      },
-      orderBy: {
-        hotspot_name: 'asc',
-      },
-    });
+        select: {
+          hotspot_ID: true,
+          hotspot_name: true,
+          hotspot_adult_entry_cost: true,
+          hotspot_description: true,
+          hotspot_duration: true,
+          hotspot_location: true,
+          hotspot_priority: true,
+        },
+        orderBy: [{ hotspot_priority: "desc" }, { hotspot_ID: "asc" }],
+      });
+    };
 
-    // Fetch timings for these hotspots
-    const hotspotIds = hotspots.map((h: any) => h.hotspot_ID);
+    const sourcePool = await fetchPool(sourceName);
+    const destPool = await fetchPool(destName);
+
+    // 5) Build final ordered list
+    const seen = new Set<number>();
+    const ordered: any[] = [];
+
+    const pushUnique = (h: any) => {
+      const id = Number(h?.hotspot_ID);
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      ordered.push(h);
+    };
+
+    if (directDestination) {
+      // direct = true => destination only
+      for (const h of destPool) pushUnique(h);
+    } else {
+      // direct = false => interleave 3-by-3 source/dest
+      const CHUNK = 3;
+      let i = 0;
+      let j = 0;
+
+      while (i < sourcePool.length || j < destPool.length) {
+        for (let k = 0; k < CHUNK && i < sourcePool.length; k++, i++) pushUnique(sourcePool[i]);
+        for (let k = 0; k < CHUNK && j < destPool.length; k++, j++) pushUnique(destPool[j]);
+      }
+    }
+
+    // 6) Add missing already-added hotspots (if not present in pools)
+    const missingAddedIds = [...alreadyAddedIds].filter((id) => !seen.has(id));
+    if (missingAddedIds.length > 0) {
+      const missing = await (this.prisma as any).dvi_hotspot_place.findMany({
+        where: { hotspot_ID: { in: missingAddedIds } },
+        select: {
+          hotspot_ID: true,
+          hotspot_name: true,
+          hotspot_adult_entry_cost: true,
+          hotspot_description: true,
+          hotspot_duration: true,
+          hotspot_location: true,
+          hotspot_priority: true,
+        },
+        orderBy: [{ hotspot_priority: "desc" }, { hotspot_ID: "asc" }],
+      });
+      for (const h of missing) pushUnique(h);
+    }
+
+    if (ordered.length === 0) return [];
+
+    // 7) Timings
+    const hotspotIds = ordered.map((h: any) => Number(h.hotspot_ID));
     const timings = await (this.prisma as any).dvi_hotspot_timing.findMany({
-      where: {
-        hotspot_ID: { in: hotspotIds },
-        deleted: 0,
-        status: 1,
-      },
-      orderBy: {
-        hotspot_start_time: 'asc',
-      },
+      where: { hotspot_ID: { in: hotspotIds }, deleted: 0, status: 1 },
+      orderBy: { hotspot_start_time: "asc" },
     });
 
-    // Map timings to hotspots (summarized for quick view)
     const timingMap = new Map<number, string>();
     const formatTime = (date: Date | null) => {
-      if (!date) return '';
+      if (!date) return "";
       const h = date.getUTCHours();
       const m = date.getUTCMinutes();
-      const ampm = h >= 12 ? 'PM' : 'AM';
+      const ampm = h >= 12 ? "PM" : "AM";
       const h12 = h % 12 || 12;
-      return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+      return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
     };
 
     for (const t of timings) {
       if (t.hotspot_closed === 1) continue;
-      
-      let timeStr = '';
+
+      let timeStr = "";
       if (t.hotspot_open_all_time === 1) {
-        timeStr = 'Open 24 Hours';
+        timeStr = "Open 24 Hours";
       } else if (t.hotspot_start_time && t.hotspot_end_time) {
         const start = formatTime(t.hotspot_start_time);
         const end = formatTime(t.hotspot_end_time);
         timeStr = `${start} - ${end}`;
       }
 
-      if (timeStr) {
-        if (!timingMap.has(t.hotspot_ID)) {
-          timingMap.set(t.hotspot_ID, timeStr);
-        }
+      if (timeStr && !timingMap.has(t.hotspot_ID)) {
+        timingMap.set(t.hotspot_ID, timeStr);
       }
     }
 
-    return hotspots.map((h: any) => ({
+    // 8) Response (+ visitAgain)
+    return ordered.map((h: any) => ({
       id: h.hotspot_ID,
       name: h.hotspot_name,
       amount: h.hotspot_adult_entry_cost || 0,
-      description: h.hotspot_description || '',
+      description: h.hotspot_description || "",
       timeSpend: h.hotspot_duration ? new Date(h.hotspot_duration).getUTCHours() : 0,
       locationMap: h.hotspot_location || null,
-      timings: timingMap.get(h.hotspot_ID) || 'No timings available',
+      timings: timingMap.get(h.hotspot_ID) || "No timings available",
+      visitAgain: alreadyAddedIds.has(Number(h.hotspot_ID)),
     }));
   }
+
 
   /**
    * Add a hotspot to an itinerary route

@@ -541,11 +541,27 @@ export class TimelineBuilder {
   }
 
   /**
-   * Stub for previewing manual hotspot addition.
+   * Preview manual hotspot addition.
    * (Used by itineraries.service.ts)
    */
-  async previewManualHotspotAdd(tx: any, planId: number, routeId: number, hotspotId: number): Promise<any> {
-    // For now, just return empty rows to satisfy the type
-    return { hotspotRows: [] };
+  async previewManualHotspotAdd(tx: Tx, planId: number, routeId: number, hotspotId: number): Promise<any> {
+    // 1. Fetch existing hotspots for the plan
+    const existingHotspots = await (tx as any).dvi_itinerary_route_hotspots.findMany({
+      where: { itinerary_plan_ID: planId, deleted: 0 },
+    });
+
+    // 2. Add the new hotspot as a "manual" one to the list
+    // This simulates what happens if the user adds it.
+    existingHotspots.push({
+      itinerary_plan_ID: planId,
+      itinerary_route_ID: routeId,
+      hotspot_ID: hotspotId,
+      hotspot_plan_own_way: 1, // Mark as manual
+      status: 1,
+      deleted: 0,
+    });
+
+    // 3. Run the full timeline builder with this augmented list
+    return this.buildTimelineForPlan(tx, planId, existingHotspots);
   }
 }
