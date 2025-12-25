@@ -433,9 +433,13 @@ export class ItineraryDetailsService {
           })
         : [];
 
-      const hotspotTimingMap = new Map(
-        hotspotTimings.map((t) => [t.hotspot_ID, t])
-      );
+      const hotspotTimingMap = new Map<number, any[]>();
+      for (const t of hotspotTimings) {
+        if (!hotspotTimingMap.has(t.hotspot_ID)) {
+          hotspotTimingMap.set(t.hotspot_ID, []);
+        }
+        hotspotTimingMap.get(t.hotspot_ID)!.push(t);
+      }
 
       const segments: any[] = [];
 
@@ -635,6 +639,9 @@ export class ItineraryDetailsService {
           const hotspotAmount = (rh as any).hotspot_amout ?? 0;
           const hotspotPlanOwnWay = (rh as any).hotspot_plan_own_way ?? 0;
           const hotspotVideoUrl = master.hotspot_video_url ?? null;
+          
+          const rawP = (master as any).hotspot_priority ?? (master as any).priority ?? 0;
+          const priority = Number(rawP) === 0 ? 9999 : Number(rawP);
 
           // Fetch activities for this hotspot
           const activities = await this.prisma.dvi_itinerary_route_activity_details.findMany({
@@ -683,30 +690,54 @@ export class ItineraryDetailsService {
               ? `${startTimeText} - ${endTimeText}`
               : null;
 
-          if (visitTimeDisplay && rh.hotspot_ID) {
-            const timing = hotspotTimingMap.get(rh.hotspot_ID as number);
-            if (timing && timing.hotspot_start_time && timing.hotspot_open_all_time !== 1) {
-              const openingTime = this.formatTime(timing.hotspot_start_time as any);
+          if (visitTimeDisplay && rh.hotspot_ID && route.itinerary_route_date) {
+            const timings = hotspotTimingMap.get(rh.hotspot_ID as number) || [];
+            const dayOfWeek = (route.itinerary_route_date.getDay() + 6) % 7; // Mon=0 style
+            
+            const todayTimings = timings.filter(t => Number(t.hotspot_timing_day) === dayOfWeek && t.hotspot_closed !== 1);
+            
+            if (todayTimings.length > 0) {
+              const isOpenAllTime = todayTimings.some(t => t.hotspot_open_all_time === 1);
               
-              // Convert times to minutes for comparison
-              const arrivalMins = this.timeToMinutes(startTimeText);
-              const openingMins = this.timeToMinutes(openingTime);
-              
-              // If arrival is before opening time, show opening info
-              if (arrivalMins < openingMins && openingMins > 0) {
-                visitTimeDisplay = `${startTimeText} - ${endTimeText} (opens at ${openingTime})`;
+              if (!isOpenAllTime) {
+                const arrivalMins = this.timeToMinutes(startTimeText);
+                const departureMins = this.timeToMinutes(endTimeText);
+                
+                // Check if visit fits in ANY window
+                const fitsInAnyWindow = todayTimings.some(t => {
+                  const opStart = this.timeToMinutes(this.formatTime(t.hotspot_start_time as any));
+                  const opEnd = this.timeToMinutes(this.formatTime(t.hotspot_end_time as any));
+                  return arrivalMins >= opStart && departureMins <= opEnd;
+                });
+
+                if (!fitsInAnyWindow) {
+                  // Find the next opening time after arrival
+                  const nextOpening = todayTimings
+                    .map(t => this.formatTime(t.hotspot_start_time as any))
+                    .filter(ot => this.timeToMinutes(ot) > arrivalMins)
+                    .sort((a, b) => this.timeToMinutes(a) - this.timeToMinutes(b))[0];
+
+                  if (nextOpening) {
+                    visitTimeDisplay = `${startTimeText} - ${endTimeText} (opens at ${nextOpening})`;
+                  }
+                }
               }
             }
           }
 
           // Format operating hours (timings)
           let operatingHours = '';
-          const timing = rh.hotspot_ID ? hotspotTimingMap.get(rh.hotspot_ID as number) : null;
-          if (timing) {
-            if (timing.hotspot_open_all_time === 1) {
+          const timings = rh.hotspot_ID ? hotspotTimingMap.get(rh.hotspot_ID as number) || [] : [];
+          const dayOfWeek = route.itinerary_route_date ? (route.itinerary_route_date.getDay() + 6) % 7 : 0;
+          const todayTimings = timings.filter(t => Number(t.hotspot_timing_day) === dayOfWeek && t.hotspot_closed !== 1);
+
+          if (todayTimings.length > 0) {
+            if (todayTimings.some(t => t.hotspot_open_all_time === 1)) {
               operatingHours = 'Open 24 Hours';
-            } else if (timing.hotspot_start_time && timing.hotspot_end_time) {
-              operatingHours = `${this.formatTime(timing.hotspot_start_time as any)} - ${this.formatTime(timing.hotspot_end_time as any)}`;
+            } else {
+              operatingHours = todayTimings
+                .map(t => `${this.formatTime(t.hotspot_start_time as any)} - ${this.formatTime(t.hotspot_end_time as any)}`)
+                .join(', ');
             }
           }
 
@@ -725,6 +756,8 @@ export class ItineraryDetailsService {
             hotspotId: rh.hotspot_ID as number,
             routeHotspotId: rh.route_hotspot_ID,
             locationId: route.location_id ? Number(route.location_id) : null,
+            priority,
+
             isConflict: (rh as any).is_conflict === 1,
             conflictReason: (rh as any).conflict_reason ?? null,
             isManual: hotspotPlanOwnWay === 1,

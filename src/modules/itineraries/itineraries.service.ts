@@ -99,6 +99,23 @@ export class ItinerariesService {
       );
       console.log('[PERF] upsertPlanHeader:', Date.now() - opStart, 'ms');
 
+      // ⚡ PRESERVE HOTSPOT CONTEXT: Fetch existing hotspots and their route dates BEFORE routes are deleted
+      // This ensures that when we rebuild hotspots later, we know which day each "tombstone" (deleted hotspot) belonged to.
+      const oldRoutes = await (tx as any).dvi_itinerary_route_details.findMany({
+        where: { itinerary_plan_ID: planId },
+        select: { itinerary_route_ID: true, itinerary_route_date: true }
+      });
+      const oldRouteDateMap = new Map(oldRoutes.map((r: any) => [r.itinerary_route_ID, r.itinerary_route_date]));
+      
+      const oldHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
+        where: { itinerary_plan_ID: planId, item_type: 4 }
+      });
+      
+      const existingHotspotsWithDates = oldHotspots.map((h: any) => ({
+        ...h,
+        route_date: oldRouteDateMap.get(h.itinerary_route_ID)
+      }));
+
       let opStart2 = Date.now();
       const routes = await this.routeEngine.rebuildRoutes(
         planId,
@@ -157,7 +174,7 @@ export class ItinerariesService {
       }
 
       opStart2 = Date.now();
-      await this.hotspotEngine.rebuildRouteHotspots(tx, planId);
+      await this.hotspotEngine.rebuildRouteHotspots(tx, planId, existingHotspotsWithDates);
       console.log('[PERF] rebuildRouteHotspots:', Date.now() - opStart2, 'ms');
 
       opStart2 = Date.now();
@@ -212,12 +229,16 @@ export class ItinerariesService {
         },
       });
 
-      // Delete the hotspot record
-      const deleted = await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
+      // Soft delete the hotspot record so the engine knows to exclude it during rebuild
+      const deleted = await (tx as any).dvi_itinerary_route_hotspot_details.updateMany({
         where: {
           itinerary_plan_ID: planId,
           itinerary_route_ID: routeId,
           route_hotspot_ID: hotspotId,
+        },
+        data: {
+          deleted: 1,
+          updatedon: new Date(),
         },
       });
 
@@ -2240,12 +2261,13 @@ export class ItinerariesService {
    */
   async removeManualHotspot(planId: number, hotspotId: number) {
     return this.prisma.$transaction(async (tx) => {
-      await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
+      await (tx as any).dvi_itinerary_route_hotspot_details.updateMany({
         where: {
           itinerary_plan_ID: Number(planId),
           hotspot_ID: Number(hotspotId),
           hotspot_plan_own_way: 1,
         },
+        data: { deleted: 1 }
       });
 
       await this.hotspotEngine.rebuildRouteHotspots(tx, Number(planId));

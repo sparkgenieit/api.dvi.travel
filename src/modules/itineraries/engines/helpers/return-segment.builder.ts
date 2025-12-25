@@ -27,12 +27,17 @@ export class ReturnSegmentBuilder {
       destCoords?: { lat: number; lon: number };
     },
   ): Promise<{ row: HotspotDetailRow; nextTime: string }> {
-    // TODO: adjust field names if departure_location differs.
-    const plan = await (tx as any).dvi_itinerary_plan_details.findFirst({
-      where: { itinerary_plan_ID: opts.planId, deleted: 0 },
-    });
+    // 1) Determine destination name. 
+    // If destCityName is provided (e.g. from route.next_visiting_place), use it.
+    // Otherwise fallback to plan.departure_location.
+    let destinationLocationName = (opts as any).destCityName;
 
-    const destinationLocationName = plan?.departure_location as string;
+    if (!destinationLocationName) {
+      const plan = await (tx as any).dvi_itinerary_plan_details.findFirst({
+        where: { itinerary_plan_ID: opts.planId, deleted: 0 },
+      });
+      destinationLocationName = plan?.departure_location as string;
+    }
 
     return this.travelBuilder.buildTravelSegment(tx, {
       planId: opts.planId,
@@ -45,6 +50,7 @@ export class ReturnSegmentBuilder {
       sourceLocationName: opts.currentLocationName,
       destinationLocationName,
       destCoords: opts.destCoords,
+      sourceCoords: (opts as any).sourceCoords, // Pass source coords if available
     });
   }
 }

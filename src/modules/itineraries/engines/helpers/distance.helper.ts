@@ -216,7 +216,7 @@ export class DistanceHelper {
     let loc = distanceCache.get(cacheKey);
 
     if (!loc) {
-      // Query DB and cache result
+      // 1) Try exact match
       loc = await (tx as any).dvi_stored_locations.findFirst({
         where: {
           deleted: 0,
@@ -225,6 +225,20 @@ export class DistanceHelper {
         },
         orderBy: { location_ID: "desc" },
       });
+
+      // 2) Fallback: Try splitting by pipe | (common in hotspot_location)
+      if (!loc && (trimmedSource.includes('|') || trimmedDest.includes('|'))) {
+        const s = trimmedSource.split('|')[0].trim();
+        const d = trimmedDest.split('|')[0].trim();
+        loc = await (tx as any).dvi_stored_locations.findFirst({
+          where: {
+            deleted: 0,
+            source_location: s,
+            destination_location: d,
+          },
+          orderBy: { location_ID: "desc" },
+        });
+      }
       
       if (loc) {
         distanceCache.set(cacheKey, loc);
@@ -232,20 +246,32 @@ export class DistanceHelper {
     }
 
     if (loc) {
-      const foundMsg = `[DistanceHelper] Found in DB: ${loc.distance} km\n`;
       const distance = Number(loc.distance ?? 0);
-
       const totalMinutes = parseDurationToMinutes(loc.duration);
-
-      // ✅ IMPORTANT: use *duration* formatter (NO wrap)
       const travelTime = minutesToDurationTime(totalMinutes ?? 0);
-
       const bufferTime = await this.getBufferTime(tx, travelLocationType);
       return { distanceKm: distance, travelTime, bufferTime };
     }
 
-    const notFoundMsg = `[DistanceHelper] NOT found in DB, using coordinates fallback\n`;
-    
+    // 3) Fallback: If we have at least one set of coords, try to find the other and use Haversine
+    if (destCoords && (destCoords.lat !== 0 || destCoords.lon !== 0)) {
+      // Try to find coords for source city
+      const s = trimmedSource.split('|')[0].trim();
+      const sourceLoc = await (tx as any).dvi_stored_locations.findFirst({
+        where: { source_location: s, deleted: 0 },
+      });
+      if (sourceLoc?.source_location_lattitude && sourceLoc?.source_location_longitude) {
+        return this.fromCoordinates(
+          tx,
+          Number(sourceLoc.source_location_lattitude),
+          Number(sourceLoc.source_location_longitude),
+          destCoords.lat,
+          destCoords.lon,
+          travelLocationType,
+        );
+      }
+    }
+
     return { distanceKm: 0, travelTime: "00:00:00", bufferTime: "00:00:00" };
   }
 

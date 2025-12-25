@@ -21,19 +21,27 @@ export class HotspotEngineService {
    * Main entry called from ItinerariesService inside a prisma.$transaction.
    * Mirrors PHP: wipes old hotspot timeline & parking charges and rebuilds them.
    */
-  async rebuildRouteHotspots(tx: Tx, planId: number): Promise<any> {
-    // 1) Fetch ALL current hotspots (manual and auto) so we can preserve them as conflicts if they no longer fit
-    const existingHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
-      where: {
+  async rebuildRouteHotspots(tx: Tx, planId: number, existingHotspotsFromService?: any[]): Promise<any> {
+    // 1) Fetch ALL current hotspots (manual and auto) including soft-deleted ones
+    // This allows the engine to respect previous deletions during rebuild
+    let existingHotspots = existingHotspotsFromService;
+    
+    if (!existingHotspots) {
+      existingHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
+        where: {
+          itinerary_plan_ID: planId,
+          item_type: 4, // Only actual hotspot visits
+        },
+      });
+    }
+
+    // 2) Delete ONLY active hotspot details before rebuilding. 
+    // We keep deleted: 1 records as "tombstones" to prevent auto-selection.
+    await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
+      where: { 
         itinerary_plan_ID: planId,
-        item_type: 4, // Only actual hotspot visits
         deleted: 0,
       },
-    });
-
-    // 2) Delete ALL old hotspot details and parking charges before rebuilding
-    await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
-      where: { itinerary_plan_ID: planId },
     });
 
     await (tx as any).dvi_itinerary_route_hotspot_parking_charge.deleteMany({
