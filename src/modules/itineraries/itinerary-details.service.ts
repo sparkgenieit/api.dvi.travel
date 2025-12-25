@@ -399,7 +399,6 @@ export class ItineraryDetailsService {
           FROM dvi_itinerary_route_hotspot_details
           WHERE itinerary_plan_ID = ${planId}
             AND itinerary_route_ID = ${route.itinerary_route_ID}
-            AND deleted = 0
           ORDER BY hotspot_order ASC
         `) as any[];
 
@@ -761,6 +760,7 @@ export class ItineraryDetailsService {
             isConflict: (rh as any).is_conflict === 1,
             conflictReason: (rh as any).conflict_reason ?? null,
             isManual: hotspotPlanOwnWay === 1,
+            isDeleted: (rh as any).deleted === 1,
           });
 
           previousStopName = master.hotspot_name;

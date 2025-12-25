@@ -4205,6 +4205,7 @@ model dvi_itinerary_route_details {
   updatedon                     DateTime? @db.DateTime(0)
   status                        Int       @default(0)
   deleted                       Int       @default(0)
+  excluded_hotspot_ids          Json      @default("[]") // Array of hotspot IDs deleted by user
 
   @@index([createdby], map: "idx_dvi_itinerary_route_details_createdby")
   @@index([createdon], map: "idx_dvi_itinerary_route_details_createdon")

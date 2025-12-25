@@ -130,6 +130,7 @@ export class TimelineBuilder {
       );
 
       // Manual hotspot IDs for this route (real DB field)
+      // These are kept during rebuild. Excluded ones are filtered in selector.
       const routeManualIds = new Set<number>(
         (existingHotspots || [])
           .filter(

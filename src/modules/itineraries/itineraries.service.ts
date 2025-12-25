@@ -107,8 +107,10 @@ export class ItinerariesService {
       });
       const oldRouteDateMap = new Map(oldRoutes.map((r: any) => [r.itinerary_route_ID, r.itinerary_route_date]));
       
+      // ✅ FIX: Only fetch non-deleted hotspots when preparing for rebuild
+      // This prevents deleted hotspots from being re-added during rebuild
       const oldHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
-        where: { itinerary_plan_ID: planId, item_type: 4 }
+        where: { itinerary_plan_ID: planId, item_type: 4, deleted: 0 }
       });
       
       const existingHotspotsWithDates = oldHotspots.map((h: any) => ({
@@ -214,13 +216,26 @@ export class ItinerariesService {
 
   /**
    * Delete a hotspot from an itinerary route
-   * Removes records from dvi_itinerary_route_hotspot_details and related tables
+   * Hard deletes the hotspot from timeline and adds to excluded_hotspot_ids
    */
   async deleteHotspot(planId: number, routeId: number, hotspotId: number) {
     const userId = 1;
 
     await this.prisma.$transaction(async (tx) => {
-      // Delete activities associated with this hotspot
+      // First, fetch the hotspot record to get the actual hotspot_ID
+      const hotspotRecord = await (tx as any).dvi_itinerary_route_hotspot_details.findUnique({
+        where: {
+          route_hotspot_ID: hotspotId,
+        },
+      });
+
+      if (!hotspotRecord) {
+        throw new BadRequestException('Hotspot not found');
+      }
+
+      const actualHotspotId = hotspotRecord.hotspot_ID; // This is the master hotspot ID
+
+      // Hard delete activities associated with this hotspot
       await (tx as any).dvi_itinerary_route_activity_details.deleteMany({
         where: {
           itinerary_plan_ID: planId,
@@ -229,16 +244,12 @@ export class ItinerariesService {
         },
       });
 
-      // Soft delete the hotspot record so the engine knows to exclude it during rebuild
-      const deleted = await (tx as any).dvi_itinerary_route_hotspot_details.updateMany({
+      // Hard delete the hotspot record completely
+      const deleted = await (tx as any).dvi_itinerary_route_hotspot_details.deleteMany({
         where: {
           itinerary_plan_ID: planId,
           itinerary_route_ID: routeId,
           route_hotspot_ID: hotspotId,
-        },
-        data: {
-          deleted: 1,
-          updatedon: new Date(),
         },
       });
 
@@ -246,13 +257,23 @@ export class ItinerariesService {
         throw new BadRequestException('Hotspot not found');
       }
 
-      // Update route details timestamp
-      await (tx as any).dvi_itinerary_route_details.updateMany({
-        where: {
-          itinerary_plan_ID: planId,
-          itinerary_route_ID: routeId,
-        },
+      // Get current route to update excluded_hotspot_ids
+      const route = await (tx as any).dvi_itinerary_route_details.findUnique({
+        where: { itinerary_route_ID: routeId },
+      });
+
+      // ✅ FIX: Add the actual hotspot_ID (not route_hotspot_ID) to excluded list
+      // This allows the selector to properly filter hotspots by their master hotspot_ID
+      const excluded = (route?.excluded_hotspot_ids as number[]) || [];
+      if (!excluded.includes(actualHotspotId)) {
+        excluded.push(actualHotspotId);
+      }
+
+      // Update route with excluded list and timestamp
+      await (tx as any).dvi_itinerary_route_details.update({
+        where: { itinerary_route_ID: routeId },
         data: {
+          excluded_hotspot_ids: excluded,
           updatedon: new Date(),
         },
       });
@@ -442,6 +463,11 @@ export class ItinerariesService {
         .filter((n: number) => Number.isFinite(n) && n > 0),
     );
 
+    // 3.5) Get excluded hotspot IDs (deleted by user)
+    const excludedIds = new Set<number>(
+      (route.excluded_hotspot_ids as number[]) || []
+    );
+
     // 4) Pool fetcher (priority DESC + stable tie-break)
     const fetchPool = async (cityName: string | null) => {
       if (!cityName) return [];
@@ -474,6 +500,7 @@ export class ItinerariesService {
     const pushUnique = (h: any) => {
       const id = Number(h?.hotspot_ID);
       if (!id || seen.has(id)) return;
+      if (excludedIds.has(id)) return; // ✅ Skip excluded hotspots
       seen.add(id);
       ordered.push(h);
     };
@@ -582,6 +609,19 @@ export class ItinerariesService {
         status: 1,
         deleted: 0,
       },
+    });
+
+    // 1.5) Remove from excluded list if it was previously deleted
+    const route = await (this.prisma as any).dvi_itinerary_route_details.findUnique({
+      where: { itinerary_route_ID: data.routeId },
+    });
+
+    const excluded = (route?.excluded_hotspot_ids as number[]) || [];
+    const filteredExcluded = excluded.filter((id: number) => id !== data.hotspotId);
+
+    await (this.prisma as any).dvi_itinerary_route_details.update({
+      where: { itinerary_route_ID: data.routeId },
+      data: { excluded_hotspot_ids: filteredExcluded },
     });
 
     // 2) Trigger a full rebuild of the hotspots for this plan
@@ -2331,6 +2371,33 @@ export class ItinerariesService {
 
       return { success: true };
     }, { timeout: 30000 });
+  }
+
+  /**
+   * Rebuild a route: Clear excluded hotspots and rebuild fresh
+   * This lets user get new auto-selected hotspots to replace deleted ones
+   */
+  async rebuildRoute(planId: number, routeId: number) {
+    const userId = 1;
+
+    return this.prisma.$transaction(async (tx) => {
+      // Clear the excluded_hotspot_ids so all hotspots can be auto-selected again
+      await (tx as any).dvi_itinerary_route_details.update({
+        where: { itinerary_route_ID: routeId },
+        data: {
+          excluded_hotspot_ids: [],
+          updatedon: new Date(),
+        },
+      });
+
+      // Rebuild the timeline with fresh selection
+      await this.hotspotEngine.rebuildRouteHotspots(tx, planId);
+
+      return { 
+        success: true,
+        message: 'Route rebuilt with fresh hotspot selection',
+      };
+    }, { timeout: 60000 });
   }
 
   /**

@@ -23,8 +23,9 @@ export class HotspotEngineService {
    * Mirrors PHP: wipes old hotspot timeline & parking charges and rebuilds them.
    */
   async rebuildRouteHotspots(tx: Tx, planId: number, existingHotspotsFromService?: any[]): Promise<any> {
-    // 1) Fetch ALL current hotspots (manual and auto) including soft-deleted ones
-    // This allows the engine to respect previous deletions during rebuild
+    // 1) Fetch ALL current hotspots (manual and auto) INCLUDING soft-deleted ones for reference
+    // Note: We include deleted:1 records, but the timeline builder/selector will exclude them
+    // This ensures deleted hotspots are NOT re-added during rebuild
     let existingHotspots = existingHotspotsFromService;
     
     if (!existingHotspots) {
@@ -50,7 +51,8 @@ export class HotspotEngineService {
     });
 
     // 3) Build new timeline rows in memory
-    // We pass the existing hotspots so the builder can try to keep them even if they conflict
+    // Pass existing hotspots (including deleted ones) to the builder
+    // The builder/selector will filter out deleted:1 hotspots so they are NOT re-added
     const { hotspotRows, parkingRows, shiftedItems, droppedItems } =
       await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
 
@@ -146,38 +148,97 @@ export class HotspotEngineService {
     routeId: number,
     hotspotId: number,
   ): Promise<any> {
-    // 1) Fetch all existing hotspots for this plan
+    // 1) Fetch the current route details
+    const currentRoute = await (tx as any).dvi_itinerary_route_details.findFirst({
+      where: { itinerary_route_ID: routeId },
+      select: {
+        itinerary_route_ID: true,
+        location_name: true,
+        next_visiting_location: true,
+        direct_to_next_visiting_place: true,
+        itinerary_route_date: true,
+      },
+    });
+
+    if (!currentRoute) {
+      throw new Error(`Route ${routeId} not found`);
+    }
+
+    // 2) Check if there's a next route that connects to this one
+    let nextRoute = null;
+    let shouldIncludeNextDay = false;
+
+    const currentDestination = (currentRoute.next_visiting_location || "").split("|")[0].trim();
+    
+    // Find next route by checking date order
+    const allRoutes = await (tx as any).dvi_itinerary_route_details.findMany({
+      where: { itinerary_plan_ID: planId },
+      orderBy: { itinerary_route_date: 'asc' },
+      select: {
+        itinerary_route_ID: true,
+        location_name: true,
+        next_visiting_location: true,
+        direct_to_next_visiting_place: true,
+        itinerary_route_date: true,
+      },
+    });
+
+    const currentRouteIndex = allRoutes.findIndex((r: any) => r.itinerary_route_ID === routeId);
+    
+    if (currentRouteIndex !== -1 && currentRouteIndex + 1 < allRoutes.length) {
+      const potentialNextRoute = allRoutes[currentRouteIndex + 1];
+      const nextSource = (potentialNextRoute.location_name || "").split("|")[0].trim();
+      const isDirectToNext = Number(potentialNextRoute.direct_to_next_visiting_place || 0) === 1;
+
+      // Check if next route's source matches current route's destination AND it's not direct
+      if (nextSource === currentDestination && !isDirectToNext) {
+        nextRoute = potentialNextRoute;
+        shouldIncludeNextDay = true;
+      }
+    }
+
+    // 3) Fetch existing hotspots ONLY for current and optionally next route
+    const routeIdsToInclude = [routeId];
+    if (shouldIncludeNextDay && nextRoute) {
+      routeIdsToInclude.push(nextRoute.itinerary_route_ID);
+    }
+
     const existingHotspots = await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
       where: {
         itinerary_plan_ID: planId,
-        item_type: 4,
+        itinerary_route_ID: { in: routeIdsToInclude },
         deleted: 0,
       },
     });
 
-    // 2) Add the new one to the list for the builder
-    // We mark it as manual so the builder prioritizes it and flags conflicts
+    // 4) Add the new hotspot to the list
     existingHotspots.push({
       itinerary_plan_ID: planId,
       itinerary_route_ID: routeId,
       hotspot_ID: hotspotId,
       hotspot_plan_own_way: 1, // MARK AS MANUAL
+      item_type: 4,
     });
 
-    // 3) Build the timeline in memory
+    // 5) Build the timeline only for the relevant routes
     const { hotspotRows, shiftedItems, droppedItems } = await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
 
-    // 4) Enrich the timeline with UI fields (text, timeRange, type)
-    const enrichedTimeline = await TimelineEnricher.enrich(tx, planId, hotspotRows);
+    // 6) Filter hotspotRows to only include current and next route
+    const filteredRows = hotspotRows.filter(row => 
+      routeIdsToInclude.includes(Number(row.itinerary_route_ID))
+    );
 
-    // 5) Find the newly added hotspot in the results to show its timing/conflicts
+    // 7) Enrich the filtered timeline with UI fields
+    const enrichedTimeline = await TimelineEnricher.enrich(tx, planId, filteredRows);
+
+    // 8) Find the newly added hotspot in the results
     const newHotspotRow = enrichedTimeline.find(
       (r) => Number(r.itinerary_route_ID) === Number(routeId) && 
              Number(r.hotspot_ID) === Number(hotspotId) && 
              r.item_type === 4
     );
 
-    // 6) Also check if it caused conflicts in OTHER hotspots
+    // 9) Check for conflicts in OTHER hotspots (only in included routes)
     const otherConflicts = enrichedTimeline.filter(
       (r) => r.item_type === 4 && 
              (r as any).isConflict && 
@@ -193,6 +254,8 @@ export class HotspotEngineService {
       shiftedItems,
       droppedItems,
       fullTimeline: enrichedTimeline,
+      includedRouteIds: routeIdsToInclude, // Debug info
+      nextRouteIncluded: shouldIncludeNextDay,
     };
   }
 }

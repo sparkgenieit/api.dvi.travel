@@ -64,6 +64,9 @@ export class HotspotSelector {
 
     // ---------------------------------------------------------------------
     // 1) Identify Manual/Excluded
+    // ✅ Identify manual hotspots (from existingHotspots)
+    // Manual hotspots (hotspot_plan_own_way === 1) are always kept
+    // Excluded hotspots are filtered via route.excluded_hotspot_ids (handled separately)
     // ---------------------------------------------------------------------
     const manualHotspotIds: Set<number> = new Set<number>(
       (existingHotspots || [])
@@ -75,10 +78,11 @@ export class HotspotSelector {
         .map((h: any) => Number(h.hotspot_ID)),
     );
 
+    // ✅ EXCLUSION LIST FIX: Read excluded_hotspot_ids from the route's JSON field
+    // This is populated when users delete hotspots and prevents them from being re-selected
+    const routeExcluded = (route as any).excluded_hotspot_ids || [];
     const excludedHotspotIds: Set<number> = new Set<number>(
-      (existingHotspots || [])
-        .filter((h: any) => Number(h.itinerary_route_ID) !== Number(route.itinerary_route_ID))
-        .map((h: any) => Number(h.hotspot_ID)),
+      Array.isArray(routeExcluded) ? routeExcluded.map((id: any) => Number(id)) : [],
     );
 
     // kept for parity / future use

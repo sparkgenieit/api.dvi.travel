@@ -1,3 +1,4 @@
+// REPLACE-WHOLE-FILE
 // FILE: src/modules/itineraries/engines/helpers/distance.helper.ts
 
 import { Prisma } from "@prisma/client";
@@ -141,11 +142,11 @@ export class DistanceHelper {
         ? Number(gs?.itinerary_local_speed_limit ?? 40)
         : Number(gs?.itinerary_outstation_speed_limit ?? 60);
 
-    // ⚡ PERFORMANCE/LOGIC: If distance is significant (> 10km), 
+// ⚡ PERFORMANCE/LOGIC: If distance is significant (> 10km),
     // don't use the very slow local speed (often 15km/h in DB).
     // This handles cases where hotspots are in the same "city" but far apart.
     if (travelLocationType === 1 && correctedDistance > 10 && avgSpeedKmPerHr < 40) {
-      avgSpeedKmPerHr = 40; 
+      avgSpeedKmPerHr = 40;
     }
 
     const durationHours = correctedDistance / avgSpeedKmPerHr;
@@ -193,11 +194,11 @@ export class DistanceHelper {
     const trimmedSource = String(sourceLocation ?? "").trim();
     const trimmedDest = String(destinationLocation ?? "").trim();
 
-    // ✅ PHP PARITY: For hotspots (which provide coordinates), PHP ALWAYS uses 
+    // ✅ PHP PARITY: For hotspots (which provide coordinates), PHP ALWAYS uses
     // Haversine formula instead of looking up in dvi_stored_locations.
     // This prevents using city-to-city distances for specific hotspots.
-    if (sourceCoords && destCoords && 
-        (sourceCoords.lat !== 0 || sourceCoords.lon !== 0) && 
+    if (sourceCoords && destCoords &&
+        (sourceCoords.lat !== 0 || sourceCoords.lon !== 0) &&
         (destCoords.lat !== 0 || destCoords.lon !== 0)) {
       return this.fromCoordinates(
         tx,
@@ -210,7 +211,7 @@ export class DistanceHelper {
     }
 
     const logMsg = `[DistanceHelper] Looking up: "${trimmedSource}" → "${trimmedDest}"\n`;
-    
+
     // Check cache first
     const cacheKey = `${trimmedSource}|${trimmedDest}`;
     let loc = distanceCache.get(cacheKey);
@@ -239,7 +240,7 @@ export class DistanceHelper {
           orderBy: { location_ID: "desc" },
         });
       }
-      
+
       if (loc) {
         distanceCache.set(cacheKey, loc);
       }
@@ -282,14 +283,28 @@ export class DistanceHelper {
 
     if (!gs) return "00:00:00";
 
+    /**
+     * ✅ FIX-1 (your issue):
+     * For LOCAL sightseeing hops (travelLocationType === 1),
+     * do NOT add the global road/common buffer.
+     *
+     * Otherwise travel rows become:
+     *   travelTime + 1:00 buffer  => looks like 2 hours vs Google’s < 1 hour
+     */
+    if (travelLocationType === 1) {
+      return "00:00:00";
+    }
+
+    // OUTSTATION / inter-city legs: keep your existing logic
     // PHP PARITY: Use itinerary_travel_by_road_buffer_time for road travel
     // If not available, fallback to itinerary_common_buffer_time
-    const bufferTimeField = gs.itinerary_travel_by_road_buffer_time || gs.itinerary_common_buffer_time;
-    
+    const bufferTimeField =
+      gs.itinerary_travel_by_road_buffer_time || gs.itinerary_common_buffer_time;
+
     if (bufferTimeField instanceof Date) {
       const hours = bufferTimeField.getUTCHours();
       const minutes = bufferTimeField.getUTCMinutes();
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
     }
 
     return "00:00:00";
