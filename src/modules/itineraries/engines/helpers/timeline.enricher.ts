@@ -21,7 +21,7 @@ export class TimelineEnricher {
       where: { itinerary_plan_ID: planId },
       select: { itinerary_route_ID: true, location_name: true, next_visiting_location: true },
     });
-    const routeMap = new Map(
+    const routeMap = new Map<number, any>(
       routes.map((r: any) => [Number(r.itinerary_route_ID), r])
     );
 
@@ -41,15 +41,15 @@ export class TimelineEnricher {
           break;
         case 2:
         case 3:
-          const route = routeMap.get(Number(row.itinerary_route_ID));
+          const route = routeMap.get(Number(row.itinerary_route_ID)) as any || {};
           const toName = row.hotspot_ID 
             ? hotspotMap.get(Number(row.hotspot_ID)) 
-            : (row.via_location_name || route?.next_visiting_location || "next destination");
+            : (row.via_location_name || (route as any)?.next_visiting_location || "next destination");
           text = `Travel to ${toName}`;
           type = "travel";
           break;
         case 4:
-          text = hotspotMap.get(Number(row.hotspot_ID)) || "Hotspot Visit";
+          text = (hotspotMap.get(Number(row.hotspot_ID)) || "Hotspot Visit") as string;
           type = "attraction";
           break;
         case 5:
