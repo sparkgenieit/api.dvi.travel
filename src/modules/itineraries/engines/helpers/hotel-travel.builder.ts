@@ -26,6 +26,7 @@ export class HotelTravelBuilder {
       sourceLocationName?: string;
       destinationLocationName?: string;
       transportMode?: 'road' | 'train' | 'flight';
+      fromHotspotId?: number; // For cache-first
       sourceCoords?: { lat: number; lon: number };
       destCoords?: { lat: number; lon: number };
     },
@@ -41,6 +42,7 @@ export class HotelTravelBuilder {
       locationId: opts.locationId,
       sourceLocationName: opts.sourceLocationName,
       destinationLocationName: opts.destinationLocationName,
+      fromHotspotId: opts.fromHotspotId,
       sourceCoords: opts.sourceCoords,
       destCoords: opts.destCoords,
     });

@@ -24,6 +24,8 @@ export class ReturnSegmentBuilder {
       userId: number;
       currentLocationName: string;
       transportMode?: 'road' | 'train' | 'flight';
+      fromHotspotId?: number; // For cache-first
+      sourceCoords?: { lat: number; lon: number };
       destCoords?: { lat: number; lon: number };
     },
   ): Promise<{ row: HotspotDetailRow; nextTime: string }> {
@@ -49,8 +51,9 @@ export class ReturnSegmentBuilder {
       userId: opts.userId,
       sourceLocationName: opts.currentLocationName,
       destinationLocationName,
+      fromHotspotId: opts.fromHotspotId,
       destCoords: opts.destCoords,
-      sourceCoords: (opts as any).sourceCoords, // Pass source coords if available
+      sourceCoords: opts.sourceCoords,
     });
   }
 }

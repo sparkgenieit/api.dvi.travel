@@ -3589,6 +3589,34 @@ model dvi_hotspot_vehicle_parking_charges {
   @@index([vehicle_type_id], map: "idx_vehicle_parking_charge_vehicle_type_id")
 }
 
+model HotspotDistanceCache {
+  id                 Int      @id @default(autoincrement())
+  fromHotspotId      Int      @map("from_hotspot_id")
+  toHotspotId        Int      @map("to_hotspot_id")
+  travelLocationType Int      @default(1) @map("travel_location_type") @db.TinyInt
+
+  fromHotspotName    String?  @map("from_hotspot_name") @db.Text
+  toHotspotName      String?  @map("to_hotspot_name") @db.Text
+
+  haversineKm        Decimal  @map("haversine_km") @db.Decimal(10, 4)
+  correctionFactor   Decimal  @default(1.500) @map("correction_factor") @db.Decimal(6, 3)
+  distanceKm         Decimal  @map("distance_km") @db.Decimal(10, 4)
+
+  speedKmph          Decimal  @map("speed_kmph") @db.Decimal(10, 2)
+  travelTime         DateTime @map("travel_time") @db.Time(0)
+
+  method             String   @default("HAVERSINE") @db.VarChar(50)
+
+  createdAt          DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  @@unique([fromHotspotId, toHotspotId, travelLocationType], map: "uniq_pair_type")
+  @@index([fromHotspotId], map: "idx_from")
+  @@index([toHotspotId], map: "idx_to")
+  @@map("dvi_hotspot_distance_cache")
+}
+
+
 model dvi_inbuilt_amenities {
   inbuilt_amenity_type_id Int       @id @default(autoincrement())
   inbuilt_amenity_title   String?   @db.Text

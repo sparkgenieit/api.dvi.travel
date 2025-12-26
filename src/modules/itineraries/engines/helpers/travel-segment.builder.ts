@@ -2,7 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { HotspotDetailRow } from "./types";
-import { DistanceHelper } from "./distance.helper";
+import { DistanceHelper, getOrComputeDistanceCached } from "./distance.helper";
 import { addTimes, secondsToTime, timeToSeconds } from "./time.helper";
 import { TimeConverter } from "./time-converter";
 
@@ -31,6 +31,7 @@ export class TravelSegmentBuilder {
       allowViaRoute?: boolean;
       viaLocationName?: string | null;
       hotspotId?: number; // For item_type=3 (site-seeing travel), set to target hotspot_ID
+      fromHotspotId?: number; // For cache-first: origin hotspot ID
       sourceCoords?: { lat: number; lon: number };
       destCoords?: { lat: number; lon: number };
       isConflict?: boolean;
@@ -51,6 +52,7 @@ export class TravelSegmentBuilder {
       allowViaRoute = false,
       viaLocationName = null,
       hotspotId = 0,
+      fromHotspotId,
       sourceCoords,
       destCoords,
       isConflict = false,
@@ -58,7 +60,29 @@ export class TravelSegmentBuilder {
     } = opts;
 
     let distanceResult;
-    if (locationId != null) {
+    
+    // ===== CACHE-FIRST FOR HOTSPOT-TO-HOTSPOT LEGS =====
+    if (
+      fromHotspotId &&
+      hotspotId &&
+      sourceCoords &&
+      destCoords &&
+      sourceCoords.lat !== 0 &&
+      sourceCoords.lon !== 0 &&
+      destCoords.lat !== 0 &&
+      destCoords.lon !== 0
+    ) {
+      // Both hotspots with coordinates → use cache-first
+      distanceResult = await getOrComputeDistanceCached(tx, {
+        fromHotspotId,
+        toHotspotId: hotspotId,
+        fromLat: sourceCoords.lat,
+        fromLng: sourceCoords.lon,
+        toLat: destCoords.lat,
+        toLng: destCoords.lon,
+        travelLocationType,
+      });
+    } else if (locationId != null) {
       distanceResult = await this.distanceHelper.fromLocationId(
         tx,
         locationId,

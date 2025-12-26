@@ -16,6 +16,7 @@ import { VendorsModule } from './modules/vendors/vendors.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { VehicleAvailabilityModule } from './modules/vehicle-availability/vehicle-availability.module';
 import { HotspotsModule } from './modules/hotspots/hotspots.module';
+import { HotspotDistanceCacheModule } from './modules/hotspot-distance-cache/hotspot-distance-cache.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { GuidesModule } from './modules/guides/guides.module';
@@ -37,7 +38,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { AccountsExportModule } from './modules/accounts-export/accounts-export.module';
 
 @Module({
-  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, GstSettingsModule,InbuiltAmenitiesModule, VehicleTypesModule, CitiesModule, ExportPricebookModule, IncidentalExpensesModule, PaymentsModule, LanguageModule, RolePermissionModule, AgentSubscriptionPlanModule, HotelCategoryModule, GlobalSettingsModule, AccountsExportModule],
+  imports: [AuthModule, UsersModule,VendorsModule,AgentsModule,ItineraryViaRoutesModule,HotelsModule,DailyMomentTrackerModule, ItineraryDropdownsModule, ItinerariesModule,AccountsManagerModule, AccountsLedgerModule, DriversModule, VehicleAvailabilityModule, HotspotsModule, HotspotDistanceCacheModule, ActivitiesModule, LocationsModule, GuidesModule, StaffModule, AgentModule, DashboardModule, GstSettingsModule,InbuiltAmenitiesModule, VehicleTypesModule, CitiesModule, ExportPricebookModule, IncidentalExpensesModule, PaymentsModule, LanguageModule, RolePermissionModule, AgentSubscriptionPlanModule, HotelCategoryModule, GlobalSettingsModule, AccountsExportModule],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

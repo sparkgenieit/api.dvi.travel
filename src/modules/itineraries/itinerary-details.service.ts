@@ -13,6 +13,18 @@ export interface VehicleCostBreakdownItemDto {
   amount: number;
 }
 
+export interface VehicleDayWisePricingDto {
+  date: string; // "2025-12-26"
+  dayLabel: string; // "Day 1 | 26 Dec 2025"
+  route: string; // "Chennai → Mahabalipuram"
+  rentalCharges: number;
+  tollCharges: number;
+  parkingCharges: number;
+  driverCharges: number;
+  permitCharges: number;
+  totalCharges: number;
+}
+
 export interface ItineraryVehicleRowDto {
   vendorName: string | null;
   branchName: string | null;
@@ -23,6 +35,7 @@ export interface ItineraryVehicleRowDto {
   // IDs needed for vendor selection
   vendorEligibleId?: number;
   vehicleTypeId?: number;
+  vehicleTypeName?: string;
   isAssigned?: boolean;
 
   // Optional detailed charges – can be filled from vendor-eligible table later
@@ -36,6 +49,9 @@ export interface ItineraryVehicleRowDto {
   after8pmDriver?: number;
   after8pmVendor?: number;
   breakdown?: VehicleCostBreakdownItemDto[];
+  
+  // Day-wise pricing breakdown for expandable row
+  dayWisePricing?: VehicleDayWisePricingDto[];
 
   // Optional UI helper fields for the vehicle card
   dayLabel?: string;
@@ -983,6 +999,24 @@ export class ItineraryDetailsService {
         orderBy: { itinerary_plan_vendor_eligible_ID: 'asc' },
       });
 
+    // Fetch all vehicle type names to map vehicleTypeId -> vehicleTypeName
+    const vehicleTypeIds = Array.from(
+      new Set(eligibleRows.map(r => (r as any).vehicle_type_id).filter(Boolean))
+    );
+    const vehicleTypes = vehicleTypeIds.length > 0
+      ? await (this.prisma as any).dvi_vehicle_type.findMany({
+          where: { 
+            vehicle_type_id: { in: vehicleTypeIds },
+            deleted: 0 
+          },
+          select: { vehicle_type_id: true, vehicle_type_title: true }
+        })
+      : [];
+    
+    const vehicleTypeNameMap = new Map<number, string>(
+      vehicleTypes.map((vt: any) => [vt.vehicle_type_id, vt.vehicle_type_title || 'Unknown Vehicle Type'])
+    );
+
     // Also fetch day-wise vehicle details to calculate KM totals
     const vehicleDetailsRows =
       await this.prisma.$queryRawUnsafe(`
@@ -1126,6 +1160,61 @@ export class ItineraryDetailsService {
       const totalKms = (eligible as any).total_kms ?? '';
       const packageLabel = totalKms ? `Outstation - ${totalKms}KM` : undefined;
 
+      // Build day-wise pricing breakdown from vehicle details
+      const dayWisePricing: VehicleDayWisePricingDto[] = [];
+      const dayWiseMap = new Map<string, any>();
+      
+      for (const vd of dayWiseDetails) {
+        const dateStr = (vd as any).itinerary_route_date?.toISOString?.()?.split('T')[0] || '';
+        if (!dateStr) continue;
+        
+        if (!dayWiseMap.has(dateStr)) {
+          dayWiseMap.set(dateStr, {
+            date: dateStr,
+            locations: [],
+            rental: 0,
+            toll: 0,
+            parking: 0,
+            driver: 0,
+            permit: 0
+          });
+        }
+        
+        const dayData = dayWiseMap.get(dateStr);
+        dayData.locations.push({
+          from: (vd as any).itinerary_route_location_from || '',
+          to: (vd as any).itinerary_route_location_to || ''
+        });
+        dayData.rental += parseFloat((vd as any).vehicle_rental_charges || 0);
+        dayData.toll += parseFloat((vd as any).vehicle_toll_charges || 0);
+        dayData.parking += parseFloat((vd as any).vehicle_parking_charges || 0);
+        dayData.driver += parseFloat((vd as any).vehicle_driver_charges || 0);
+        dayData.permit += parseFloat((vd as any).vehicle_permit_charges || 0);
+      }
+
+      // Convert map to array and format with day labels
+      let dayCounter = 1;
+      for (const [dateStr, dayData] of dayWiseMap.entries()) {
+        const date = new Date(dateStr);
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        const locations: string[] = dayData.locations.map((l: any) => l.from || '').concat(dayData.locations.map((l: any) => l.to || '')).filter((l: string) => l);
+        const uniqueLocations: string[] = Array.from(new Set(locations));
+        const route: string = uniqueLocations.length > 1 ? `${uniqueLocations[0]} → ${uniqueLocations[uniqueLocations.length - 1]}` : (uniqueLocations[0] || '');
+        
+        dayWisePricing.push({
+          date: dateStr,
+          dayLabel: `Day ${dayCounter} | ${dayName}`,
+          route,
+          rentalCharges: dayData.rental,
+          tollCharges: dayData.toll,
+          parkingCharges: dayData.parking,
+          driverCharges: dayData.driver,
+          permitCharges: dayData.permit,
+          totalCharges: dayData.rental + dayData.toll + dayData.parking + dayData.driver + dayData.permit
+        });
+        dayCounter++;
+      }
+
       return {
         vendorName: branch?.vendor_branch_name ?? null,
         branchName: branch?.vendor_branch_name ?? null,
@@ -1136,6 +1225,7 @@ export class ItineraryDetailsService {
         // IDs needed for vendor selection
         vendorEligibleId: eligible.itinerary_plan_vendor_eligible_ID,
         vehicleTypeId: vehicleTypeId,
+        vehicleTypeName: vehicleTypeNameMap.get(vehicleTypeId) || 'Unknown Vehicle Type',
         isAssigned: (eligible as any).itineary_plan_assigned_status === 1,
 
         rentalCharges,
@@ -1143,6 +1233,7 @@ export class ItineraryDetailsService {
         parkingCharges,
         driverCharges,
         permitCharges,
+        dayWisePricing,
         before6amDriver,
         before6amVendor,
         after8pmDriver,

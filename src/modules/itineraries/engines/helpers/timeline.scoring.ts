@@ -3,7 +3,6 @@
 
 import { SelectedHotspot } from "./timeline.hotspot-selector";
 import { HotspotLite } from "./timeline.prefetch";
-import { DistanceHelper } from "./distance.helper";
 import { TimelineLogger } from "./timeline.logger";
 
 /**
@@ -27,13 +26,22 @@ export function computeGreedyScore(
   // Distance (fallback 0 if no coords)
   let distance = 0;
   if (currentCoords && hs?.lat != null && hs?.lon != null) {
-    const dh = new DistanceHelper();
-    distance = dh.calculateHaversine(
-      currentCoords.lat,
-      currentCoords.lon,
-      Number(hs.lat),
-      Number(hs.lon),
-    );
+    // Simple haversine distance calculation
+    const earthRadius = 6371; // km
+    const lat1 = currentCoords.lat;
+    const lon1 = currentCoords.lon;
+    const lat2 = Number(hs.lat);
+    const lon2 = Number(hs.lon);
+
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    distance = earthRadius * c;
   }
 
   // Priority: take from hotspot record if exists; else default 9999
