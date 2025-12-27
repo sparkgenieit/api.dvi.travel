@@ -17,6 +17,7 @@ export interface VehicleDayWisePricingDto {
   date: string; // "2025-12-26"
   dayLabel: string; // "Day 1 | 26 Dec 2025"
   route: string; // "Chennai → Mahabalipuram"
+  kms: number; // Total KMS for the day
   rentalCharges: number;
   tollCharges: number;
   parkingCharges: number;
@@ -1176,7 +1177,8 @@ export class ItineraryDetailsService {
             toll: 0,
             parking: 0,
             driver: 0,
-            permit: 0
+            permit: 0,
+            kms: 0
           });
         }
         
@@ -1190,6 +1192,7 @@ export class ItineraryDetailsService {
         dayData.parking += parseFloat((vd as any).vehicle_parking_charges || 0);
         dayData.driver += parseFloat((vd as any).vehicle_driver_charges || 0);
         dayData.permit += parseFloat((vd as any).vehicle_permit_charges || 0);
+        dayData.kms += parseFloat((vd as any).total_travelled_km || 0);
       }
 
       // Convert map to array and format with day labels
@@ -1205,6 +1208,7 @@ export class ItineraryDetailsService {
           date: dateStr,
           dayLabel: `Day ${dayCounter} | ${dayName}`,
           route,
+          kms: dayData.kms,
           rentalCharges: dayData.rental,
           tollCharges: dayData.toll,
           parkingCharges: dayData.parking,

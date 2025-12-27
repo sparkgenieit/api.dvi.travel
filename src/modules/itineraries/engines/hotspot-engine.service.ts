@@ -53,12 +53,16 @@ export class HotspotEngineService {
     // 3) Build new timeline rows in memory
     // Pass existing hotspots (including deleted ones) to the builder
     // The builder/selector will filter out deleted:1 hotspots so they are NOT re-added
-    const { hotspotRows, parkingRows, shiftedItems, droppedItems } =
-      await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
+    const { hotspotRows, parkingRows } =
+      await this.timelineBuilder.buildTimelineForPlan(tx, planId);
 
     if (!hotspotRows.length) {
       return { shiftedItems: [], droppedItems: [] };
     }
+
+    // Initialize tracking arrays
+    const shiftedItems: any[] = [];
+    const droppedItems: any[] = [];
 
     // 4) Insert hotspot details
     const dbHotspotRows = hotspotRows.map(row => {
@@ -221,7 +225,11 @@ export class HotspotEngineService {
     });
 
     // 5) Build the timeline only for the relevant routes
-    const { hotspotRows, shiftedItems, droppedItems } = await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
+    const { hotspotRows } = await this.timelineBuilder.buildTimelineForPlan(tx, planId);
+
+    // Initialize tracking arrays (not returned by buildTimelineForPlan)
+    const shiftedItems: any[] = [];
+    const droppedItems: any[] = [];
 
     // 6) Filter hotspotRows to only include current and next route
     const filteredRows = hotspotRows.filter(row => 

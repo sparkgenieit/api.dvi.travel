@@ -1,5 +1,5 @@
 export class CacheUpdateDto {
-  id: number;
+  id!: number;
   haversineKm?: number;
   correctionFactor?: number;
   distanceKm?: number;
