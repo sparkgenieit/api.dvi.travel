@@ -17,7 +17,9 @@ export interface VehicleDayWisePricingDto {
   date: string; // "2025-12-26"
   dayLabel: string; // "Day 1 | 26 Dec 2025"
   route: string; // "Chennai → Mahabalipuram"
-  kms: number; // Total KMS for the day
+  travelKms: number; // Running KM per day
+  sightseeingKms: number; // Sightseeing KM per day
+  totalKms: number; // Total KMS per day (travel + sightseeing)
   rentalCharges: number;
   tollCharges: number;
   parkingCharges: number;
@@ -26,6 +28,34 @@ export interface VehicleDayWisePricingDto {
   totalCharges: number;
 }
 
+/**
+ * THREE KMS COLUMNS EXPLANATION:
+ * 
+ * col1Distance (Travel KM / Running KM):
+ *   - Distance between city-to-city travel
+ *   - Example: Chennai to Mahabalipuram = 55.60 KM
+ *   - Source: total_running_km
+ * 
+ * col2Distance (Sightseeing KM):
+ *   - Local distance within a city for attractions/hotspots
+ *   - Example: Local sightseeing in Mahabalipuram = 24.03 KM
+ *   - Source: total_siteseeing_km
+ * 
+ * col3Distance (Total KM):
+ *   - Sum of Travel KM + Sightseeing KM
+ *   - Example: 55.60 + 24.03 = 79.63 KM
+ *   - Source: total_travelled_km
+ *   - Used for: Extra KM charges, pricing calculations
+ * 
+ * DAY-WISE KMS BREAKDOWN (in expanded row):
+ *   - travelKms: total_running_km for that specific day
+ *   - sightseeingKms: total_siteseeing_km for that specific day  
+ *   - totalKms: total_travelled_km for that specific day (travel + sightseeing)
+ *   - Shows per-day breakdown, matching legacy PHP structure
+ * 
+ * Example:
+ *   Day 1: Travel 55.60 KM + Sightseeing 24.03 KM = Total 79.63 KM per day
+ */
 export interface ItineraryVehicleRowDto {
   vendorName: string | null;
   branchName: string | null;
@@ -1162,6 +1192,8 @@ export class ItineraryDetailsService {
       const packageLabel = totalKms ? `Outstation - ${totalKms}KM` : undefined;
 
       // Build day-wise pricing breakdown from vehicle details
+      // Build day-wise pricing breakdown from vehicle details
+      // KMS per day: running_km, siteseeing_km, and total_travelled_km (running + siteseeing)
       const dayWisePricing: VehicleDayWisePricingDto[] = [];
       const dayWiseMap = new Map<string, any>();
       
@@ -1178,7 +1210,9 @@ export class ItineraryDetailsService {
             parking: 0,
             driver: 0,
             permit: 0,
-            kms: 0
+            travelKms: 0, // running_km per day
+            sightseeingKms: 0, // siteseeing_km per day
+            totalKms: 0 // total_travelled_km per day
           });
         }
         
@@ -1192,7 +1226,10 @@ export class ItineraryDetailsService {
         dayData.parking += parseFloat((vd as any).vehicle_parking_charges || 0);
         dayData.driver += parseFloat((vd as any).vehicle_driver_charges || 0);
         dayData.permit += parseFloat((vd as any).vehicle_permit_charges || 0);
-        dayData.kms += parseFloat((vd as any).total_travelled_km || 0);
+        // Track all three KMS values per day
+        dayData.travelKms += parseFloat((vd as any).total_running_km || 0);
+        dayData.sightseeingKms += parseFloat((vd as any).total_siteseeing_km || 0);
+        dayData.totalKms += parseFloat((vd as any).total_travelled_km || 0);
       }
 
       // Convert map to array and format with day labels
@@ -1208,7 +1245,9 @@ export class ItineraryDetailsService {
           date: dateStr,
           dayLabel: `Day ${dayCounter} | ${dayName}`,
           route,
-          kms: dayData.kms,
+          travelKms: dayData.travelKms,
+          sightseeingKms: dayData.sightseeingKms,
+          totalKms: dayData.totalKms,
           rentalCharges: dayData.rental,
           tollCharges: dayData.toll,
           parkingCharges: dayData.parking,
