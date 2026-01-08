@@ -1,0 +1,46 @@
+meta {
+  name: 04 - Book Hotel
+  type: http
+  seq: 4
+}
+
+post {
+  url: https://hotelbe.tektravels.com/HotelAPI/Book
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  Accept: application/json
+}
+
+body:json {
+  {
+    "PreBookId": "pre_book_id_from_prebook",
+    "HotelCode": "21345",
+    "GuestFirstName": "John",
+    "GuestLastName": "Doe",
+    "GuestEmail": "john@example.com",
+    "GuestMobile": "+919876543210",
+    "GuestAddress": "123 Main St",
+    "GuestCity": "Mumbai",
+    "GuestCountry": "India",
+    "GuestPostalCode": "400001",
+    "GuestNationality": "IN",
+    "NoOfRooms": 1,
+    "PaymentMethod": "CC",
+    "PaymentId": "credit_card_token"
+  }
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Has BookingId", function() {
+    const body = res.getBody();
+    expect(body.BookingId).to.exist;
+  });
+}

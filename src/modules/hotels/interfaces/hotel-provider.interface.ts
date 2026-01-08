@@ -1,0 +1,129 @@
+export interface IHotelProvider {
+  getName(): string;
+
+  search(
+    criteria: HotelSearchCriteria,
+    preferences?: HotelPreferences,
+  ): Promise<HotelSearchResult[]>;
+
+  getConfirmation(
+    confirmationRef: string,
+  ): Promise<HotelConfirmationDetails>;
+
+  confirmBooking(
+    bookingDetails: HotelConfirmationDTO,
+  ): Promise<HotelConfirmationResult>;
+
+  cancelBooking(
+    confirmationRef: string,
+    reason: string,
+  ): Promise<CancellationResult>;
+}
+
+export interface HotelSearchResult {
+  provider: string;
+  hotelCode: string;
+  hotelName: string;
+  cityCode: string;
+  address: string;
+  rating: number;
+  category?: string; // Hotel category/star rating
+  facilities: string[];
+  images: string[];
+  price: number;
+  currency: string;
+  roomTypes: RoomType[];
+  roomType?: string; // Current room type name
+  mealPlan?: string; // Meal plan info (if available)
+  searchReference: string; // Used for confirmation
+  expiresAt: Date; // When search result expires
+}
+
+export interface RoomType {
+  roomCode: string;
+  roomName: string;
+  bedType: string;
+  capacity: number;
+  price: number;
+  cancellationPolicy: string;
+}
+
+export interface HotelSearchCriteria {
+  cityCode: string;
+  checkInDate: string; // YYYY-MM-DD
+  checkOutDate: string;
+  roomCount: number;
+  guestCount: number;
+  hotelCodes?: string; // Optional: specific hotel codes to search (comma-separated)
+}
+
+export interface HotelPreferences {
+  minRating?: number;
+  maxPrice?: number;
+  facilities?: string[];
+  preferredProvider?: string;
+}
+
+export interface HotelConfirmationDTO {
+  itineraryPlanId: number;
+  searchReference: string;
+  hotelCode: string;
+  checkInDate: string;
+  checkOutDate: string;
+  roomCount: number;
+  guests: GuestDetails[];
+  rooms: RoomSelection[];
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+}
+
+export interface GuestDetails {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+}
+
+export interface RoomSelection {
+  roomCode: string;
+  quantity: number;
+  guestCount: number;
+}
+
+export interface HotelConfirmationResult {
+  provider: string;
+  confirmationReference: string;
+  hotelCode: string;
+  hotelName: string;
+  checkIn: string;
+  checkOut: string;
+  roomCount: number;
+  totalPrice: number;
+  priceBreadown: {
+    roomCharges: number;
+    taxes: number;
+    discounts: number;
+  };
+  cancellationPolicy: string;
+  status: string;
+  bookingDeadline: string;
+}
+
+export interface HotelConfirmationDetails {
+  confirmationRef: string;
+  hotelName: string;
+  checkIn: string;
+  checkOut: string;
+  roomCount: number;
+  totalPrice: number;
+  status: string;
+  cancellationPolicy: string;
+}
+
+export interface CancellationResult {
+  cancellationRef: string;
+  refundAmount: number;
+  charges: number;
+  refundDays: number;
+}

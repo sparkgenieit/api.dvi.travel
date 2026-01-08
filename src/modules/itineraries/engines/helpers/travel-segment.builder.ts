@@ -2,7 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { HotspotDetailRow } from "./types";
-import { DistanceHelper, getOrComputeDistanceCached } from "./distance.helper";
+import { DistanceHelper } from "./distance.helper";
 import { addTimes, secondsToTime, timeToSeconds } from "./time.helper";
 import { TimeConverter } from "./time-converter";
 
@@ -73,15 +73,14 @@ export class TravelSegmentBuilder {
       destCoords.lon !== 0
     ) {
       // Both hotspots with coordinates → use cache-first
-      distanceResult = await getOrComputeDistanceCached(tx, {
-        fromHotspotId,
-        toHotspotId: hotspotId,
-        fromLat: sourceCoords.lat,
-        fromLng: sourceCoords.lon,
-        toLat: destCoords.lat,
-        toLng: destCoords.lon,
+      distanceResult = await this.distanceHelper.fromSourceAndDestination(
+        tx,
+        sourceLocationName,
+        destinationLocationName,
         travelLocationType,
-      });
+        sourceCoords,
+        destCoords,
+      );
     } else if (locationId != null) {
       distanceResult = await this.distanceHelper.fromLocationId(
         tx,

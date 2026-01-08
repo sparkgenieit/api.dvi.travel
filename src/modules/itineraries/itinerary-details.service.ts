@@ -573,6 +573,13 @@ export class ItineraryDetailsService {
             }
           }
 
+          // Skip travel segment if from and to locations are the same
+          if (previousStopName.trim() === toName.trim()) {
+            // Still update previousStopName to maintain consistency
+            previousStopName = toName;
+            continue;
+          }
+
           if (!Number.isNaN(distanceNum)) {
             totalDistanceKm += distanceNum;
           }

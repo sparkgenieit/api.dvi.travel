@@ -111,153 +111,163 @@ export class HotelEngineService {
       }
     }
 
-    // Execute all hotel picks + pricing in parallel
+    // Execute all hotel picks + pricing in parallel (now gets MULTIPLE hotels per category)
     const hotelResults = await Promise.all(
       hotelTasks.map(async (task) => {
         hotelPickCount++;
-        const hotel = await this.hotelPricing.pickHotelByCategory(
+        // Get multiple hotels for the user to choose from
+        const hotels = await this.hotelPricing.getHotelsByCategory(
           preferredCategory,
           task.city,
-          task.routeDate
+          task.routeDate,
+          10  // Get up to 10 hotels per category
         );
 
-        if (!hotel) {
+        if (!hotels || hotels.length === 0) {
           return {
             ...task,
-            hotel: null,
-            roomPrices: [],
-            mealPrices: { breakfast: { price: 0 }, lunch: { price: 0 }, dinner: { price: 0 } },
-            roomTypeId: 0,
+            hotels: [],
           };
         }
 
-        // Fetch room prices, meal prices, and room type in parallel
-        const [roomPrices, mealPrices] = await Promise.all([
-          this.hotelPricing.getRoomPrices(hotel.hotel_id, task.routeDate),
-          this.hotelPricing.getMealPrice(hotel.hotel_id, task.routeDate),
-        ]);
+        // For each hotel, get room prices and meal prices
+        const hotelDetailsPromises = hotels.map(async (hotel) => {
+          const [roomPrices, mealPrices] = await Promise.all([
+            this.hotelPricing.getRoomPrices(hotel.hotel_id, task.routeDate),
+            this.hotelPricing.getMealPrice(hotel.hotel_id, task.routeDate),
+          ]);
 
-        roomPriceCount++;
-        mealPriceCount++;
+          roomPriceCount++;
+          mealPriceCount++;
 
-        const roomPrice = roomPrices.find(rp => rp.rate > 0) || roomPrices[0] || { room_id: 0, rate: 0 };
-        
-        let roomTypeId = 0;
-        if (roomPrice.room_id > 0) {
-          const roomMaster = await (tx as any).dvi_hotel_rooms.findFirst({
-            where: { room_ID: roomPrice.room_id },
-            select: { room_type_id: true },
-          });
-          roomTypeId = roomMaster?.room_type_id || 0;
-        }
+          const roomPrice = roomPrices.find(rp => rp.rate > 0) || roomPrices[0] || { room_id: 0, rate: 0 };
+          
+          let roomTypeId = 0;
+          if (roomPrice.room_id > 0) {
+            const roomMaster = await (tx as any).dvi_hotel_rooms.findFirst({
+              where: { room_ID: roomPrice.room_id },
+              select: { room_type_id: true },
+            });
+            roomTypeId = roomMaster?.room_type_id || 0;
+          }
+
+          return {
+            hotel,
+            roomPrices,
+            mealPrices,
+            roomPrice,
+            roomTypeId,
+          };
+        });
+
+        const hotelDetails = await Promise.all(hotelDetailsPromises);
 
         return {
           ...task,
-          hotel,
-          roomPrices,
-          mealPrices,
-          roomPrice,
-          roomTypeId,
+          hotels: hotelDetails,
         };
       })
     );
 
-    // Insert all room records
+    // Insert all room records for all hotels
     for (const result of hotelResults) {
       const routeForInsert = routes.find((r: any) => r.itinerary_route_ID === result.routeId);
       if (!routeForInsert) continue;
 
-      if (!result.hotel) {
-        // No hotel found, create placeholder
+      // For each hotel option in this category/route
+      for (const hotelDetail of result.hotels) {
+        if (!hotelDetail.hotel) {
+          // No hotel, create placeholder
+          await (tx as any).dvi_itinerary_plan_hotel_room_details.create({
+            data: {
+              itinerary_plan_id: planId,
+              itinerary_route_id: result.routeId,
+              itinerary_route_date: routeForInsert.itinerary_route_date,
+              group_type: result.groupType,
+              hotel_id: 0,
+              room_type_id: 0,
+              room_id: 0,
+              room_qty: 1,
+              room_rate: 0,
+              gst_type: 1,
+              gst_percentage: 0,
+              extra_bed_count: 0,
+              extra_bed_rate: 0,
+              child_without_bed_count: 0,
+              child_without_bed_charges: 0,
+              child_with_bed_count: 0,
+              child_with_bed_charges: 0,
+              breakfast_required: 1,
+              lunch_required: 0,
+              dinner_required: 0,
+              breakfast_cost_per_person: 0,
+              lunch_cost_per_person: 0,
+              dinner_cost_per_person: 0,
+              total_breafast_cost: 0,
+              total_lunch_cost: 0,
+              total_dinner_cost: 0,
+              total_room_cost: 0,
+              total_room_gst_amount: 0,
+              createdby: userId,
+              createdon: new Date(),
+              status: 1,
+              deleted: 0,
+            },
+          });
+          continue;
+        }
+
+        const hotelId = hotelDetail.hotel.hotel_id;
+        const roomRate = (hotelDetail.roomPrices && hotelDetail.roomPrices[0]?.rate) || 0;
+        const roomId = (hotelDetail.roomPrices && hotelDetail.roomPrices[0]?.room_id) || 0;
+        const roomTypeId = hotelDetail.roomTypeId || 0;
+        const breakfastCost = hotelDetail.mealPrices.breakfast.price || 0;
+        const totalBreakfastCost = breakfastCost * totalPersons;
+
         await (tx as any).dvi_itinerary_plan_hotel_room_details.create({
           data: {
             itinerary_plan_id: planId,
             itinerary_route_id: result.routeId,
             itinerary_route_date: routeForInsert.itinerary_route_date,
             group_type: result.groupType,
-            hotel_id: 0,
-            room_type_id: 0,
-            room_id: 0,
+
+            hotel_id: hotelId,
+            room_type_id: roomTypeId,
+            room_id: roomId,
             room_qty: 1,
-            room_rate: 0,
+            room_rate: roomRate,
+
             gst_type: 1,
             gst_percentage: 0,
+
             extra_bed_count: 0,
             extra_bed_rate: 0,
             child_without_bed_count: 0,
             child_without_bed_charges: 0,
             child_with_bed_count: 0,
             child_with_bed_charges: 0,
+
             breakfast_required: 1,
             lunch_required: 0,
             dinner_required: 0,
-            breakfast_cost_per_person: 0,
+
+            breakfast_cost_per_person: breakfastCost,
             lunch_cost_per_person: 0,
             dinner_cost_per_person: 0,
-            total_breafast_cost: 0,
+
+            total_breafast_cost: totalBreakfastCost,
             total_lunch_cost: 0,
             total_dinner_cost: 0,
-            total_room_cost: 0,
+            total_room_cost: roomRate,
             total_room_gst_amount: 0,
+
             createdby: userId,
             createdon: new Date(),
             status: 1,
             deleted: 0,
           },
         });
-        continue;
       }
-
-      const hotelId = result.hotel.hotel_id;
-      const roomRate = result.roomPrice?.rate || 0;
-      const roomId = result.roomPrice?.room_id || 0;
-      const roomTypeId = result.roomTypeId || 0;
-      const breakfastCost = result.mealPrices.breakfast.price || 0;
-      const totalBreakfastCost = breakfastCost * totalPersons;
-
-      await (tx as any).dvi_itinerary_plan_hotel_room_details.create({
-        data: {
-          itinerary_plan_id: planId,
-          itinerary_route_id: result.routeId,
-          itinerary_route_date: routeForInsert.itinerary_route_date,
-          group_type: result.groupType,
-
-          hotel_id: hotelId,
-          room_type_id: roomTypeId,
-          room_id: roomId,
-          room_qty: 1,
-          room_rate: roomRate,
-
-          gst_type: 1,
-          gst_percentage: 0,
-
-          extra_bed_count: 0,
-          extra_bed_rate: 0,
-          child_without_bed_count: 0,
-          child_without_bed_charges: 0,
-          child_with_bed_count: 0,
-          child_with_bed_charges: 0,
-
-          breakfast_required: 1,
-          lunch_required: 0,
-          dinner_required: 0,
-
-          breakfast_cost_per_person: breakfastCost,
-          lunch_cost_per_person: 0,
-          dinner_cost_per_person: 0,
-
-          total_breafast_cost: totalBreakfastCost,
-          total_lunch_cost: 0,
-          total_dinner_cost: 0,
-          total_room_cost: roomRate,
-          total_room_gst_amount: 0,
-
-          createdby: userId,
-          createdon: new Date(),
-          status: 1,
-          deleted: 0,
-        },
-      });
     }
     console.log('[HOTEL-ENGINE] Phase 1 insert rooms:', Date.now() - opStart, 'ms');
     console.log('[HOTEL-ENGINE] Hotel picks:', hotelPickCount, '| Room prices:', roomPriceCount, '| Meal prices:', mealPriceCount);
@@ -277,55 +287,67 @@ export class HotelEngineService {
       
       for (const groupType of [1, 2, 3, 4]) {
 
-        const agg = await (tx as any)
-          .dvi_itinerary_plan_hotel_room_details.aggregate({
-            where: {
-              itinerary_plan_id: planId,
-              itinerary_route_id: r.itinerary_route_ID,
-              group_type: groupType,
-              deleted: 0,
-              status: 1,
-            },
-            _sum: { 
-              room_qty: true,
-              total_room_cost: true,
-              total_breafast_cost: true,
-            },
-          });
-
-        const totalRooms = Number(agg._sum.room_qty || 0);
-        const totalRoomCost = Number(agg._sum.total_room_cost || 0);
-        const totalBreakfastCost = Number(agg._sum.total_breafast_cost || 0);
-
-        // Get hotel_id from first room detail
-        const firstRoom = await (tx as any).dvi_itinerary_plan_hotel_room_details.findFirst({
+        // Get ALL unique hotels for this route/category (not just the first one)
+        const allRooms = await (tx as any).dvi_itinerary_plan_hotel_room_details.findMany({
           where: {
             itinerary_plan_id: planId,
             itinerary_route_id: r.itinerary_route_ID,
             group_type: groupType,
+            deleted: 0,
+            status: 1,
           },
-          select: { hotel_id: true },
+          select: { hotel_id: true, total_room_cost: true, total_breafast_cost: true },
+          distinct: ['hotel_id'],
         });
 
-        const hotelId = firstRoom?.hotel_id || 0;
+        // If no rooms, skip
+        if (!allRooms || allRooms.length === 0) {
+          continue;
+        }
 
-        // Calculate hotel margin (12% of room + breakfast costs)
-        const baseCost = totalRoomCost + totalBreakfastCost;
-        const marginRate = baseCost * 0.12; // 12%
-        const marginTaxAmt = marginRate * 0.18; // 18% GST on margin
+        // Insert ONE header record per unique hotel option
+        for (const roomRecord of allRooms) {
+          const hotelId = roomRecord.hotel_id || 0;
+          if (hotelId === 0) continue;
 
-        const header = await (tx as any)
-          .dvi_itinerary_plan_hotel_details.create({
-            data: {
-              itinerary_plan_id: planId,
-              itinerary_route_id: r.itinerary_route_ID,
-              itinerary_route_date: r.itinerary_route_date,
-              itinerary_route_location: r.next_visiting_location, // PHP uses next_visiting_location!
-              group_type: groupType,
+          const agg = await (tx as any)
+            .dvi_itinerary_plan_hotel_room_details.aggregate({
+              where: {
+                itinerary_plan_id: planId,
+                itinerary_route_id: r.itinerary_route_ID,
+                group_type: groupType,
+                hotel_id: hotelId,
+                deleted: 0,
+                status: 1,
+              },
+              _sum: { 
+                room_qty: true,
+                total_room_cost: true,
+                total_breafast_cost: true,
+              },
+            });
 
-              hotel_required: 1,
-              hotel_category_id: preferredCategory,
-              hotel_id: hotelId,
+          const totalRooms = Number(agg._sum.room_qty || 0);
+          const totalRoomCost = Number(agg._sum.total_room_cost || 0);
+          const totalBreakfastCost = Number(agg._sum.total_breafast_cost || 0);
+
+          // Calculate hotel margin (12% of room + breakfast costs)
+          const baseCost = totalRoomCost + totalBreakfastCost;
+          const marginRate = baseCost * 0.12; // 12%
+          const marginTaxAmt = marginRate * 0.18; // 18% GST on margin
+
+          const header = await (tx as any)
+            .dvi_itinerary_plan_hotel_details.create({
+              data: {
+                itinerary_plan_id: planId,
+                itinerary_route_id: r.itinerary_route_ID,
+                itinerary_route_date: r.itinerary_route_date,
+                itinerary_route_location: r.next_visiting_location, // PHP uses next_visiting_location!
+                group_type: groupType,
+
+                hotel_required: 1,
+                hotel_category_id: preferredCategory,
+                hotel_id: hotelId,
 
               hotel_margin_percentage: 12,
               hotel_margin_gst_type: 2,
@@ -365,17 +387,20 @@ export class HotelEngineService {
             },
           });
 
-        await (tx as any).dvi_itinerary_plan_hotel_room_details.updateMany({
-          where: {
-            itinerary_plan_id: planId,
-            itinerary_route_id: r.itinerary_route_ID,
-            group_type: groupType,
-          },
-          data: {
-            itinerary_plan_hotel_details_id:
-              header.itinerary_plan_hotel_details_ID,
-          },
-        });
+          // Update ONLY the rooms for THIS specific hotel
+          await (tx as any).dvi_itinerary_plan_hotel_room_details.updateMany({
+            where: {
+              itinerary_plan_id: planId,
+              itinerary_route_id: r.itinerary_route_ID,
+              group_type: groupType,
+              hotel_id: hotelId,
+            },
+            data: {
+              itinerary_plan_hotel_details_id:
+                header.itinerary_plan_hotel_details_ID,
+            },
+          });
+        }
       }
     }
     console.log('[HOTEL-ENGINE] Phase 2 create headers:', Date.now() - opStart, 'ms');

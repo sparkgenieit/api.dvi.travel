@@ -5,7 +5,122 @@ import {
   IsOptional,
   IsArray,
   Min,
+  IsNumber,
+  IsBoolean,
 } from 'class-validator';
+
+export class TboHotelPassengerDto {
+  @ApiProperty({ example: 'Mr' })
+  @IsString()
+  title!: string;
+
+  @ApiProperty({ example: 'John' })
+  @IsString()
+  firstName!: string;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  middleName?: string;
+
+  @ApiProperty({ example: 'Doe' })
+  @IsString()
+  lastName!: string;
+
+  @ApiProperty({ example: 'john@example.com', required: false })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiProperty({ example: 1, description: '1=Adult, 2=Child' })
+  @IsInt()
+  paxType!: number;
+
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  leadPassenger!: boolean;
+
+  @ApiProperty({ example: 30 })
+  @IsInt()
+  age!: number;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  passportNo?: string;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  passportIssueDate?: string;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  passportExpDate?: string;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  phoneNo?: string;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  gstNumber?: string;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  gstCompanyName?: string;
+
+  @ApiProperty({ example: '', required: false })
+  @IsOptional()
+  @IsString()
+  pan?: string;
+}
+
+export class TboHotelSelectionDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  routeId!: number;
+
+  @ApiProperty({ example: '1035259' })
+  @IsString()
+  hotelCode!: string;
+
+  @ApiProperty({ example: '1035259!TB!2!TB!27fe40ea-75db-11f0-8023-825b5693933e!TB!AFF!' })
+  @IsString()
+  bookingCode!: string;
+
+  @ApiProperty({ example: 'Double Bed' })
+  @IsString()
+  roomType!: string;
+
+  @ApiProperty({ example: '2025-12-12' })
+  @IsString()
+  checkInDate!: string;
+
+  @ApiProperty({ example: '2025-12-13' })
+  @IsString()
+  checkOutDate!: string;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  numberOfRooms!: number;
+
+  @ApiProperty({ example: 'IN' })
+  @IsString()
+  guestNationality!: string;
+
+  @ApiProperty({ example: 5000 })
+  @IsNumber()
+  netAmount!: number;
+
+  @ApiProperty({ type: [TboHotelPassengerDto] })
+  @IsArray()
+  passengers!: TboHotelPassengerDto[];
+}
 
 export class ConfirmQuotationDto {
   @ApiProperty({ example: 12 })
@@ -108,6 +223,20 @@ export class ConfirmQuotationDto {
   @IsOptional()
   @IsString()
   hotel_group_type?: string;
+
+  @ApiProperty({
+    type: [TboHotelSelectionDto],
+    description: 'Selected TBO hotels to be booked during confirmation',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  tbo_hotels?: TboHotelSelectionDto[];
+
+  @ApiProperty({ example: '192.168.1.1', required: false })
+  @IsOptional()
+  @IsString()
+  endUserIp?: string;
 }
 
 export class WalletBalanceResponseDto {

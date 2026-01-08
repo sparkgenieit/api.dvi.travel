@@ -1,0 +1,42 @@
+meta {
+  name: 02c - Search Hotels - Madurai
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://affiliate.tektravels.com/HotelAPI/Search
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  Accept: application/json
+}
+
+body:json {
+  {
+    "CheckIn": "2026-03-28",
+    "CheckOut": "2026-03-29",
+    "CityCode": "127067",
+    "GuestNationality": "IN",
+    "PaxRooms": [
+      {
+        "Adults": 2,
+        "Children": 0
+      }
+    ],
+    "IsDetailedResponse": true
+  }
+}
+
+docs {
+  ## Route 3: Madurai
+  
+  - **Quote**: DVI2026011
+  - **Route**: 3
+  - **Destination**: Madurai
+  - **Date**: 2026-03-28
+  - **TBO City Code**: 127067
+}

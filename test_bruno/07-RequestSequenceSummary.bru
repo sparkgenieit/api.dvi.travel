@@ -1,0 +1,235 @@
+meta {
+  name: 07 - Request Sequence Summary
+  type: http
+  seq: 7
+}
+
+docs {
+  # Complete Request Sequence - How Backend & TBO Work Together
+  
+  ## What Happens When You Call the Backend Endpoint
+  
+  ### Timeline
+  
+  ```
+  ┌─────────────────────────────────────────────────────────────┐
+  │ GET http://localhost:4006/api/v1/itineraries/hotel_details/DVI2026011
+  └─────────────────────────────────────────────────────────────┘
+                              ↓
+  ┌─────────────────────────────────────────────────────────────┐
+  │ BACKEND: Query dvi_itinerary_plan_details
+  │ WHERE itinerary_quote_ID = 'DVI2026011'
+  │ Result: planId = 3, noOfNights = 4
+  └─────────────────────────────────────────────────────────────┘
+                              ↓
+  ┌─────────────────────────────────────────────────────────────┐
+  │ BACKEND: Query dvi_itinerary_route_details
+  │ WHERE itinerary_plan_ID = 3
+  │ Result: 5 routes (4 with hotels, 1 departure day)
+  └─────────────────────────────────────────────────────────────┘
+                              ↓
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ BACKEND: For each route, map destination to TBO city code
+  │
+  │ Route 1: Mahabalipuram → Query dvi_cities → tbo_city_code: 126117
+  │ Route 2: Thanjavur → Query dvi_cities → tbo_city_code: 139605
+  │ Route 3: Madurai → Query dvi_cities → tbo_city_code: 127067
+  │ Route 4: Rameswaram → Query dvi_cities → tbo_city_code: 133179
+  │ Route 5: Madurai Airport → SKIP (departure day)
+  └──────────────────────────────────────────────────────────────────────┘
+                              ↓
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ BACKEND: Make 4 parallel TBO API calls
+  └──────────────────────────────────────────────────────────────────────┘
+           ↓               ↓               ↓               ↓
+  
+  TBO Call 1        TBO Call 2        TBO Call 3        TBO Call 4
+  Mahabalipuram     Thanjavur         Madurai           Rameswaram
+  CityCode: 126117  CityCode: 139605  CityCode: 127067  CityCode: 133179
+  CheckIn:  26-Mar  CheckIn:  27-Mar  CheckIn:  28-Mar  CheckIn:  29-Mar
+  CheckOut: 27-Mar  CheckOut: 28-Mar  CheckOut: 29-Mar  CheckOut: 30-Mar
+  
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  (TBOApi:TBOApi@123)
+           ↓               ↓               ↓               ↓
+  
+  Hotels[]  Hotels[]  Hotels[]  Hotels[]
+  ~20 each  ~15 each  ~18 each  ~12 each
+           ↓               ↓               ↓               ↓
+  
+  └──────────────────────────────────────────────────────────────────────┘
+                              ↓
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ BACKEND: Generate 4 price-tier packages
+  │
+  │ 1. Budget Hotels - Select cheapest hotel per route
+  │ 2. Mid-Range Hotels - Select mid-priced hotel per route
+  │ 3. Premium Hotels - Select higher-priced hotel per route
+  │ 4. Luxury Hotels - Select most expensive hotel per route
+  │
+  │ Algorithm:
+  │ - Collect all unique prices from all hotels across all routes
+  │ - Distribute 4 tiers evenly based on available price points
+  │ - For routes with no hotels: Add placeholder (price: 0)
+  └──────────────────────────────────────────────────────────────────────┘
+                              ↓
+  ┌─────────────────────────────────────────────────────────────┐
+  │ BACKEND: Build response DTO
+  │
+  │ ItineraryHotelDetailsResponseDto {
+  │   quoteId: "DVI2026011",
+  │   planId: 3,
+  │   hotelTabs: [4 packages with totals],
+  │   hotels: [16 hotel entries - 4 per package],
+  │   totalRoomCount: 16
+  │ }
+  └─────────────────────────────────────────────────────────────┘
+                              ↓
+  ┌─────────────────────────────────────────────────────────────┐
+  │ Response: 200 OK with 4 price-tier hotel packages
+  └─────────────────────────────────────────────────────────────┘
+  ```
+  
+  ## Database Queries Summary
+  
+  ### Query 1: Get Plan
+  ```sql
+  SELECT * FROM dvi_itinerary_plan_details 
+  WHERE itinerary_quote_ID = 'DVI2026011' AND deleted = 0
+  LIMIT 1
+  ```
+  
+  ### Query 2: Get Routes
+  ```sql
+  SELECT * FROM dvi_itinerary_route_details 
+  WHERE itinerary_plan_ID = 3 AND deleted = 0
+  ORDER BY itinerary_route_date ASC
+  ```
+  
+  ### Query 3: Map Each Destination (x4)
+  ```sql
+  SELECT * FROM dvi_cities 
+  WHERE name = 'Mahabalipuram'
+  ```
+  
+  (Repeated for each destination with fallback logic:
+   - Exact match
+   - First part match (before comma)
+   - Fuzzy match (LIKE))
+  
+  ## TBO API Calls Summary
+  
+  ### Call Structure
+  
+  ```
+  POST https://affiliate.tektravels.com/HotelAPI/Search
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  Content-Type: application/json
+  
+  {
+    "CheckIn": "2026-03-26",
+    "CheckOut": "2026-03-27",
+    "HotelCodes": "",
+    "CityCode": "126117",
+    "GuestNationality": "IN",
+    "PaxRooms": [{ "Adults": 2, "Children": 0, "ChildrenAges": [] }],
+    "ResponseTime": 23.0,
+    "IsDetailedResponse": true,
+    "Filters": {
+      "Refundable": true,
+      "NoOfRooms": 0,
+      "MealType": "WithMeal",
+      "OrderBy": 0,
+      "StarRating": 0
+    }
+  }
+  ```
+  
+  ### Response Format
+  
+  ```json
+  {
+    "Status": { "Code": 200, "Description": "Successful" },
+    "HotelResult": [
+      {
+        "HotelCode": "21345",
+        "HotelName": "Hotel Name",
+        "Rating": 4,
+        "Rooms": [
+          {
+            "Name": ["Deluxe Room"],
+            "TotalFare": 5000,
+            "TBORoomID": "123",
+            "BookingCode": "ABC123"
+          }
+        ]
+      },
+      ... more hotels ...
+    ]
+  }
+  ```
+  
+  ## Key Points
+  
+  ✅ Backend makes 4 separate TBO API calls (one per route)
+  ✅ Each call uses different CityCode and dates
+  ✅ All calls use same Authorization header (hardcoded)
+  ✅ Results are combined and transformed into price tiers
+  ✅ No TokenId is used (Basic Auth instead)
+  ✅ Response time typically 5-15 seconds (4 API calls)
+  
+  ## Bruno Testing
+  
+  To replicate this in Bruno:
+  
+  1. Run `00-BackendFlow.bru` - See backend response
+  2. Run `02-SearchHotels.bru` - TBO Call 1
+  3. Run `02b-SearchHotels-Thanjavur.bru` - TBO Call 2
+  4. Run `02c-SearchHotels-Madurai.bru` - TBO Call 3
+  5. Run `02d-SearchHotels-Rameswaram.bru` - TBO Call 4
+  
+  Compare the 4 TBO responses with the backend's combined response!
+}
+
+get {
+  url: http://localhost:4006/api/v1/itineraries/hotel_details/DVI2026011
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Complete flow validation", function() {
+    const body = res.getBody();
+    
+    console.log(`\n╔════════════════════════════════════════════════════════════╗`);
+    console.log(`║  COMPLETE BACKEND FLOW SUMMARY                             ║`);
+    console.log(`╚════════════════════════════════════════════════════════════╝\n`);
+    
+    console.log(`📋 Quote ID: ${body.quoteId}`);
+    console.log(`📋 Plan ID: ${body.planId}\n`);
+    
+    console.log(`🔍 Database Queries Made:`);
+    console.log(`   1. SELECT * FROM dvi_itinerary_plan_details`);
+    console.log(`   2. SELECT * FROM dvi_itinerary_route_details`);
+    console.log(`   3. SELECT * FROM dvi_cities (4 times - one per route)\n`);
+    
+    console.log(`🔗 TBO API Calls Made: 4`);
+    console.log(`   Call 1: Mahabalipuram (CityCode: 126117)`);
+    console.log(`   Call 2: Thanjavur (CityCode: 139605)`);
+    console.log(`   Call 3: Madurai (CityCode: 127067)`);
+    console.log(`   Call 4: Rameswaram (CityCode: 133179)\n`);
+    
+    console.log(`📦 Response Generated:`);
+    console.log(`   Hotel Tabs: ${body.hotelTabs.length} (4 price tiers)`);
+    console.log(`   Hotel Entries: ${body.hotels.length}`);
+    console.log(`   Total Rooms: ${body.totalRoomCount}`);
+    
+    body.hotelTabs.forEach(tab => {
+      console.log(`     - ${tab.label}: ₹${tab.totalAmount}`);
+    });
+    
+    console.log(`\n✅ Flow Complete!\n`);
+  });
+}

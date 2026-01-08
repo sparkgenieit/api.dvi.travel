@@ -1,8 +1,8 @@
+// REPLACE-WHOLE-FILE
 // FILE: src/modules/itineraries/engines/helpers/distance.helper.ts
 
 import { Prisma } from "@prisma/client";
-import { minutesToDurationTime, minutesToTime, secondsToDurationTime, timeToSeconds } from "./time.helper";
-import { TimeConverter } from "./time-converter";
+import { minutesToDurationTime, minutesToTime } from "./time.helper";
 
 type Tx = Prisma.TransactionClient;
 
@@ -57,266 +57,55 @@ function parseDurationToMinutes(duration: any): number | null {
   return days * 1440 + hours * 60 + mins;
 }
 
-/**
- * CACHE-FIRST: Get or compute hotspot-to-hotspot distance + travel time.
- * 
- * Checks HotspotDistanceCache first:
- * - If found AND speedKmph matches AND correctionFactor matches AND updatedAt < 30 days old → return cached
- * - Otherwise compute haversine, apply correction, upsert BOTH directions (A→B and B→A), return result
- * 
- * Inputs:
- * - tx: Prisma TransactionClient
- * - fromHotspotId?: ID of origin hotspot (required for cache lookup)
- * - toHotspotId?: ID of destination hotspot (required for cache lookup)
- * - fromLat, fromLng, toLat, toLng: Coordinates for haversine computation
- * - travelLocationType: 1 (local) or 2 (outstation)
- * - speedKmph?: Override speed; if missing, fetches from global settings
- * - correctionFactor?: Override correction; defaults to 1.5
- * - bufferMinutes?: Override buffer; if missing, fetches from global settings
- * 
- * Returns:
- * - { distanceKm, travelTime (HH:MM:SS), bufferTime (HH:MM:SS) }
- */
-async function getOrComputeDistanceCached(
-  tx: Tx,
-  opts: {
-    fromHotspotId?: number | null;
-    toHotspotId?: number | null;
-    fromLat: number;
-    fromLng: number;
-    toLat: number;
-    toLng: number;
-    travelLocationType: 1 | 2;
-    speedKmph?: number;
-    correctionFactor?: number;
-    bufferMinutes?: number;
-  },
-): Promise<DistanceResult> {
-  const {
-    fromHotspotId,
-    toHotspotId,
-    fromLat,
-    fromLng,
-    toLat,
-    toLng,
-    travelLocationType,
-    speedKmph: overrideSpeed,
-    correctionFactor: overrideCorrectionFactor,
-    bufferMinutes: overrideBuffer,
-  } = opts;
+export class DistanceHelper {
+  private globalSettings: any = null;
 
-  // Fetch global settings if not provided
-  let speedKmph = overrideSpeed;
-  let correctionFactor = overrideCorrectionFactor ?? 1.5;
-  let bufferMinutes = overrideBuffer;
-
-  if (!speedKmph || !Number.isFinite(bufferMinutes)) {
-    const gs = await (tx as any).dvi_global_settings.findFirst({
-      where: { deleted: 0, status: 1 },
-    });
-
-    if (!speedKmph) {
-      speedKmph =
-        travelLocationType === 1
-          ? Number(gs?.itinerary_local_speed_limit ?? 40)
-          : Number(gs?.itinerary_outstation_speed_limit ?? 60);
-    }
-
-    if (!Number.isFinite(bufferMinutes)) {
-      bufferMinutes =
-        travelLocationType === 1
-          ? Number(gs?.itinerary_local_buffer_time ?? 0)
-          : Number(gs?.itinerary_outstation_buffer_time ?? 0);
-    }
+  /**
+   * Set global settings to avoid redundant DB queries.
+   */
+  setGlobalSettings(gs: any) {
+    this.globalSettings = gs;
   }
 
-  // ===== CACHE-FIRST LOOKUP =====
-  // Only try cache if both hotspot IDs are present
-  if (fromHotspotId && toHotspotId) {
-    const cached = await (tx as any).hotspotDistanceCache.findUnique({
-      where: {
-        fromHotspotId_toHotspotId_travelLocationType: {
-          fromHotspotId,
-          toHotspotId,
-          travelLocationType,
-        },
-      },
-    });
-
-    if (cached) {
-      const cachedSpeed = Number(cached.speedKmph);
-      const cachedCorrection = Number(cached.correctionFactor);
-      const isSpeedMatch = Math.abs(cachedSpeed - speedKmph) < 0.01;
-      const isCorrectionMatch = Math.abs(cachedCorrection - correctionFactor) < 0.001;
-
-      if (isSpeedMatch && isCorrectionMatch) {
-        // Check age: valid if updated in last 30 days
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        if (cached.updatedAt >= thirtyDaysAgo) {
-          // CACHE HIT → return persisted values
-          const travelTime = formatTimeFromDate(cached.travelTime);
-          const bufferTime = minutesToTime(bufferMinutes ?? 0);
-
-          return {
-            distanceKm: Number(cached.distanceKm),
-            travelTime,
-            bufferTime,
-          };
-        }
+  /**
+   * Pre-populate the distance cache with provided locations.
+   */
+  prePopulateCache(locations: any[]) {
+    for (const loc of locations) {
+      const key = `${loc.source_location}|${loc.destination_location}`;
+      if (!distanceCache.has(key)) {
+        distanceCache.set(key, loc);
       }
     }
   }
 
-  // ===== CACHE MISS OR STALE → COMPUTE =====
-  const earthRadius = 6371;
+  /**
+   * Standalone Haversine calculation for simple distance checks.
+   */
+  calculateHaversine(
+    startLat: number,
+    startLon: number,
+    endLat: number,
+    endLon: number,
+  ): number {
+    const earthRadius = 6371;
 
-  const startLatRad = (fromLat * Math.PI) / 180;
-  const startLonRad = (fromLng * Math.PI) / 180;
-  const endLatRad = (toLat * Math.PI) / 180;
-  const endLonRad = (toLng * Math.PI) / 180;
+    const startLatRad = (startLat * Math.PI) / 180;
+    const startLonRad = (startLon * Math.PI) / 180;
+    const endLatRad = (endLat * Math.PI) / 180;
+    const endLonRad = (endLon * Math.PI) / 180;
 
-  const latDiff = endLatRad - startLatRad;
-  const lonDiff = endLonRad - startLonRad;
+    const latDiff = endLatRad - startLatRad;
+    const lonDiff = endLonRad - startLonRad;
 
-  const a =
-    Math.pow(Math.sin(latDiff / 2), 2) +
-    Math.cos(startLatRad) * Math.cos(endLatRad) * Math.pow(Math.sin(lonDiff / 2), 2);
+    const a =
+      Math.pow(Math.sin(latDiff / 2), 2) +
+      Math.cos(startLatRad) * Math.cos(endLatRad) * Math.pow(Math.sin(lonDiff / 2), 2);
 
-  const haversineKm = 2 * earthRadius * Math.asin(Math.sqrt(a));
-  const correctedDistance = haversineKm * correctionFactor;
-
-  // Compute travel time: distance / speed * 60 = minutes, then convert to HH:MM:SS
-  const travelMinutes = (correctedDistance / speedKmph) * 60;
-  const travelTime = secondsToDurationTime(travelMinutes * 60);
-
-  const bufferTime = minutesToTime(bufferMinutes ?? 0);
-
-  // ===== UPSERT BOTH DIRECTIONS =====
-  if (fromHotspotId && toHotspotId) {
-    // Convert travel time to TIME(0)-safe Date for DB
-    const travelTimeDate = TimeConverter.stringToDate(travelTime);
-
-    // Fetch hotspot names for cache storage
-    let fromName: string | null = null;
-    let toName: string | null = null;
-
-    try {
-      const [fromHotspot, toHotspot] = await Promise.all([
-        (tx as any).dvi_hotspot_place?.findUnique?.({
-          where: { hotspot_ID: fromHotspotId },
-          select: { hotspot_name: true },
-        }),
-        (tx as any).dvi_hotspot_place?.findUnique?.({
-          where: { hotspot_ID: toHotspotId },
-          select: { hotspot_name: true },
-        }),
-      ]);
-
-      fromName = fromHotspot?.hotspot_name || null;
-      toName = toHotspot?.hotspot_name || null;
-    } catch (err) {
-      // If fetching names fails, continue without them (graceful degradation)
-      console.warn("Warning: Could not fetch hotspot names for cache:", err);
-    }
-
-    // Upsert A→B
-    await (tx as any).hotspotDistanceCache.upsert({
-      where: {
-        fromHotspotId_toHotspotId_travelLocationType: {
-          fromHotspotId,
-          toHotspotId,
-          travelLocationType,
-        },
-      },
-      create: {
-        fromHotspotId,
-        toHotspotId,
-        travelLocationType,
-        fromHotspotName: fromName,
-        toHotspotName: toName,
-        haversineKm,
-        correctionFactor,
-        distanceKm: correctedDistance,
-        speedKmph,
-        travelTime: travelTimeDate,
-        method: "HAVERSINE",
-      },
-      update: {
-        fromHotspotName: fromName,
-        toHotspotName: toName,
-        haversineKm,
-        correctionFactor,
-        distanceKm: correctedDistance,
-        speedKmph,
-        travelTime: travelTimeDate,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Upsert B→A (haversine is symmetric)
-    await (tx as any).hotspotDistanceCache.upsert({
-      where: {
-        fromHotspotId_toHotspotId_travelLocationType: {
-          fromHotspotId: toHotspotId,
-          toHotspotId: fromHotspotId,
-          travelLocationType,
-        },
-      },
-      create: {
-        fromHotspotId: toHotspotId,
-        toHotspotId: fromHotspotId,
-        travelLocationType,
-        fromHotspotName: toName,
-        toHotspotName: fromName,
-        haversineKm,
-        correctionFactor,
-        distanceKm: correctedDistance,
-        speedKmph,
-        travelTime: travelTimeDate,
-        method: "HAVERSINE",
-      },
-      update: {
-        fromHotspotName: toName,
-        toHotspotName: fromName,
-        haversineKm,
-        correctionFactor,
-        distanceKm: correctedDistance,
-        speedKmph,
-        travelTime: travelTimeDate,
-        updatedAt: new Date(),
-      },
-    });
+    const distance = 2 * earthRadius * Math.asin(Math.sqrt(a));
+    return distance * 1.5; // Apply same 1.5x correction factor as fromCoordinates
   }
 
-  return {
-    distanceKm: correctedDistance,
-    travelTime,
-    bufferTime,
-  };
-}
-
-/**
- * Format a DATE/TIME from database to HH:MM:SS string.
- * Prisma TIME(0) fields come back as Date objects in UTC.
- */
-function formatTimeFromDate(dateOrNull: any): string {
-  if (!dateOrNull) return "00:00:00";
-
-  if (dateOrNull instanceof Date) {
-    const h = String(dateOrNull.getUTCHours()).padStart(2, "0");
-    const m = String(dateOrNull.getUTCMinutes()).padStart(2, "0");
-    const s = String(dateOrNull.getUTCSeconds()).padStart(2, "0");
-    return `${h}:${m}:${s}`;
-  }
-
-  return String(dateOrNull);
-}
-
-
-
-export class DistanceHelper {
   async fromCoordinates(
     tx: Tx,
     startLat: number,
@@ -344,14 +133,21 @@ export class DistanceHelper {
     const correctionFactor = 1.5;
     const correctedDistance = distance * correctionFactor;
 
-    const gs = await (tx as any).dvi_global_settings.findFirst({
+    const gs = this.globalSettings || await (tx as any).dvi_global_settings.findFirst({
       where: { deleted: 0, status: 1 },
     });
 
-    const avgSpeedKmPerHr =
+    let avgSpeedKmPerHr =
       travelLocationType === 1
         ? Number(gs?.itinerary_local_speed_limit ?? 40)
         : Number(gs?.itinerary_outstation_speed_limit ?? 60);
+
+// ⚡ PERFORMANCE/LOGIC: If distance is significant (> 10km),
+    // don't use the very slow local speed (often 15km/h in DB).
+    // This handles cases where hotspots are in the same "city" but far apart.
+    if (travelLocationType === 1 && correctedDistance > 10 && avgSpeedKmPerHr < 40) {
+      avgSpeedKmPerHr = 40;
+    }
 
     const durationHours = correctedDistance / avgSpeedKmPerHr;
     const wholeHours = Math.floor(durationHours);
@@ -398,11 +194,11 @@ export class DistanceHelper {
     const trimmedSource = String(sourceLocation ?? "").trim();
     const trimmedDest = String(destinationLocation ?? "").trim();
 
-    // ✅ PHP PARITY: For hotspots (which provide coordinates), PHP ALWAYS uses 
+    // ✅ PHP PARITY: For hotspots (which provide coordinates), PHP ALWAYS uses
     // Haversine formula instead of looking up in dvi_stored_locations.
     // This prevents using city-to-city distances for specific hotspots.
-    if (sourceCoords && destCoords && 
-        (sourceCoords.lat !== 0 || sourceCoords.lon !== 0) && 
+    if (sourceCoords && destCoords &&
+        (sourceCoords.lat !== 0 || sourceCoords.lon !== 0) &&
         (destCoords.lat !== 0 || destCoords.lon !== 0)) {
       return this.fromCoordinates(
         tx,
@@ -415,13 +211,13 @@ export class DistanceHelper {
     }
 
     const logMsg = `[DistanceHelper] Looking up: "${trimmedSource}" → "${trimmedDest}"\n`;
-    
+
     // Check cache first
     const cacheKey = `${trimmedSource}|${trimmedDest}`;
     let loc = distanceCache.get(cacheKey);
 
     if (!loc) {
-      // Query DB and cache result
+      // 1) Try exact match
       loc = await (tx as any).dvi_stored_locations.findFirst({
         where: {
           deleted: 0,
@@ -430,46 +226,87 @@ export class DistanceHelper {
         },
         orderBy: { location_ID: "desc" },
       });
-      
+
+      // 2) Fallback: Try splitting by pipe | (common in hotspot_location)
+      if (!loc && (trimmedSource.includes('|') || trimmedDest.includes('|'))) {
+        const s = trimmedSource.split('|')[0].trim();
+        const d = trimmedDest.split('|')[0].trim();
+        loc = await (tx as any).dvi_stored_locations.findFirst({
+          where: {
+            deleted: 0,
+            source_location: s,
+            destination_location: d,
+          },
+          orderBy: { location_ID: "desc" },
+        });
+      }
+
       if (loc) {
         distanceCache.set(cacheKey, loc);
       }
     }
 
     if (loc) {
-      const foundMsg = `[DistanceHelper] Found in DB: ${loc.distance} km\n`;
       const distance = Number(loc.distance ?? 0);
-
       const totalMinutes = parseDurationToMinutes(loc.duration);
-
-      // ✅ IMPORTANT: use *duration* formatter (NO wrap)
       const travelTime = minutesToDurationTime(totalMinutes ?? 0);
-
       const bufferTime = await this.getBufferTime(tx, travelLocationType);
       return { distanceKm: distance, travelTime, bufferTime };
     }
 
-    const notFoundMsg = `[DistanceHelper] NOT found in DB, using coordinates fallback\n`;
-    
+    // 3) Fallback: If we have at least one set of coords, try to find the other and use Haversine
+    if (destCoords && (destCoords.lat !== 0 || destCoords.lon !== 0)) {
+      // Try to find coords for source city
+      const s = trimmedSource.split('|')[0].trim();
+      const sourceLoc = await (tx as any).dvi_stored_locations.findFirst({
+        where: { source_location: s, deleted: 0 },
+      });
+      if (sourceLoc?.source_location_lattitude && sourceLoc?.source_location_longitude) {
+        return this.fromCoordinates(
+          tx,
+          Number(sourceLoc.source_location_lattitude),
+          Number(sourceLoc.source_location_longitude),
+          destCoords.lat,
+          destCoords.lon,
+          travelLocationType,
+        );
+      }
+    }
+
     return { distanceKm: 0, travelTime: "00:00:00", bufferTime: "00:00:00" };
   }
 
   private async getBufferTime(tx: Tx, travelLocationType: 1 | 2): Promise<string> {
-    const gs = await (tx as any).dvi_global_settings.findFirst({
+    const gs = this.globalSettings || await (tx as any).dvi_global_settings.findFirst({
       where: { deleted: 0, status: 1 },
     });
 
     if (!gs) return "00:00:00";
 
-    const minutes =
-      travelLocationType === 1
-        ? Number(gs.itinerary_local_buffer_time ?? 0)
-        : Number(gs.itinerary_outstation_buffer_time ?? 0);
+    /**
+     * ✅ FIX-1 (your issue):
+     * For LOCAL sightseeing hops (travelLocationType === 1),
+     * do NOT add the global road/common buffer.
+     *
+     * Otherwise travel rows become:
+     *   travelTime + 1:00 buffer  => looks like 2 hours vs Google’s < 1 hour
+     */
+    if (travelLocationType === 1) {
+      return "00:00:00";
+    }
 
-    // Buffer is a TIME amount; wrapping is fine here.
-    return minutesToTime(minutes);
+    // OUTSTATION / inter-city legs: keep your existing logic
+    // PHP PARITY: Use itinerary_travel_by_road_buffer_time for road travel
+    // If not available, fallback to itinerary_common_buffer_time
+    const bufferTimeField =
+      gs.itinerary_travel_by_road_buffer_time || gs.itinerary_common_buffer_time;
+
+    if (bufferTimeField instanceof Date) {
+      const hours = bufferTimeField.getUTCHours();
+      const minutes = bufferTimeField.getUTCMinutes();
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+    }
+
+    return "00:00:00";
   }
 }
-
-export { getOrComputeDistanceCached };
-
