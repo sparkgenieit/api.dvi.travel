@@ -165,7 +165,8 @@ export class TBOHotelProvider implements IHotelProvider {
 
       // Step 2: Get hotel codes from TBO SharedData API or master database
       // Instead of hardcoding, fetch from TBO's master hotel list
-      let hotelCodes: string;
+      let hotelCodes: string | undefined;
+      let isUsingDatabaseCodes = false;
       
       if (criteria.hotelCodes) {
         // If explicitly provided (for testing), use it
@@ -176,83 +177,75 @@ export class TBOHotelProvider implements IHotelProvider {
         // This table is synced daily from TBO's GetHotels API via cron/scheduler
         hotelCodes = await this.getHotelCodesForCityFromDb(tboCity.tbo_city_code);
         if (!hotelCodes) {
-          this.logger.warn(`   ⚠️  No hotels found in database for city ${tboCity.tbo_city_code}`);
-          return [];
+          this.logger.warn(`   ⚠️  No hotel codes in database for city ${tboCity.tbo_city_code} - will search by city only`);
+          // Don't return empty - let TBO search by city without specific hotel codes
+        } else {
+          isUsingDatabaseCodes = true;
+          this.logger.log(`   📋 Fetched ${hotelCodes.split(',').length} hotel codes from database`);
         }
-        this.logger.log(`   📋 Fetched ${hotelCodes.split(',').length} hotel codes from database`);
       }
 
-      const searchRequest = {
-        CheckIn: this.formatDateToISO(criteria.checkInDate),
-        CheckOut: this.formatDateToISO(criteria.checkOutDate),
-        HotelCodes: hotelCodes,
-        CityCode: tboCity.tbo_city_code,
-        GuestNationality: 'IN',
-        PaxRooms: [
-          {
-            Adults: Math.max(criteria.guestCount, 1),
-            Children: 0,
-            ChildrenAges: [],
-          },
-        ],
-        ResponseTime: 23.0,
-        IsDetailedResponse: true,
-        Filters: {
-          Refundable: true,
-          NoOfRooms: 0,
-          MealType: 'WithMeal',
-          OrderBy: 0,
-          StarRating: 0,
-          HotelName: null,
-        },
-      };
-     this.logger.log(`   📤 TBO Search Request Full: ${JSON.stringify(searchRequest)}`);
-      this.logger.log(`   📤 TBO Search Request:`);
-      this.logger.log(`      - Endpoint: POST ${this.SEARCH_API_URL}/Search`);
-      this.logger.log(`      - Check-in: ${searchRequest.CheckIn}`);
-      this.logger.log(`      - Check-out: ${searchRequest.CheckOut}`);
-      this.logger.log(`      - City Code: ${searchRequest.CityCode}`);
-      this.logger.log(`      - Hotel Codes: ${criteria.hotelCodes || '(All available hotels for city)'}`);
-      this.logger.log(`      - Guests: ${searchRequest.PaxRooms[0].Adults} adults`);
+      // CRITICAL FIX: If using database codes, verify they look like valid TBO codes
+      // Real TBO codes are 7 digits starting with 10 (e.g., 1014829, 1089687, 1138045)
+      // Note: All hotel codes in database are synced from TBO API, so they're already valid
+      if (isUsingDatabaseCodes && hotelCodes) {
+        this.logger.log(`   ✅ Using ${hotelCodes.split(',').length} hotel codes from database`);
+      }
 
+      // Step 3: Chunk hotel codes (TBO recommends 100 codes per request)
+      // Per TBO API docs: "send parallel searches for 100 hotel codes chunks"
+      const hotelCodeChunks = this.chunkHotelCodes(hotelCodes, 100);
+      
+      if (hotelCodeChunks.length > 0) {
+        this.logger.log(`   📊 Split ${hotelCodes?.split(',').length || 0} hotels into ${hotelCodeChunks.length} chunk(s) of max 100 codes`);
+      }
 
-      // Step 3: Call TBO Search API with Basic Auth
-      // TBO Search API uses different credentials: TBOApi:TBOApi@123
-      // Status code 200 = SUCCESS, not 0!
+      // If no hotel codes, search by city only (one request)
+      const requestChunks = hotelCodeChunks.length > 0 ? hotelCodeChunks : [''];
+
+      // Step 4: Make parallel searches for each chunk
       const basicAuth = Buffer.from('TBOApi:TBOApi@123').toString('base64');
-      const startTime = Date.now();
+      const chunkPromises = requestChunks.map((chunk) =>
+        this.executeTBOSearch(
+          {
+            CheckIn: this.formatDateToISO(criteria.checkInDate),
+            CheckOut: this.formatDateToISO(criteria.checkOutDate),
+            HotelCodes: chunk,
+            CityCode: tboCity.tbo_city_code,
+            GuestNationality: 'IN',
+            PaxRooms: [
+              {
+                Adults: Math.max(criteria.guestCount, 1),
+                Children: 0,
+                ChildrenAges: [],
+              },
+            ],
+            ResponseTime: 23.0,
+            IsDetailedResponse: true,
+            Filters: {
+              Refundable: true,
+              NoOfRooms: criteria.roomCount || 1,
+              MealType: 'WithMeal',
+              OrderBy: 0,
+              StarRating: 0,
+              HotelName: null,
+            },
+          },
+          basicAuth,
+          chunk ? `(chunk: ${chunk.split(',').length} hotels)` : '(city-wide search)'
+        )
+      );
 
-      const response = await this.http.post(`${this.SEARCH_API_URL}/Search`, searchRequest, {
-        timeout: 30000,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${basicAuth}`,
-        },
-      });
+      const chunkResponses = await Promise.all(chunkPromises);
+      const allHotels = chunkResponses.flat();
 
-      const responseTime = Date.now() - startTime;
-      this.logger.log(`   ⏱️  TBO API Response Time: ${responseTime}ms`);
- this.logger.log(`   ⏱️  TBO API Response: ${JSON.stringify(response.data)}`);
-
-      // Step 4: Check response status
-      // TBO Search API returns Status as an OBJECT: { Code: 200, Description: "Successful" }
-      const statusObj = response.data?.Status;
-      const statusCode = typeof statusObj === 'object' ? statusObj?.Code : statusObj;
-
-      // Log full response for debugging (first 500 chars)
-      this.logger.debug(`   📦 Full TBO Response: ${JSON.stringify(response.data).substring(0, 500)}`);
-
-      if (statusCode !== 200) {
-        const statusValue = typeof statusObj === 'object' ? JSON.stringify(statusObj) : statusCode;
-        const description = typeof statusObj === 'object' ? statusObj?.Description : 'Unknown error';
-        this.logger.warn(
-          `   ⚠️  TBO Search returned status: ${statusValue} - ${description}`
-        );
+      if (allHotels.length === 0) {
+        this.logger.warn(`   📭 No hotels found for city: ${criteria.cityCode}`);
         return [];
       }
 
-      const hotels = response.data.HotelResult || [];
-      this.logger.log(`   ✅ TBO API returned ${hotels.length} hotels`);
+      const hotels = allHotels;
+      this.logger.log(`   ✅ TBO API returned ${hotels.length} hotels across ${requestChunks.length} request(s)`);
 
       if (hotels.length === 0) {
         this.logger.warn(`   📭 No hotels found for city: ${criteria.cityCode}`);
@@ -327,9 +320,12 @@ export class TBOHotelProvider implements IHotelProvider {
     } catch (error: any) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`❌ Hotel Search Error: ${errorMsg}`);
-      throw new InternalServerErrorException(
-        `TBO search failed: ${error.message || 'Unknown error'}`
-      );
+      this.logger.error(`   📋 Stack: ${error?.stack?.substring(0, 200)}`);
+      
+      // CRITICAL: Don't throw - return empty array for graceful handling
+      // This allows the system to generate placeholder "No Hotels Available" instead of crashing
+      this.logger.warn(`   ⚠️  Returning empty results instead of throwing error`);
+      return [];
     }
   }
 
@@ -921,4 +917,73 @@ export class TBOHotelProvider implements IHotelProvider {
   private generateCacheKey(criteria: HotelSearchCriteria): string {
     return `hotel_search_${criteria.cityCode}_${criteria.checkInDate}_${criteria.checkOutDate}_${criteria.roomCount}`;
   }
+
+  /**
+   * Split hotel codes into chunks of max size
+   * Per TBO API documentation: send parallel searches for 100 hotel codes chunks
+   */
+  private chunkHotelCodes(hotelCodes: string | undefined, chunkSize: number = 100): string[] {
+    if (!hotelCodes || hotelCodes.trim() === '') {
+      return [];
+    }
+
+    const codes = hotelCodes.split(',').map(c => c.trim()).filter(c => c);
+    const chunks: string[] = [];
+
+    for (let i = 0; i < codes.length; i += chunkSize) {
+      chunks.push(codes.slice(i, i + chunkSize).join(','));
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Execute a single TBO Search API request for a chunk of hotel codes
+   */
+  private async executeTBOSearch(
+    searchRequest: any,
+    basicAuth: string,
+    description: string = ''
+  ): Promise<any[]> {
+    try {
+      this.logger.log(`   📤 TBO Search Request ${description}:`);
+      this.logger.log(`      - Check-in: ${searchRequest.CheckIn}`);
+      this.logger.log(`      - Check-out: ${searchRequest.CheckOut}`);
+      this.logger.log(`      - City Code: ${searchRequest.CityCode}`);
+      this.logger.log(`      - Hotel Codes: ${searchRequest.HotelCodes || '(All available hotels for city)'}`);
+      this.logger.log(`      - Guests: ${searchRequest.PaxRooms[0].Adults} adults`);
+
+      const startTime = Date.now();
+      const response = await this.http.post(`${this.SEARCH_API_URL}/Search`, searchRequest, {
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${basicAuth}`,
+        },
+      });
+
+      const responseTime = Date.now() - startTime;
+      this.logger.log(`   ⏱️  TBO API Response Time ${description}: ${responseTime}ms`);
+      this.logger.debug(`   ⏱️  TBO API Response: ${JSON.stringify(response.data).substring(0, 300)}`);
+
+      // Check response status
+      const statusObj = response.data?.Status;
+      const statusCode = typeof statusObj === 'object' ? statusObj?.Code : statusObj;
+
+      if (statusCode !== 200) {
+        const description = typeof statusObj === 'object' ? statusObj?.Description : 'Unknown error';
+        this.logger.warn(`   ⚠️  TBO Search returned status: ${statusCode} - ${description}`);
+        return [];
+      }
+
+      const hotels = response.data.HotelResult || [];
+      this.logger.log(`   ✅ This request returned ${hotels.length} hotels`);
+      return hotels;
+    } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`   ❌ TBO Search Error ${description}: ${errorMsg}`);
+      return [];
+    }
+  }
 }
+

@@ -3021,7 +3021,7 @@ export class ItinerariesService {
     const hotelsData = await Promise.all(routes.map(async (route) => {
       const hotels = await this.prisma.dvi_confirmed_itinerary_plan_hotel_details.findMany({
         where: {
-          itinerary_plan_id: plan.itinerary_plan_id,
+          itinerary_plan_id: plan.itinerary_plan_ID,
           itinerary_route_id: route.itinerary_route_ID,
           deleted: 0,
         },
@@ -3091,7 +3091,7 @@ export class ItinerariesService {
     // Get the hotel details for the specific day
     const hotelDetails = await this.prisma.dvi_confirmed_itinerary_plan_hotel_details.findFirst({
       where: {
-        itinerary_plan_id: plan.itinerary_plan_id,
+        itinerary_plan_id: plan.itinerary_plan_ID,
         hotel_id: hotelId,
         deleted: 0,
       },
@@ -3165,7 +3165,7 @@ export class ItinerariesService {
       // 2. Soft delete the hotel details
       const hotelDetails = await (tx as any).dvi_confirmed_itinerary_plan_hotel_details.findFirst({
         where: {
-          itinerary_plan_id: plan.itinerary_plan_id,
+          itinerary_plan_id: plan.itinerary_plan_ID,
           hotel_id: hotelId,
           deleted: 0,
         },

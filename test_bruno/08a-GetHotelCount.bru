@@ -1,0 +1,34 @@
+meta {
+  name: 08a - Get Hotel Count
+  type: http
+  seq: 8
+}
+
+get {
+  url: http://127.0.0.1:4006/api/v1/hotels/sync/master-data/count
+}
+
+headers {
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJhZG1pbkBkdmkuY28uaW4iLCJyb2xlIjoxLCJhZ2VudElkIjowLCJzdGFmZklkIjowLCJndWlkZUlkIjowLCJpYXQiOjE3NjcyNDkzMjAsImV4cCI6MTc2Nzg1NDEyMH0.0-AJW4SWm1NFTzJFjEAe69-byHfu0X1sFmGwP_fTOmw
+  Content-Type: application/json
+}
+
+docs {
+  ## Get Hotel Count - Master Database
+  
+  ### Endpoint:
+  GET /api/v1/hotels/sync/master-data/count
+  
+  ### Service Method Called:
+  `getHotelCount()` - Returns count of hotels in tbo_hotel_master table
+  
+  ### Response Example:
+  {
+    "hotelCount": 96,
+    "message": "Total hotels in master database: 96"
+  }
+  
+  ### Purpose:
+  Check how many hotels have been synced to the database
+  before and after running full sync.
+}

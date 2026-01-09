@@ -8,6 +8,8 @@ import {
   ItineraryHotelTabDto,
   ItineraryHotelRowDto,
   ItineraryHotelDetailsResponseDto,
+  ItineraryHotelRoomDetailsResponseDto,
+  ItineraryHotelRoomDto,
 } from './itinerary-hotel-details.service';
 
 /**
@@ -447,5 +449,134 @@ export class ItineraryHotelDetailsTboService {
       this.logger.warn(`⚠️  Error mapping destination "${destination}": ${msg}. Skipping this route.`);
       return ''; // Return empty string to allow other routes to continue
     }
+  }
+
+  /**
+   * Get fresh hotel room details from TBO API (no stale data)
+   * Fetches real-time data and returns in room details format
+   */
+  async getHotelRoomDetailsFromTbo(
+    quoteId: string,
+  ): Promise<ItineraryHotelRoomDetailsResponseDto> {
+    const startTime = Date.now();
+    this.logger.log(`\n📡 FRESH ROOM DETAILS FROM TBO: Fetching live data for quote: ${quoteId}`);
+
+    // Step 1: Get itinerary plan
+    const plan = await this.prisma.dvi_itinerary_plan_details.findFirst({
+      where: { itinerary_quote_ID: quoteId, deleted: 0 },
+    });
+
+    if (!plan) {
+      this.logger.warn(`⚠️  Quote ID not found: ${quoteId}`);
+      throw new NotFoundException('Itinerary not found');
+    }
+
+    const planId = plan.itinerary_plan_ID;
+    this.logger.log(`✅ Found plan ID: ${planId}`);
+
+    // Step 2: Get itinerary routes (days and destinations)
+    const routes = await this.prisma.dvi_itinerary_route_details.findMany({
+      where: { itinerary_plan_ID: planId, deleted: 0 },
+      orderBy: { itinerary_route_date: 'asc' },
+    });
+
+    if (routes.length === 0) {
+      this.logger.warn(`⚠️  No routes found for plan ${planId}`);
+      throw new BadRequestException('Itinerary has no routes');
+    }
+
+    const noOfNights = Number((plan as any).no_of_nights || 0);
+    this.logger.log(`🌙 Plan has ${noOfNights} nights`);
+
+    // Step 3: Fetch FRESH hotels from TBO for each route
+    const hotelsByRoute = await this.fetchHotelsForRoutes(routes, noOfNights);
+
+    // Step 4: Transform fresh TBO data into room details format
+    const roomDetailsList: ItineraryHotelRoomDto[] = [];
+    let roomDetailsId = 1;
+
+    // Create a map to track unique hotels per route
+    const hotelsByRouteAndGroup = new Map<string, any[]>();
+
+    // Group hotels by route and hotelCode
+    hotelsByRoute.forEach((hotelsForRoute, routeId) => {
+      hotelsForRoute.forEach((hotel: HotelSearchResult) => {
+        // Use hotel position/index as group type (1-4)
+        const groupType = this.getGroupTypeFromHotel(hotel, hotelsForRoute.indexOf(hotel));
+        const key = `${routeId}-${hotel.hotelCode || hotel.hotelName}`;
+        
+        if (!hotelsByRouteAndGroup.has(key)) {
+          hotelsByRouteAndGroup.set(key, []);
+        }
+        hotelsByRouteAndGroup.get(key)!.push({ ...hotel, groupType });
+      });
+    });
+
+    // Build room entries from fresh TBO data
+    hotelsByRouteAndGroup.forEach((hotelArray, _key) => {
+      const hotel = hotelArray[0]; // Use first instance
+      const routeId = parseInt(_key.split('-')[0]);
+      const route = routes.find(r => (r as any).itinerary_route_ID === routeId);
+
+      roomDetailsList.push({
+        itineraryPlanId: planId,
+        itineraryRouteId: routeId,
+        itineraryPlanHotelRoomDetailsId: roomDetailsId++,
+        hotelId: parseInt(hotel.hotelCode) || 0,
+        hotelName: hotel.hotelName || 'Hotel',
+        hotelCategory: this.getCategoryFromRating(hotel.category || hotel.rating),
+        roomTypeId: hotel.groupType || 1,
+        roomTypeName: `${['Budget', 'Mid-Range', 'Premium', 'Luxury'][hotel.groupType - 1]} Room`,
+        roomId: parseInt(hotel.hotelCode) || 0,
+        availableRoomTypes: (hotel.roomTypes || []).map((rt, idx) => ({
+          roomTypeId: idx + 1,
+          roomTypeTitle: rt.roomName,
+        })),
+        pricePerNight: Number(hotel.price || 0),
+        numberOfNights: noOfNights,
+        totalPrice: Number(hotel.price || 0) * noOfNights,
+        currency: hotel.currency || 'INR',
+        mealPlan: hotel.mealPlan || 'Not Specified',
+      } as any);
+    });
+
+    const duration = Date.now() - startTime;
+    this.logger.log(`✅ FRESH ROOM DETAILS GENERATED`);
+    this.logger.log(`📊 Room Entries: ${roomDetailsList.length}`);
+    this.logger.log(`⏱️  Duration: ${duration}ms\n`);
+
+    return {
+      quoteId: (plan as any).itinerary_quote_ID ?? '',
+      planId,
+      rooms: roomDetailsList,
+    };
+  }
+
+  /**
+   * Determine group type (price tier) from hotel based on position in list
+   * Helps categorize Budget, Mid-Range, Premium, Luxury
+   */
+  private getGroupTypeFromHotel(hotel: HotelSearchResult, index: number): number {
+    // Use position-based grouping (assuming results roughly sorted by price)
+    if (index === 0) return 1; // Budget
+    if (index === 1) return 2; // Mid-Range
+    if (index === 2) return 3; // Premium
+    return 4; // Luxury
+  }
+
+  /**
+   * Convert rating/category string to numeric category (1-4)
+   */
+  private getCategoryFromRating(ratingOrCategory: string | number | undefined): number {
+    if (!ratingOrCategory) return 2; // Default to Mid-Range
+    
+    const val = typeof ratingOrCategory === 'string' 
+      ? parseInt(ratingOrCategory)
+      : ratingOrCategory;
+    
+    if (val >= 5 || val === 4) return 4; // Luxury (5-star)
+    if (val === 3) return 3; // Premium (3-star equivalent)
+    if (val === 2) return 2; // Mid-Range (2-star)
+    return 1; // Budget
   }
 }

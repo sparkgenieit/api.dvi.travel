@@ -1,0 +1,24 @@
+meta {
+  name: 08 - TBO Soap Sync Service
+  type: http
+  seq: 8
+}
+
+docs {
+  ## TBO Soap Sync Service - Hotel & City Master Data Sync
+  
+  This collection tests the hotel sync endpoints that populate master database tables.
+  
+  ### Service Location:
+  - File: `src/modules/hotels/services/tbo-soap-sync.service.ts`
+  - Controller: `src/modules/hotels/controllers/hotel-master-sync.controller.ts`
+  
+  ### What Gets Synced:
+  1. **dvi_cities** - Gets `tbo_city_code` field populated
+  2. **tbo_hotel_master** - Gets hotel codes + metadata for each city
+  
+  ### Methods Tested:
+  1. GET - Get current hotel count
+  2. POST - Sync all cities and hotels (MAIN)
+  3. POST - Sync hotels for specific city
+}

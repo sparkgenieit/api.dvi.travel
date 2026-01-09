@@ -1,0 +1,75 @@
+meta {
+  name: 08c - Sync Hotels for Specific City
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://127.0.0.1:4006/api/v1/hotels/sync/city/127343
+}
+
+headers {
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJhZG1pbkBkdmkuY28uaW4iLCJyb2xlIjoxLCJhZ2VudElkIjowLCJzdGFmZklkIjowLCJndWlkZUlkIjowLCJpYXQiOjE3NjcyNDkzMjAsImV4cCI6MTc2Nzg1NDEyMH0.0-AJW4SWm1NFTzJFjEAe69-byHfu0X1sFmGwP_fTOmw
+  Content-Type: application/json
+}
+
+body:json {
+}
+
+docs {
+  ## Sync Hotels for Specific City
+  
+  ### Endpoint:
+  POST /api/v1/hotels/sync/city/:cityCode
+  
+  ### Example:
+  POST /api/v1/hotels/sync/city/127343
+  
+  ### Service Method Called:
+  `syncHotelsForCity("127343")` - Syncs hotels for single city
+  
+  ### Path Parameter:
+  - `cityCode`: TBO city code (e.g., '127343' for Chennai)
+  
+  ### Available City Codes:
+  - 418069 = Delhi
+  - 144306 = Mumbai
+  - 111124 = Bangalore
+  - 100589 = Agra
+  - 145710 = Hyderabad
+  - 122175 = Jaipur
+  - 113128 = Kolkata
+  - 127343 = Chennai ← Current example
+  - 126117 = Mahabalipuram
+  - 139605 = Thanjavur
+  - 127067 = Madurai
+  - 133179 = Rameswaram
+  
+  ### What Gets Synced:
+  For Chennai (127343), syncs 8 hotels:
+  - 1035259, 1035258, 1035260, 1035261
+  - 1035262, 1035263, etc.
+  
+  ### Database Operation:
+  UPSERT into tbo_hotel_master:
+  ```sql
+  INSERT INTO tbo_hotel_master 
+    (tbo_hotel_code, tbo_city_code, hotel_name, city_name, star_rating, status)
+  VALUES 
+    ('1035259', '127343', 'Hotel 1035259', 'Chennai', 4, 1)
+  ON DUPLICATE KEY UPDATE
+    updated_at = NOW()
+  ```
+  
+  ### Response Example:
+  {
+    "success": true,
+    "message": "Synced 8 hotels for city 127343",
+    "hotelCount": 8
+  }
+  
+  ### Use Cases:
+  - Resync specific city if data becomes stale
+  - Add new city hotels without resyncing all cities
+  - Test sync for individual cities
+}

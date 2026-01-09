@@ -124,3 +124,1455 @@
 [2026-01-07T19:11:43.266Z] PrismaService type: object
 [2026-01-07T19:11:43.267Z] PrismaService value: DEFINED
 [2026-01-07T19:11:43.267Z] PrismaService constructor: PrismaService
+[2026-01-08T00:50:24.902Z] ═════════════════════════════════════════
+[2026-01-08T00:50:24.903Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T00:50:24.903Z] ═════════════════════════════════════════
+[2026-01-08T00:50:24.904Z] PrismaService type: object
+[2026-01-08T00:50:24.905Z] PrismaService value: DEFINED
+[2026-01-08T00:50:24.906Z] PrismaService constructor: PrismaService
+[2026-01-08T00:51:14.758Z] ═════════════════════════════════════════
+[2026-01-08T00:51:14.759Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T00:51:14.760Z] ═════════════════════════════════════════
+[2026-01-08T00:51:14.760Z] PrismaService type: object
+[2026-01-08T00:51:14.761Z] PrismaService value: DEFINED
+[2026-01-08T00:51:14.761Z] PrismaService constructor: PrismaService
+[2026-01-08T01:01:03.529Z] ═════════════════════════════════════════
+[2026-01-08T01:01:03.530Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:01:03.531Z] ═════════════════════════════════════════
+[2026-01-08T01:01:03.531Z] PrismaService type: object
+[2026-01-08T01:01:03.531Z] PrismaService value: DEFINED
+[2026-01-08T01:01:03.532Z] PrismaService constructor: PrismaService
+[2026-01-08T01:01:27.022Z] ═════════════════════════════════════════
+[2026-01-08T01:01:27.023Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:01:27.023Z] ═════════════════════════════════════════
+[2026-01-08T01:01:27.024Z] PrismaService type: object
+[2026-01-08T01:01:27.024Z] PrismaService value: DEFINED
+[2026-01-08T01:01:27.024Z] PrismaService constructor: PrismaService
+[2026-01-08T01:04:14.250Z] ═════════════════════════════════════════
+[2026-01-08T01:04:14.251Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:04:14.251Z] ═════════════════════════════════════════
+[2026-01-08T01:04:14.251Z] PrismaService type: object
+[2026-01-08T01:04:14.252Z] PrismaService value: DEFINED
+[2026-01-08T01:04:14.252Z] PrismaService constructor: PrismaService
+[2026-01-08T01:08:29.770Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:29.771Z] search() method called
+[2026-01-08T01:08:29.771Z] ═════════════════════════════════════════
+[2026-01-08T01:08:29.772Z] this.prisma type: object
+[2026-01-08T01:08:29.773Z] this.prisma value: DEFINED
+[2026-01-08T01:08:29.773Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:29.841Z] ❌ PRIMARY Query Failed: No hotels for city 126117
+[2026-01-08T01:08:31.136Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:31.137Z] search() method called
+[2026-01-08T01:08:31.137Z] ═════════════════════════════════════════
+[2026-01-08T01:08:31.137Z] this.prisma type: object
+[2026-01-08T01:08:31.137Z] this.prisma value: DEFINED
+[2026-01-08T01:08:31.137Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:31.148Z] ❌ PRIMARY Query Failed: No hotels for city 139605
+[2026-01-08T01:08:31.450Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:31.451Z] search() method called
+[2026-01-08T01:08:31.451Z] ═════════════════════════════════════════
+[2026-01-08T01:08:31.451Z] this.prisma type: object
+[2026-01-08T01:08:31.451Z] this.prisma value: DEFINED
+[2026-01-08T01:08:31.451Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:31.463Z] ❌ PRIMARY Query Failed: No hotels for city 127067
+[2026-01-08T01:08:31.698Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:31.698Z] search() method called
+[2026-01-08T01:08:31.698Z] ═════════════════════════════════════════
+[2026-01-08T01:08:31.699Z] this.prisma type: object
+[2026-01-08T01:08:31.699Z] this.prisma value: DEFINED
+[2026-01-08T01:08:31.699Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:31.704Z] ❌ PRIMARY Query Failed: No hotels for city 133179
+[2026-01-08T01:08:32.287Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:32.288Z] search() method called
+[2026-01-08T01:08:32.288Z] ═════════════════════════════════════════
+[2026-01-08T01:08:32.288Z] this.prisma type: object
+[2026-01-08T01:08:32.289Z] this.prisma value: DEFINED
+[2026-01-08T01:08:32.290Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:32.305Z] ❌ PRIMARY Query Failed: No hotels for city 126117
+[2026-01-08T01:08:32.884Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:32.884Z] search() method called
+[2026-01-08T01:08:32.885Z] ═════════════════════════════════════════
+[2026-01-08T01:08:32.885Z] this.prisma type: object
+[2026-01-08T01:08:32.885Z] this.prisma value: DEFINED
+[2026-01-08T01:08:32.885Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:32.896Z] ❌ PRIMARY Query Failed: No hotels for city 139605
+[2026-01-08T01:08:33.205Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:33.205Z] search() method called
+[2026-01-08T01:08:33.205Z] ═════════════════════════════════════════
+[2026-01-08T01:08:33.206Z] this.prisma type: object
+[2026-01-08T01:08:33.206Z] this.prisma value: DEFINED
+[2026-01-08T01:08:33.206Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:33.222Z] ❌ PRIMARY Query Failed: No hotels for city 127067
+[2026-01-08T01:08:33.474Z] 
+═════════════════════════════════════════
+[2026-01-08T01:08:33.475Z] search() method called
+[2026-01-08T01:08:33.475Z] ═════════════════════════════════════════
+[2026-01-08T01:08:33.475Z] this.prisma type: object
+[2026-01-08T01:08:33.475Z] this.prisma value: DEFINED
+[2026-01-08T01:08:33.475Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:08:33.480Z] ❌ PRIMARY Query Failed: No hotels for city 133179
+[2026-01-08T01:09:17.407Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:17.408Z] search() method called
+[2026-01-08T01:09:17.408Z] ═════════════════════════════════════════
+[2026-01-08T01:09:17.408Z] this.prisma type: object
+[2026-01-08T01:09:17.409Z] this.prisma value: DEFINED
+[2026-01-08T01:09:17.409Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:17.420Z] ❌ PRIMARY Query Failed: No hotels for city 126117
+[2026-01-08T01:09:18.015Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:18.016Z] search() method called
+[2026-01-08T01:09:18.016Z] ═════════════════════════════════════════
+[2026-01-08T01:09:18.017Z] this.prisma type: object
+[2026-01-08T01:09:18.019Z] this.prisma value: DEFINED
+[2026-01-08T01:09:18.021Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:18.065Z] ❌ PRIMARY Query Failed: No hotels for city 139605
+[2026-01-08T01:09:18.396Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:18.396Z] search() method called
+[2026-01-08T01:09:18.397Z] ═════════════════════════════════════════
+[2026-01-08T01:09:18.397Z] this.prisma type: object
+[2026-01-08T01:09:18.397Z] this.prisma value: DEFINED
+[2026-01-08T01:09:18.397Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:18.408Z] ❌ PRIMARY Query Failed: No hotels for city 127067
+[2026-01-08T01:09:18.668Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:18.669Z] search() method called
+[2026-01-08T01:09:18.669Z] ═════════════════════════════════════════
+[2026-01-08T01:09:18.669Z] this.prisma type: object
+[2026-01-08T01:09:18.669Z] this.prisma value: DEFINED
+[2026-01-08T01:09:18.669Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:18.676Z] ❌ PRIMARY Query Failed: No hotels for city 133179
+[2026-01-08T01:09:19.252Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:19.252Z] search() method called
+[2026-01-08T01:09:19.252Z] ═════════════════════════════════════════
+[2026-01-08T01:09:19.253Z] this.prisma type: object
+[2026-01-08T01:09:19.253Z] this.prisma value: DEFINED
+[2026-01-08T01:09:19.253Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:19.262Z] ❌ PRIMARY Query Failed: No hotels for city 126117
+[2026-01-08T01:09:19.794Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:19.795Z] search() method called
+[2026-01-08T01:09:19.795Z] ═════════════════════════════════════════
+[2026-01-08T01:09:19.795Z] this.prisma type: object
+[2026-01-08T01:09:19.795Z] this.prisma value: DEFINED
+[2026-01-08T01:09:19.795Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:19.808Z] ❌ PRIMARY Query Failed: No hotels for city 139605
+[2026-01-08T01:09:20.103Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:20.103Z] search() method called
+[2026-01-08T01:09:20.104Z] ═════════════════════════════════════════
+[2026-01-08T01:09:20.104Z] this.prisma type: object
+[2026-01-08T01:09:20.104Z] this.prisma value: DEFINED
+[2026-01-08T01:09:20.104Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:20.115Z] ❌ PRIMARY Query Failed: No hotels for city 127067
+[2026-01-08T01:09:20.345Z] 
+═════════════════════════════════════════
+[2026-01-08T01:09:20.346Z] search() method called
+[2026-01-08T01:09:20.346Z] ═════════════════════════════════════════
+[2026-01-08T01:09:20.346Z] this.prisma type: object
+[2026-01-08T01:09:20.346Z] this.prisma value: DEFINED
+[2026-01-08T01:09:20.346Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:09:20.351Z] ❌ PRIMARY Query Failed: No hotels for city 133179
+[2026-01-08T01:17:03.827Z] ═════════════════════════════════════════
+[2026-01-08T01:17:03.829Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:17:03.829Z] ═════════════════════════════════════════
+[2026-01-08T01:17:03.830Z] PrismaService type: object
+[2026-01-08T01:17:03.830Z] PrismaService value: DEFINED
+[2026-01-08T01:17:03.830Z] PrismaService constructor: PrismaService
+[2026-01-08T01:17:56.235Z] 
+═════════════════════════════════════════
+[2026-01-08T01:17:56.235Z] search() method called
+[2026-01-08T01:17:56.236Z] ═════════════════════════════════════════
+[2026-01-08T01:17:56.236Z] this.prisma type: object
+[2026-01-08T01:17:56.237Z] this.prisma value: DEFINED
+[2026-01-08T01:17:56.237Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:17:56.259Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1035900,1035901,1035902,1035903,1035904
+[2026-01-08T01:17:56.749Z] 
+═════════════════════════════════════════
+[2026-01-08T01:17:56.749Z] search() method called
+[2026-01-08T01:17:56.750Z] ═════════════════════════════════════════
+[2026-01-08T01:17:56.750Z] this.prisma type: object
+[2026-01-08T01:17:56.753Z] this.prisma value: DEFINED
+[2026-01-08T01:17:56.754Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:17:56.824Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1035910,1035911,1035912,1035913,1035914
+[2026-01-08T01:17:56.960Z] 
+═════════════════════════════════════════
+[2026-01-08T01:17:56.960Z] search() method called
+[2026-01-08T01:17:56.960Z] ═════════════════════════════════════════
+[2026-01-08T01:17:56.960Z] this.prisma type: object
+[2026-01-08T01:17:56.961Z] this.prisma value: DEFINED
+[2026-01-08T01:17:56.961Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:17:57.005Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1035920,1035921,1035922,1035923,1035924
+[2026-01-08T01:17:57.081Z] 
+═════════════════════════════════════════
+[2026-01-08T01:17:57.081Z] search() method called
+[2026-01-08T01:17:57.082Z] ═════════════════════════════════════════
+[2026-01-08T01:17:57.082Z] this.prisma type: object
+[2026-01-08T01:17:57.082Z] this.prisma value: DEFINED
+[2026-01-08T01:17:57.082Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:17:57.098Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1035930,1035931,1035932,1035933,1035934
+[2026-01-08T01:19:42.575Z] ═════════════════════════════════════════
+[2026-01-08T01:19:42.577Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:19:42.578Z] ═════════════════════════════════════════
+[2026-01-08T01:19:42.578Z] PrismaService type: object
+[2026-01-08T01:19:42.578Z] PrismaService value: DEFINED
+[2026-01-08T01:19:42.578Z] PrismaService constructor: PrismaService
+[2026-01-08T01:20:14.461Z] 
+═════════════════════════════════════════
+[2026-01-08T01:20:14.462Z] search() method called
+[2026-01-08T01:20:14.462Z] ═════════════════════════════════════════
+[2026-01-08T01:20:14.462Z] this.prisma type: object
+[2026-01-08T01:20:14.462Z] this.prisma value: DEFINED
+[2026-01-08T01:20:14.462Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:20:14.475Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:20:14.860Z] 
+═════════════════════════════════════════
+[2026-01-08T01:20:14.860Z] search() method called
+[2026-01-08T01:20:14.861Z] ═════════════════════════════════════════
+[2026-01-08T01:20:14.861Z] this.prisma type: object
+[2026-01-08T01:20:14.861Z] this.prisma value: DEFINED
+[2026-01-08T01:20:14.861Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:20:14.875Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:20:14.958Z] 
+═════════════════════════════════════════
+[2026-01-08T01:20:14.959Z] search() method called
+[2026-01-08T01:20:14.959Z] ═════════════════════════════════════════
+[2026-01-08T01:20:14.959Z] this.prisma type: object
+[2026-01-08T01:20:14.960Z] this.prisma value: DEFINED
+[2026-01-08T01:20:14.960Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:20:14.973Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:20:15.051Z] 
+═════════════════════════════════════════
+[2026-01-08T01:20:15.052Z] search() method called
+[2026-01-08T01:20:15.052Z] ═════════════════════════════════════════
+[2026-01-08T01:20:15.053Z] this.prisma type: object
+[2026-01-08T01:20:15.053Z] this.prisma value: DEFINED
+[2026-01-08T01:20:15.053Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:20:15.058Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:21:05.032Z] ═════════════════════════════════════════
+[2026-01-08T01:21:05.033Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:21:05.034Z] ═════════════════════════════════════════
+[2026-01-08T01:21:05.034Z] PrismaService type: object
+[2026-01-08T01:21:05.034Z] PrismaService value: DEFINED
+[2026-01-08T01:21:05.035Z] PrismaService constructor: PrismaService
+[2026-01-08T01:22:21.188Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:21.189Z] search() method called
+[2026-01-08T01:22:21.189Z] ═════════════════════════════════════════
+[2026-01-08T01:22:21.189Z] this.prisma type: object
+[2026-01-08T01:22:21.190Z] this.prisma value: DEFINED
+[2026-01-08T01:22:21.190Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:21.211Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:22:21.530Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:21.530Z] search() method called
+[2026-01-08T01:22:21.531Z] ═════════════════════════════════════════
+[2026-01-08T01:22:21.531Z] this.prisma type: object
+[2026-01-08T01:22:21.531Z] this.prisma value: DEFINED
+[2026-01-08T01:22:21.531Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:21.540Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:22:21.619Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:21.619Z] search() method called
+[2026-01-08T01:22:21.619Z] ═════════════════════════════════════════
+[2026-01-08T01:22:21.620Z] this.prisma type: object
+[2026-01-08T01:22:21.620Z] this.prisma value: DEFINED
+[2026-01-08T01:22:21.620Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:21.633Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:22:21.704Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:21.705Z] search() method called
+[2026-01-08T01:22:21.705Z] ═════════════════════════════════════════
+[2026-01-08T01:22:21.705Z] this.prisma type: object
+[2026-01-08T01:22:21.706Z] this.prisma value: DEFINED
+[2026-01-08T01:22:21.706Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:21.711Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:22:50.705Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:50.705Z] search() method called
+[2026-01-08T01:22:50.705Z] ═════════════════════════════════════════
+[2026-01-08T01:22:50.705Z] this.prisma type: object
+[2026-01-08T01:22:50.706Z] this.prisma value: DEFINED
+[2026-01-08T01:22:50.706Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:50.724Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:22:50.867Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:50.867Z] search() method called
+[2026-01-08T01:22:50.868Z] ═════════════════════════════════════════
+[2026-01-08T01:22:50.868Z] this.prisma type: object
+[2026-01-08T01:22:50.868Z] this.prisma value: DEFINED
+[2026-01-08T01:22:50.868Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:50.880Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:22:50.976Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:50.976Z] search() method called
+[2026-01-08T01:22:50.977Z] ═════════════════════════════════════════
+[2026-01-08T01:22:50.977Z] this.prisma type: object
+[2026-01-08T01:22:50.977Z] this.prisma value: DEFINED
+[2026-01-08T01:22:50.977Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:50.994Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:22:51.079Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:51.080Z] search() method called
+[2026-01-08T01:22:51.080Z] ═════════════════════════════════════════
+[2026-01-08T01:22:51.080Z] this.prisma type: object
+[2026-01-08T01:22:51.081Z] this.prisma value: DEFINED
+[2026-01-08T01:22:51.081Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:51.089Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:22:51.632Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:51.632Z] search() method called
+[2026-01-08T01:22:51.632Z] ═════════════════════════════════════════
+[2026-01-08T01:22:51.633Z] this.prisma type: object
+[2026-01-08T01:22:51.633Z] this.prisma value: DEFINED
+[2026-01-08T01:22:51.708Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:51.831Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:22:51.970Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:51.970Z] search() method called
+[2026-01-08T01:22:51.971Z] ═════════════════════════════════════════
+[2026-01-08T01:22:51.971Z] this.prisma type: object
+[2026-01-08T01:22:51.971Z] this.prisma value: DEFINED
+[2026-01-08T01:22:51.972Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:52.029Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:22:52.106Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:52.107Z] search() method called
+[2026-01-08T01:22:52.107Z] ═════════════════════════════════════════
+[2026-01-08T01:22:52.107Z] this.prisma type: object
+[2026-01-08T01:22:52.107Z] this.prisma value: DEFINED
+[2026-01-08T01:22:52.107Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:52.121Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:22:52.196Z] 
+═════════════════════════════════════════
+[2026-01-08T01:22:52.196Z] search() method called
+[2026-01-08T01:22:52.196Z] ═════════════════════════════════════════
+[2026-01-08T01:22:52.197Z] this.prisma type: object
+[2026-01-08T01:22:52.197Z] this.prisma value: DEFINED
+[2026-01-08T01:22:52.197Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:22:52.225Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:28:14.249Z] 
+═════════════════════════════════════════
+[2026-01-08T01:28:14.249Z] search() method called
+[2026-01-08T01:28:14.249Z] ═════════════════════════════════════════
+[2026-01-08T01:28:14.249Z] this.prisma type: object
+[2026-01-08T01:28:14.250Z] this.prisma value: DEFINED
+[2026-01-08T01:28:14.250Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:28:14.262Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:28:14.467Z] 
+═════════════════════════════════════════
+[2026-01-08T01:28:14.467Z] search() method called
+[2026-01-08T01:28:14.467Z] ═════════════════════════════════════════
+[2026-01-08T01:28:14.468Z] this.prisma type: object
+[2026-01-08T01:28:14.468Z] this.prisma value: DEFINED
+[2026-01-08T01:28:14.468Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:28:14.479Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:28:14.560Z] 
+═════════════════════════════════════════
+[2026-01-08T01:28:14.560Z] search() method called
+[2026-01-08T01:28:14.560Z] ═════════════════════════════════════════
+[2026-01-08T01:28:14.561Z] this.prisma type: object
+[2026-01-08T01:28:14.561Z] this.prisma value: DEFINED
+[2026-01-08T01:28:14.561Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:28:14.574Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:28:14.649Z] 
+═════════════════════════════════════════
+[2026-01-08T01:28:14.649Z] search() method called
+[2026-01-08T01:28:14.649Z] ═════════════════════════════════════════
+[2026-01-08T01:28:14.649Z] this.prisma type: object
+[2026-01-08T01:28:14.649Z] this.prisma value: DEFINED
+[2026-01-08T01:28:14.650Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:28:14.655Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:32:32.671Z] ═════════════════════════════════════════
+[2026-01-08T01:32:32.672Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:32:32.673Z] ═════════════════════════════════════════
+[2026-01-08T01:32:32.673Z] PrismaService type: object
+[2026-01-08T01:32:32.674Z] PrismaService value: DEFINED
+[2026-01-08T01:32:32.674Z] PrismaService constructor: PrismaService
+[2026-01-08T01:33:04.982Z] ═════════════════════════════════════════
+[2026-01-08T01:33:04.983Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:33:04.983Z] ═════════════════════════════════════════
+[2026-01-08T01:33:04.984Z] PrismaService type: object
+[2026-01-08T01:33:04.984Z] PrismaService value: DEFINED
+[2026-01-08T01:33:04.984Z] PrismaService constructor: PrismaService
+[2026-01-08T01:36:27.647Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:27.649Z] search() method called
+[2026-01-08T01:36:27.652Z] ═════════════════════════════════════════
+[2026-01-08T01:36:27.652Z] this.prisma type: object
+[2026-01-08T01:36:27.653Z] this.prisma value: DEFINED
+[2026-01-08T01:36:27.653Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:27.681Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:36:29.624Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:29.624Z] search() method called
+[2026-01-08T01:36:29.624Z] ═════════════════════════════════════════
+[2026-01-08T01:36:29.624Z] this.prisma type: object
+[2026-01-08T01:36:29.625Z] this.prisma value: DEFINED
+[2026-01-08T01:36:29.625Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:29.635Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:36:29.729Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:29.730Z] search() method called
+[2026-01-08T01:36:29.730Z] ═════════════════════════════════════════
+[2026-01-08T01:36:29.730Z] this.prisma type: object
+[2026-01-08T01:36:29.730Z] this.prisma value: DEFINED
+[2026-01-08T01:36:29.730Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:29.743Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:36:29.821Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:29.822Z] search() method called
+[2026-01-08T01:36:29.822Z] ═════════════════════════════════════════
+[2026-01-08T01:36:29.822Z] this.prisma type: object
+[2026-01-08T01:36:29.822Z] this.prisma value: DEFINED
+[2026-01-08T01:36:29.823Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:29.828Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:36:35.654Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:35.655Z] search() method called
+[2026-01-08T01:36:35.655Z] ═════════════════════════════════════════
+[2026-01-08T01:36:35.655Z] this.prisma type: object
+[2026-01-08T01:36:35.655Z] this.prisma value: DEFINED
+[2026-01-08T01:36:35.655Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:35.667Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:36:35.742Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:35.742Z] search() method called
+[2026-01-08T01:36:35.743Z] ═════════════════════════════════════════
+[2026-01-08T01:36:35.743Z] this.prisma type: object
+[2026-01-08T01:36:35.743Z] this.prisma value: DEFINED
+[2026-01-08T01:36:35.743Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:35.756Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:36:35.830Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:35.830Z] search() method called
+[2026-01-08T01:36:35.830Z] ═════════════════════════════════════════
+[2026-01-08T01:36:35.831Z] this.prisma type: object
+[2026-01-08T01:36:35.831Z] this.prisma value: DEFINED
+[2026-01-08T01:36:35.831Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:35.841Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:36:35.987Z] 
+═════════════════════════════════════════
+[2026-01-08T01:36:35.987Z] search() method called
+[2026-01-08T01:36:35.987Z] ═════════════════════════════════════════
+[2026-01-08T01:36:35.988Z] this.prisma type: object
+[2026-01-08T01:36:35.988Z] this.prisma value: DEFINED
+[2026-01-08T01:36:35.988Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:36:35.993Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:43:01.410Z] ═════════════════════════════════════════
+[2026-01-08T01:43:01.411Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:43:01.411Z] ═════════════════════════════════════════
+[2026-01-08T01:43:01.412Z] PrismaService type: object
+[2026-01-08T01:43:01.412Z] PrismaService value: DEFINED
+[2026-01-08T01:43:01.412Z] PrismaService constructor: PrismaService
+[2026-01-08T01:45:57.544Z] 
+═════════════════════════════════════════
+[2026-01-08T01:45:57.545Z] search() method called
+[2026-01-08T01:45:57.547Z] ═════════════════════════════════════════
+[2026-01-08T01:45:57.548Z] this.prisma type: object
+[2026-01-08T01:45:57.549Z] this.prisma value: DEFINED
+[2026-01-08T01:45:57.551Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:45:57.771Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:45:58.935Z] 
+═════════════════════════════════════════
+[2026-01-08T01:45:58.936Z] search() method called
+[2026-01-08T01:45:58.939Z] ═════════════════════════════════════════
+[2026-01-08T01:45:58.939Z] this.prisma type: object
+[2026-01-08T01:45:58.939Z] this.prisma value: DEFINED
+[2026-01-08T01:45:58.939Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:45:58.989Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:45:59.099Z] 
+═════════════════════════════════════════
+[2026-01-08T01:45:59.099Z] search() method called
+[2026-01-08T01:45:59.100Z] ═════════════════════════════════════════
+[2026-01-08T01:45:59.100Z] this.prisma type: object
+[2026-01-08T01:45:59.100Z] this.prisma value: DEFINED
+[2026-01-08T01:45:59.101Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:45:59.112Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:45:59.255Z] 
+═════════════════════════════════════════
+[2026-01-08T01:45:59.256Z] search() method called
+[2026-01-08T01:45:59.256Z] ═════════════════════════════════════════
+[2026-01-08T01:45:59.256Z] this.prisma type: object
+[2026-01-08T01:45:59.256Z] this.prisma value: DEFINED
+[2026-01-08T01:45:59.257Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:45:59.262Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:46:03.221Z] 
+═════════════════════════════════════════
+[2026-01-08T01:46:03.221Z] search() method called
+[2026-01-08T01:46:03.221Z] ═════════════════════════════════════════
+[2026-01-08T01:46:03.222Z] this.prisma type: object
+[2026-01-08T01:46:03.222Z] this.prisma value: DEFINED
+[2026-01-08T01:46:03.222Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:46:03.234Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:46:03.303Z] 
+═════════════════════════════════════════
+[2026-01-08T01:46:03.304Z] search() method called
+[2026-01-08T01:46:03.304Z] ═════════════════════════════════════════
+[2026-01-08T01:46:03.304Z] this.prisma type: object
+[2026-01-08T01:46:03.304Z] this.prisma value: DEFINED
+[2026-01-08T01:46:03.304Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:46:03.316Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:46:03.406Z] 
+═════════════════════════════════════════
+[2026-01-08T01:46:03.406Z] search() method called
+[2026-01-08T01:46:03.406Z] ═════════════════════════════════════════
+[2026-01-08T01:46:03.406Z] this.prisma type: object
+[2026-01-08T01:46:03.407Z] this.prisma value: DEFINED
+[2026-01-08T01:46:03.407Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:46:03.419Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:46:03.491Z] 
+═════════════════════════════════════════
+[2026-01-08T01:46:03.491Z] search() method called
+[2026-01-08T01:46:03.492Z] ═════════════════════════════════════════
+[2026-01-08T01:46:03.492Z] this.prisma type: object
+[2026-01-08T01:46:03.492Z] this.prisma value: DEFINED
+[2026-01-08T01:46:03.492Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:46:03.498Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:48:29.802Z] ═════════════════════════════════════════
+[2026-01-08T01:48:29.803Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:48:29.804Z] ═════════════════════════════════════════
+[2026-01-08T01:48:29.804Z] PrismaService type: object
+[2026-01-08T01:48:29.804Z] PrismaService value: DEFINED
+[2026-01-08T01:48:29.805Z] PrismaService constructor: PrismaService
+[2026-01-08T01:49:31.338Z] ═════════════════════════════════════════
+[2026-01-08T01:49:31.339Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:49:31.339Z] ═════════════════════════════════════════
+[2026-01-08T01:49:31.340Z] PrismaService type: object
+[2026-01-08T01:49:31.340Z] PrismaService value: DEFINED
+[2026-01-08T01:49:31.340Z] PrismaService constructor: PrismaService
+[2026-01-08T01:51:09.142Z] 
+═════════════════════════════════════════
+[2026-01-08T01:51:09.142Z] search() method called
+[2026-01-08T01:51:09.143Z] ═════════════════════════════════════════
+[2026-01-08T01:51:09.143Z] this.prisma type: object
+[2026-01-08T01:51:09.143Z] this.prisma value: DEFINED
+[2026-01-08T01:51:09.143Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:51:09.157Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T01:51:09.521Z] 
+═════════════════════════════════════════
+[2026-01-08T01:51:09.522Z] search() method called
+[2026-01-08T01:51:09.522Z] ═════════════════════════════════════════
+[2026-01-08T01:51:09.523Z] this.prisma type: object
+[2026-01-08T01:51:09.523Z] this.prisma value: DEFINED
+[2026-01-08T01:51:09.523Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:51:09.537Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T01:51:09.633Z] 
+═════════════════════════════════════════
+[2026-01-08T01:51:09.634Z] search() method called
+[2026-01-08T01:51:09.634Z] ═════════════════════════════════════════
+[2026-01-08T01:51:09.634Z] this.prisma type: object
+[2026-01-08T01:51:09.634Z] this.prisma value: DEFINED
+[2026-01-08T01:51:09.634Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:51:09.646Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T01:51:09.736Z] 
+═════════════════════════════════════════
+[2026-01-08T01:51:09.737Z] search() method called
+[2026-01-08T01:51:09.737Z] ═════════════════════════════════════════
+[2026-01-08T01:51:09.737Z] this.prisma type: object
+[2026-01-08T01:51:09.737Z] this.prisma value: DEFINED
+[2026-01-08T01:51:09.737Z] this.prisma.dvi_cities exists: true
+[2026-01-08T01:51:09.743Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T01:59:59.642Z] ═════════════════════════════════════════
+[2026-01-08T01:59:59.643Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T01:59:59.644Z] ═════════════════════════════════════════
+[2026-01-08T01:59:59.644Z] PrismaService type: object
+[2026-01-08T01:59:59.644Z] PrismaService value: DEFINED
+[2026-01-08T01:59:59.645Z] PrismaService constructor: PrismaService
+[2026-01-08T02:03:51.068Z] 
+═════════════════════════════════════════
+[2026-01-08T02:03:51.068Z] search() method called
+[2026-01-08T02:03:51.068Z] ═════════════════════════════════════════
+[2026-01-08T02:03:51.069Z] this.prisma type: object
+[2026-01-08T02:03:51.069Z] this.prisma value: DEFINED
+[2026-01-08T02:03:51.069Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:03:51.091Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T02:03:52.214Z] 
+═════════════════════════════════════════
+[2026-01-08T02:03:52.214Z] search() method called
+[2026-01-08T02:03:52.215Z] ═════════════════════════════════════════
+[2026-01-08T02:03:52.215Z] this.prisma type: object
+[2026-01-08T02:03:52.215Z] this.prisma value: DEFINED
+[2026-01-08T02:03:52.215Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:03:52.228Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T02:03:52.347Z] 
+═════════════════════════════════════════
+[2026-01-08T02:03:52.347Z] search() method called
+[2026-01-08T02:03:52.348Z] ═════════════════════════════════════════
+[2026-01-08T02:03:52.348Z] this.prisma type: object
+[2026-01-08T02:03:52.348Z] this.prisma value: DEFINED
+[2026-01-08T02:03:52.348Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:03:52.359Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T02:03:52.442Z] 
+═════════════════════════════════════════
+[2026-01-08T02:03:52.442Z] search() method called
+[2026-01-08T02:03:52.442Z] ═════════════════════════════════════════
+[2026-01-08T02:03:52.442Z] this.prisma type: object
+[2026-01-08T02:03:52.443Z] this.prisma value: DEFINED
+[2026-01-08T02:03:52.443Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:03:52.448Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T02:04:24.647Z] 
+═════════════════════════════════════════
+[2026-01-08T02:04:24.647Z] search() method called
+[2026-01-08T02:04:24.647Z] ═════════════════════════════════════════
+[2026-01-08T02:04:24.647Z] this.prisma type: object
+[2026-01-08T02:04:24.648Z] this.prisma value: DEFINED
+[2026-01-08T02:04:24.648Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:04:24.661Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T02:04:24.776Z] 
+═════════════════════════════════════════
+[2026-01-08T02:04:24.777Z] search() method called
+[2026-01-08T02:04:24.777Z] ═════════════════════════════════════════
+[2026-01-08T02:04:24.777Z] this.prisma type: object
+[2026-01-08T02:04:24.777Z] this.prisma value: DEFINED
+[2026-01-08T02:04:24.777Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:04:24.826Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T02:04:24.915Z] 
+═════════════════════════════════════════
+[2026-01-08T02:04:24.916Z] search() method called
+[2026-01-08T02:04:24.916Z] ═════════════════════════════════════════
+[2026-01-08T02:04:24.916Z] this.prisma type: object
+[2026-01-08T02:04:24.916Z] this.prisma value: DEFINED
+[2026-01-08T02:04:24.917Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:04:24.932Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T02:04:25.017Z] 
+═════════════════════════════════════════
+[2026-01-08T02:04:25.017Z] search() method called
+[2026-01-08T02:04:25.018Z] ═════════════════════════════════════════
+[2026-01-08T02:04:25.018Z] this.prisma type: object
+[2026-01-08T02:04:25.019Z] this.prisma value: DEFINED
+[2026-01-08T02:04:25.019Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:04:25.024Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T02:04:56.160Z] ═════════════════════════════════════════
+[2026-01-08T02:04:56.162Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T02:04:56.162Z] ═════════════════════════════════════════
+[2026-01-08T02:04:56.162Z] PrismaService type: object
+[2026-01-08T02:04:56.163Z] PrismaService value: DEFINED
+[2026-01-08T02:04:56.163Z] PrismaService constructor: PrismaService
+[2026-01-08T02:05:08.792Z] 
+═════════════════════════════════════════
+[2026-01-08T02:05:08.792Z] search() method called
+[2026-01-08T02:05:08.793Z] ═════════════════════════════════════════
+[2026-01-08T02:05:08.794Z] this.prisma type: object
+[2026-01-08T02:05:08.794Z] this.prisma value: DEFINED
+[2026-01-08T02:05:08.794Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:05:08.838Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T02:05:09.253Z] 
+═════════════════════════════════════════
+[2026-01-08T02:05:09.253Z] search() method called
+[2026-01-08T02:05:09.254Z] ═════════════════════════════════════════
+[2026-01-08T02:05:09.254Z] this.prisma type: object
+[2026-01-08T02:05:09.254Z] this.prisma value: DEFINED
+[2026-01-08T02:05:09.255Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:05:09.268Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T02:05:09.375Z] 
+═════════════════════════════════════════
+[2026-01-08T02:05:09.376Z] search() method called
+[2026-01-08T02:05:09.376Z] ═════════════════════════════════════════
+[2026-01-08T02:05:09.376Z] this.prisma type: object
+[2026-01-08T02:05:09.376Z] this.prisma value: DEFINED
+[2026-01-08T02:05:09.376Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:05:09.389Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T02:05:09.482Z] 
+═════════════════════════════════════════
+[2026-01-08T02:05:09.482Z] search() method called
+[2026-01-08T02:05:09.483Z] ═════════════════════════════════════════
+[2026-01-08T02:05:09.483Z] this.prisma type: object
+[2026-01-08T02:05:09.483Z] this.prisma value: DEFINED
+[2026-01-08T02:05:09.483Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:05:09.488Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T02:27:48.752Z] ═════════════════════════════════════════
+[2026-01-08T02:27:48.754Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T02:27:48.766Z] ═════════════════════════════════════════
+[2026-01-08T02:27:48.766Z] PrismaService type: object
+[2026-01-08T02:27:48.767Z] PrismaService value: DEFINED
+[2026-01-08T02:27:48.768Z] PrismaService constructor: PrismaService
+[2026-01-08T02:36:09.542Z] ═════════════════════════════════════════
+[2026-01-08T02:36:09.543Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T02:36:09.544Z] ═════════════════════════════════════════
+[2026-01-08T02:36:09.544Z] PrismaService type: object
+[2026-01-08T02:36:09.545Z] PrismaService value: DEFINED
+[2026-01-08T02:36:09.545Z] PrismaService constructor: PrismaService
+[2026-01-08T02:40:47.394Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:47.395Z] search() method called
+[2026-01-08T02:40:47.395Z] ═════════════════════════════════════════
+[2026-01-08T02:40:47.396Z] this.prisma type: object
+[2026-01-08T02:40:47.414Z] this.prisma value: DEFINED
+[2026-01-08T02:40:47.417Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:48.578Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:48.598Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T02:40:49.264Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:49.265Z] search() method called
+[2026-01-08T02:40:49.265Z] ═════════════════════════════════════════
+[2026-01-08T02:40:49.266Z] this.prisma type: object
+[2026-01-08T02:40:49.266Z] this.prisma value: DEFINED
+[2026-01-08T02:40:49.266Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:49.416Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:49.419Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T02:40:49.511Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:49.512Z] search() method called
+[2026-01-08T02:40:49.512Z] ═════════════════════════════════════════
+[2026-01-08T02:40:49.512Z] this.prisma type: object
+[2026-01-08T02:40:49.512Z] this.prisma value: DEFINED
+[2026-01-08T02:40:49.512Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:49.621Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:49.649Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T02:40:49.781Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:49.782Z] search() method called
+[2026-01-08T02:40:49.782Z] ═════════════════════════════════════════
+[2026-01-08T02:40:49.782Z] this.prisma type: object
+[2026-01-08T02:40:49.783Z] this.prisma value: DEFINED
+[2026-01-08T02:40:49.783Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:49.858Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:49.915Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T02:40:52.168Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:52.168Z] search() method called
+[2026-01-08T02:40:52.168Z] ═════════════════════════════════════════
+[2026-01-08T02:40:52.168Z] this.prisma type: object
+[2026-01-08T02:40:52.169Z] this.prisma value: DEFINED
+[2026-01-08T02:40:52.169Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:52.246Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:52.250Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T02:40:52.326Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:52.327Z] search() method called
+[2026-01-08T02:40:52.327Z] ═════════════════════════════════════════
+[2026-01-08T02:40:52.327Z] this.prisma type: object
+[2026-01-08T02:40:52.327Z] this.prisma value: DEFINED
+[2026-01-08T02:40:52.328Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:52.396Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:52.414Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T02:40:52.523Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:52.524Z] search() method called
+[2026-01-08T02:40:52.524Z] ═════════════════════════════════════════
+[2026-01-08T02:40:52.524Z] this.prisma type: object
+[2026-01-08T02:40:52.524Z] this.prisma value: DEFINED
+[2026-01-08T02:40:52.525Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:52.627Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:52.640Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T02:40:52.770Z] 
+═════════════════════════════════════════
+[2026-01-08T02:40:52.771Z] search() method called
+[2026-01-08T02:40:52.771Z] ═════════════════════════════════════════
+[2026-01-08T02:40:52.771Z] this.prisma type: object
+[2026-01-08T02:40:52.771Z] this.prisma value: DEFINED
+[2026-01-08T02:40:52.772Z] this.prisma.dvi_cities exists: true
+[2026-01-08T02:40:52.855Z] ❌ TBO API Exception: TBO Authentication failed: Request failed with status code 502 - falling back to database
+[2026-01-08T02:40:52.877Z] ✅ Fallback DB query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T02:56:54.658Z] ═════════════════════════════════════════
+[2026-01-08T02:56:54.659Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T02:56:54.659Z] ═════════════════════════════════════════
+[2026-01-08T02:56:54.659Z] PrismaService type: object
+[2026-01-08T02:56:54.660Z] PrismaService value: DEFINED
+[2026-01-08T02:56:54.660Z] PrismaService constructor: PrismaService
+[2026-01-08T02:58:48.253Z] ═════════════════════════════════════════
+[2026-01-08T02:58:48.255Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T02:58:48.256Z] ═════════════════════════════════════════
+[2026-01-08T02:58:48.256Z] PrismaService type: object
+[2026-01-08T02:58:48.257Z] PrismaService value: DEFINED
+[2026-01-08T02:58:48.258Z] PrismaService constructor: PrismaService
+[2026-01-08T02:59:11.143Z] ═════════════════════════════════════════
+[2026-01-08T02:59:11.144Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T02:59:11.144Z] ═════════════════════════════════════════
+[2026-01-08T02:59:11.145Z] PrismaService type: object
+[2026-01-08T02:59:11.145Z] PrismaService value: DEFINED
+[2026-01-08T02:59:11.145Z] PrismaService constructor: PrismaService
+[2026-01-08T03:29:52.187Z] ═════════════════════════════════════════
+[2026-01-08T03:29:52.189Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T03:29:52.189Z] ═════════════════════════════════════════
+[2026-01-08T03:29:52.190Z] PrismaService type: object
+[2026-01-08T03:29:52.190Z] PrismaService value: DEFINED
+[2026-01-08T03:29:52.191Z] PrismaService constructor: PrismaService
+[2026-01-08T04:32:03.148Z] ═════════════════════════════════════════
+[2026-01-08T04:32:03.150Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T04:32:03.152Z] ═════════════════════════════════════════
+[2026-01-08T04:32:03.154Z] PrismaService type: object
+[2026-01-08T04:32:03.154Z] PrismaService value: DEFINED
+[2026-01-08T04:32:03.155Z] PrismaService constructor: PrismaService
+[2026-01-08T04:43:04.751Z] ═════════════════════════════════════════
+[2026-01-08T04:43:04.753Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T04:43:04.754Z] ═════════════════════════════════════════
+[2026-01-08T04:43:04.754Z] PrismaService type: object
+[2026-01-08T04:43:04.755Z] PrismaService value: DEFINED
+[2026-01-08T04:43:04.755Z] PrismaService constructor: PrismaService
+[2026-01-08T04:43:41.543Z] ═════════════════════════════════════════
+[2026-01-08T04:43:41.545Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T04:43:41.545Z] ═════════════════════════════════════════
+[2026-01-08T04:43:41.546Z] PrismaService type: object
+[2026-01-08T04:43:41.546Z] PrismaService value: DEFINED
+[2026-01-08T04:43:41.546Z] PrismaService constructor: PrismaService
+[2026-01-08T04:44:19.891Z] ═════════════════════════════════════════
+[2026-01-08T04:44:19.892Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T04:44:19.893Z] ═════════════════════════════════════════
+[2026-01-08T04:44:19.894Z] PrismaService type: object
+[2026-01-08T04:44:19.895Z] PrismaService value: DEFINED
+[2026-01-08T04:44:19.895Z] PrismaService constructor: PrismaService
+[2026-01-08T04:45:16.646Z] ═════════════════════════════════════════
+[2026-01-08T04:45:16.647Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T04:45:16.648Z] ═════════════════════════════════════════
+[2026-01-08T04:45:16.649Z] PrismaService type: object
+[2026-01-08T04:45:16.649Z] PrismaService value: DEFINED
+[2026-01-08T04:45:16.650Z] PrismaService constructor: PrismaService
+[2026-01-08T14:23:39.226Z] 
+═════════════════════════════════════════
+[2026-01-08T14:23:39.232Z] search() method called
+[2026-01-08T14:23:39.232Z] ═════════════════════════════════════════
+[2026-01-08T14:23:39.233Z] this.prisma type: object
+[2026-01-08T14:23:39.233Z] this.prisma value: DEFINED
+[2026-01-08T14:23:39.233Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:23:39.259Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:23:40.532Z] 
+═════════════════════════════════════════
+[2026-01-08T14:23:40.533Z] search() method called
+[2026-01-08T14:23:40.533Z] ═════════════════════════════════════════
+[2026-01-08T14:23:40.535Z] this.prisma type: object
+[2026-01-08T14:23:40.535Z] this.prisma value: DEFINED
+[2026-01-08T14:23:40.535Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:23:40.555Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:23:40.662Z] 
+═════════════════════════════════════════
+[2026-01-08T14:23:40.662Z] search() method called
+[2026-01-08T14:23:40.663Z] ═════════════════════════════════════════
+[2026-01-08T14:23:40.663Z] this.prisma type: object
+[2026-01-08T14:23:40.663Z] this.prisma value: DEFINED
+[2026-01-08T14:23:40.663Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:23:40.682Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:23:40.799Z] 
+═════════════════════════════════════════
+[2026-01-08T14:23:40.800Z] search() method called
+[2026-01-08T14:23:40.800Z] ═════════════════════════════════════════
+[2026-01-08T14:23:40.800Z] this.prisma type: object
+[2026-01-08T14:23:40.800Z] this.prisma value: DEFINED
+[2026-01-08T14:23:40.801Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:23:40.814Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:30:32.238Z] ═════════════════════════════════════════
+[2026-01-08T14:30:32.240Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T14:30:32.240Z] ═════════════════════════════════════════
+[2026-01-08T14:30:32.241Z] PrismaService type: object
+[2026-01-08T14:30:32.244Z] PrismaService value: DEFINED
+[2026-01-08T14:30:32.263Z] PrismaService constructor: PrismaService
+[2026-01-08T14:30:53.272Z] 
+═════════════════════════════════════════
+[2026-01-08T14:30:53.272Z] search() method called
+[2026-01-08T14:30:53.273Z] ═════════════════════════════════════════
+[2026-01-08T14:30:53.273Z] this.prisma type: object
+[2026-01-08T14:30:53.274Z] this.prisma value: DEFINED
+[2026-01-08T14:30:53.274Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:30:53.306Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:30:54.515Z] 
+═════════════════════════════════════════
+[2026-01-08T14:30:54.515Z] search() method called
+[2026-01-08T14:30:54.516Z] ═════════════════════════════════════════
+[2026-01-08T14:30:54.516Z] this.prisma type: object
+[2026-01-08T14:30:54.516Z] this.prisma value: DEFINED
+[2026-01-08T14:30:54.516Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:30:54.529Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:30:56.265Z] 
+═════════════════════════════════════════
+[2026-01-08T14:30:56.265Z] search() method called
+[2026-01-08T14:30:56.265Z] ═════════════════════════════════════════
+[2026-01-08T14:30:56.267Z] this.prisma type: object
+[2026-01-08T14:30:56.268Z] this.prisma value: DEFINED
+[2026-01-08T14:30:56.268Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:30:56.298Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:30:59.650Z] 
+═════════════════════════════════════════
+[2026-01-08T14:30:59.651Z] search() method called
+[2026-01-08T14:30:59.651Z] ═════════════════════════════════════════
+[2026-01-08T14:30:59.651Z] this.prisma type: object
+[2026-01-08T14:30:59.651Z] this.prisma value: DEFINED
+[2026-01-08T14:30:59.652Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:30:59.656Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:31:00.880Z] 
+═════════════════════════════════════════
+[2026-01-08T14:31:00.881Z] search() method called
+[2026-01-08T14:31:00.881Z] ═════════════════════════════════════════
+[2026-01-08T14:31:00.881Z] this.prisma type: object
+[2026-01-08T14:31:00.881Z] this.prisma value: DEFINED
+[2026-01-08T14:31:00.881Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:31:00.898Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:31:03.928Z] 
+═════════════════════════════════════════
+[2026-01-08T14:31:03.929Z] search() method called
+[2026-01-08T14:31:03.929Z] ═════════════════════════════════════════
+[2026-01-08T14:31:03.929Z] this.prisma type: object
+[2026-01-08T14:31:03.929Z] this.prisma value: DEFINED
+[2026-01-08T14:31:03.929Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:31:03.940Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:31:05.439Z] 
+═════════════════════════════════════════
+[2026-01-08T14:31:05.439Z] search() method called
+[2026-01-08T14:31:05.440Z] ═════════════════════════════════════════
+[2026-01-08T14:31:05.440Z] this.prisma type: object
+[2026-01-08T14:31:05.440Z] this.prisma value: DEFINED
+[2026-01-08T14:31:05.440Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:31:05.453Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:31:06.927Z] 
+═════════════════════════════════════════
+[2026-01-08T14:31:06.927Z] search() method called
+[2026-01-08T14:31:06.927Z] ═════════════════════════════════════════
+[2026-01-08T14:31:06.927Z] this.prisma type: object
+[2026-01-08T14:31:06.928Z] this.prisma value: DEFINED
+[2026-01-08T14:31:06.928Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:31:06.933Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:34:37.121Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:37.122Z] search() method called
+[2026-01-08T14:34:37.122Z] ═════════════════════════════════════════
+[2026-01-08T14:34:37.122Z] this.prisma type: object
+[2026-01-08T14:34:37.122Z] this.prisma value: DEFINED
+[2026-01-08T14:34:37.123Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:37.133Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:34:38.289Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:38.290Z] search() method called
+[2026-01-08T14:34:38.290Z] ═════════════════════════════════════════
+[2026-01-08T14:34:38.290Z] this.prisma type: object
+[2026-01-08T14:34:38.290Z] this.prisma value: DEFINED
+[2026-01-08T14:34:38.291Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:38.308Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:34:40.020Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:40.020Z] search() method called
+[2026-01-08T14:34:40.021Z] ═════════════════════════════════════════
+[2026-01-08T14:34:40.021Z] this.prisma type: object
+[2026-01-08T14:34:40.021Z] this.prisma value: DEFINED
+[2026-01-08T14:34:40.021Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:40.030Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:34:41.435Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:41.435Z] search() method called
+[2026-01-08T14:34:41.436Z] ═════════════════════════════════════════
+[2026-01-08T14:34:41.436Z] this.prisma type: object
+[2026-01-08T14:34:41.436Z] this.prisma value: DEFINED
+[2026-01-08T14:34:41.436Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:41.441Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:34:43.714Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:43.714Z] search() method called
+[2026-01-08T14:34:43.714Z] ═════════════════════════════════════════
+[2026-01-08T14:34:43.714Z] this.prisma type: object
+[2026-01-08T14:34:43.714Z] this.prisma value: DEFINED
+[2026-01-08T14:34:43.715Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:43.726Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:34:44.619Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:44.620Z] search() method called
+[2026-01-08T14:34:44.620Z] ═════════════════════════════════════════
+[2026-01-08T14:34:44.620Z] this.prisma type: object
+[2026-01-08T14:34:44.620Z] this.prisma value: DEFINED
+[2026-01-08T14:34:44.621Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:44.673Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:34:46.081Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:46.081Z] search() method called
+[2026-01-08T14:34:46.081Z] ═════════════════════════════════════════
+[2026-01-08T14:34:46.082Z] this.prisma type: object
+[2026-01-08T14:34:46.082Z] this.prisma value: DEFINED
+[2026-01-08T14:34:46.082Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:46.093Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:34:47.434Z] 
+═════════════════════════════════════════
+[2026-01-08T14:34:47.434Z] search() method called
+[2026-01-08T14:34:47.434Z] ═════════════════════════════════════════
+[2026-01-08T14:34:47.435Z] this.prisma type: object
+[2026-01-08T14:34:47.435Z] this.prisma value: DEFINED
+[2026-01-08T14:34:47.435Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:34:47.452Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:41:30.838Z] ═════════════════════════════════════════
+[2026-01-08T14:41:30.840Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T14:41:30.841Z] ═════════════════════════════════════════
+[2026-01-08T14:41:30.841Z] PrismaService type: object
+[2026-01-08T14:41:30.843Z] PrismaService value: DEFINED
+[2026-01-08T14:41:30.844Z] PrismaService constructor: PrismaService
+[2026-01-08T14:43:17.150Z] ═════════════════════════════════════════
+[2026-01-08T14:43:17.151Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T14:43:17.152Z] ═════════════════════════════════════════
+[2026-01-08T14:43:17.152Z] PrismaService type: object
+[2026-01-08T14:43:17.155Z] PrismaService value: DEFINED
+[2026-01-08T14:43:17.156Z] PrismaService constructor: PrismaService
+[2026-01-08T14:45:20.930Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:20.930Z] search() method called
+[2026-01-08T14:45:20.931Z] ═════════════════════════════════════════
+[2026-01-08T14:45:20.931Z] this.prisma type: object
+[2026-01-08T14:45:20.932Z] this.prisma value: DEFINED
+[2026-01-08T14:45:20.932Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:20.946Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:45:22.305Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:22.306Z] search() method called
+[2026-01-08T14:45:22.306Z] ═════════════════════════════════════════
+[2026-01-08T14:45:22.306Z] this.prisma type: object
+[2026-01-08T14:45:22.306Z] this.prisma value: DEFINED
+[2026-01-08T14:45:22.307Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:22.320Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:45:23.849Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:23.850Z] search() method called
+[2026-01-08T14:45:23.850Z] ═════════════════════════════════════════
+[2026-01-08T14:45:23.850Z] this.prisma type: object
+[2026-01-08T14:45:23.850Z] this.prisma value: DEFINED
+[2026-01-08T14:45:23.850Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:23.860Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:45:25.504Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:25.504Z] search() method called
+[2026-01-08T14:45:25.504Z] ═════════════════════════════════════════
+[2026-01-08T14:45:25.505Z] this.prisma type: object
+[2026-01-08T14:45:25.505Z] this.prisma value: DEFINED
+[2026-01-08T14:45:25.505Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:25.511Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:45:31.651Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:31.651Z] search() method called
+[2026-01-08T14:45:31.652Z] ═════════════════════════════════════════
+[2026-01-08T14:45:31.652Z] this.prisma type: object
+[2026-01-08T14:45:31.652Z] this.prisma value: DEFINED
+[2026-01-08T14:45:31.652Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:31.664Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:45:32.708Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:32.708Z] search() method called
+[2026-01-08T14:45:32.708Z] ═════════════════════════════════════════
+[2026-01-08T14:45:32.708Z] this.prisma type: object
+[2026-01-08T14:45:32.709Z] this.prisma value: DEFINED
+[2026-01-08T14:45:32.709Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:32.721Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:45:34.293Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:34.294Z] search() method called
+[2026-01-08T14:45:34.294Z] ═════════════════════════════════════════
+[2026-01-08T14:45:34.294Z] this.prisma type: object
+[2026-01-08T14:45:34.297Z] this.prisma value: DEFINED
+[2026-01-08T14:45:34.298Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:34.362Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:45:35.633Z] 
+═════════════════════════════════════════
+[2026-01-08T14:45:35.633Z] search() method called
+[2026-01-08T14:45:35.634Z] ═════════════════════════════════════════
+[2026-01-08T14:45:35.634Z] this.prisma type: object
+[2026-01-08T14:45:35.634Z] this.prisma value: DEFINED
+[2026-01-08T14:45:35.634Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:45:35.639Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:51:25.014Z] ═════════════════════════════════════════
+[2026-01-08T14:51:25.016Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T14:51:25.016Z] ═════════════════════════════════════════
+[2026-01-08T14:51:25.016Z] PrismaService type: object
+[2026-01-08T14:51:25.017Z] PrismaService value: DEFINED
+[2026-01-08T14:51:25.017Z] PrismaService constructor: PrismaService
+[2026-01-08T14:52:08.155Z] ═════════════════════════════════════════
+[2026-01-08T14:52:08.176Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T14:52:08.178Z] ═════════════════════════════════════════
+[2026-01-08T14:52:08.179Z] PrismaService type: object
+[2026-01-08T14:52:08.181Z] PrismaService value: DEFINED
+[2026-01-08T14:52:08.182Z] PrismaService constructor: PrismaService
+[2026-01-08T14:55:29.040Z] 
+═════════════════════════════════════════
+[2026-01-08T14:55:29.041Z] search() method called
+[2026-01-08T14:55:29.042Z] ═════════════════════════════════════════
+[2026-01-08T14:55:29.043Z] this.prisma type: object
+[2026-01-08T14:55:29.044Z] this.prisma value: DEFINED
+[2026-01-08T14:55:29.044Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:55:29.112Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:55:31.438Z] 
+═════════════════════════════════════════
+[2026-01-08T14:55:31.439Z] search() method called
+[2026-01-08T14:55:31.439Z] ═════════════════════════════════════════
+[2026-01-08T14:55:31.439Z] this.prisma type: object
+[2026-01-08T14:55:31.439Z] this.prisma value: DEFINED
+[2026-01-08T14:55:31.440Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:55:31.452Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:55:36.868Z] 
+═════════════════════════════════════════
+[2026-01-08T14:55:36.868Z] search() method called
+[2026-01-08T14:55:36.868Z] ═════════════════════════════════════════
+[2026-01-08T14:55:36.869Z] this.prisma type: object
+[2026-01-08T14:55:36.869Z] this.prisma value: DEFINED
+[2026-01-08T14:55:36.869Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:55:36.881Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:55:38.302Z] 
+═════════════════════════════════════════
+[2026-01-08T14:55:38.302Z] search() method called
+[2026-01-08T14:55:38.302Z] ═════════════════════════════════════════
+[2026-01-08T14:55:38.302Z] this.prisma type: object
+[2026-01-08T14:55:38.303Z] this.prisma value: DEFINED
+[2026-01-08T14:55:38.303Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:55:38.308Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:57:03.994Z] 
+═════════════════════════════════════════
+[2026-01-08T14:57:03.994Z] search() method called
+[2026-01-08T14:57:03.995Z] ═════════════════════════════════════════
+[2026-01-08T14:57:03.995Z] this.prisma type: object
+[2026-01-08T14:57:03.995Z] this.prisma value: DEFINED
+[2026-01-08T14:57:03.995Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:57:04.009Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-08T14:57:05.282Z] 
+═════════════════════════════════════════
+[2026-01-08T14:57:05.282Z] search() method called
+[2026-01-08T14:57:05.282Z] ═════════════════════════════════════════
+[2026-01-08T14:57:05.283Z] this.prisma type: object
+[2026-01-08T14:57:05.283Z] this.prisma value: DEFINED
+[2026-01-08T14:57:05.283Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:57:05.294Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-08T14:57:07.447Z] 
+═════════════════════════════════════════
+[2026-01-08T14:57:07.447Z] search() method called
+[2026-01-08T14:57:07.447Z] ═════════════════════════════════════════
+[2026-01-08T14:57:07.448Z] this.prisma type: object
+[2026-01-08T14:57:07.448Z] this.prisma value: DEFINED
+[2026-01-08T14:57:07.448Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:57:07.458Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-08T14:57:08.733Z] 
+═════════════════════════════════════════
+[2026-01-08T14:57:08.734Z] search() method called
+[2026-01-08T14:57:08.734Z] ═════════════════════════════════════════
+[2026-01-08T14:57:08.734Z] this.prisma type: object
+[2026-01-08T14:57:08.734Z] this.prisma value: DEFINED
+[2026-01-08T14:57:08.734Z] this.prisma.dvi_cities exists: true
+[2026-01-08T14:57:08.741Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-08T14:58:29.756Z] ═════════════════════════════════════════
+[2026-01-08T14:58:29.757Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T14:58:29.758Z] ═════════════════════════════════════════
+[2026-01-08T14:58:29.758Z] PrismaService type: object
+[2026-01-08T14:58:29.758Z] PrismaService value: DEFINED
+[2026-01-08T14:58:29.759Z] PrismaService constructor: PrismaService
+[2026-01-08T15:04:55.177Z] ═════════════════════════════════════════
+[2026-01-08T15:04:55.179Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T15:04:55.179Z] ═════════════════════════════════════════
+[2026-01-08T15:04:55.180Z] PrismaService type: object
+[2026-01-08T15:04:55.180Z] PrismaService value: DEFINED
+[2026-01-08T15:04:55.181Z] PrismaService constructor: PrismaService
+[2026-01-08T15:06:29.937Z] ═════════════════════════════════════════
+[2026-01-08T15:06:29.938Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-08T15:06:29.939Z] ═════════════════════════════════════════
+[2026-01-08T15:06:29.939Z] PrismaService type: object
+[2026-01-08T15:06:29.939Z] PrismaService value: DEFINED
+[2026-01-08T15:06:29.940Z] PrismaService constructor: PrismaService
+[2026-01-09T12:51:31.828Z] 
+═════════════════════════════════════════
+[2026-01-09T12:51:31.829Z] search() method called
+[2026-01-09T12:51:31.829Z] ═════════════════════════════════════════
+[2026-01-09T12:51:31.830Z] this.prisma type: object
+[2026-01-09T12:51:31.830Z] this.prisma value: DEFINED
+[2026-01-09T12:51:31.830Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:51:31.844Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-09T12:51:34.697Z] 
+═════════════════════════════════════════
+[2026-01-09T12:51:34.698Z] search() method called
+[2026-01-09T12:51:34.699Z] ═════════════════════════════════════════
+[2026-01-09T12:51:34.699Z] this.prisma type: object
+[2026-01-09T12:51:34.699Z] this.prisma value: DEFINED
+[2026-01-09T12:51:34.700Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:51:34.711Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-09T12:51:36.443Z] 
+═════════════════════════════════════════
+[2026-01-09T12:51:36.444Z] search() method called
+[2026-01-09T12:51:36.444Z] ═════════════════════════════════════════
+[2026-01-09T12:51:36.444Z] this.prisma type: object
+[2026-01-09T12:51:36.444Z] this.prisma value: DEFINED
+[2026-01-09T12:51:36.444Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:51:36.456Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-09T12:51:38.375Z] 
+═════════════════════════════════════════
+[2026-01-09T12:51:38.375Z] search() method called
+[2026-01-09T12:51:38.375Z] ═════════════════════════════════════════
+[2026-01-09T12:51:38.376Z] this.prisma type: object
+[2026-01-09T12:51:38.376Z] this.prisma value: DEFINED
+[2026-01-09T12:51:38.376Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:51:38.383Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-09T12:52:16.170Z] 
+═════════════════════════════════════════
+[2026-01-09T12:52:16.170Z] search() method called
+[2026-01-09T12:52:16.171Z] ═════════════════════════════════════════
+[2026-01-09T12:52:16.171Z] this.prisma type: object
+[2026-01-09T12:52:16.171Z] this.prisma value: DEFINED
+[2026-01-09T12:52:16.171Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:52:16.184Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-09T12:52:17.141Z] 
+═════════════════════════════════════════
+[2026-01-09T12:52:17.141Z] search() method called
+[2026-01-09T12:52:17.141Z] ═════════════════════════════════════════
+[2026-01-09T12:52:17.141Z] this.prisma type: object
+[2026-01-09T12:52:17.142Z] this.prisma value: DEFINED
+[2026-01-09T12:52:17.142Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:52:17.155Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-09T12:52:18.472Z] 
+═════════════════════════════════════════
+[2026-01-09T12:52:18.472Z] search() method called
+[2026-01-09T12:52:18.472Z] ═════════════════════════════════════════
+[2026-01-09T12:52:18.473Z] this.prisma type: object
+[2026-01-09T12:52:18.473Z] this.prisma value: DEFINED
+[2026-01-09T12:52:18.473Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:52:18.484Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-09T12:52:19.738Z] 
+═════════════════════════════════════════
+[2026-01-09T12:52:19.739Z] search() method called
+[2026-01-09T12:52:19.739Z] ═════════════════════════════════════════
+[2026-01-09T12:52:19.739Z] this.prisma type: object
+[2026-01-09T12:52:19.739Z] this.prisma value: DEFINED
+[2026-01-09T12:52:19.740Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:52:19.746Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-09T12:55:55.855Z] ═════════════════════════════════════════
+[2026-01-09T12:55:55.857Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-09T12:55:55.858Z] ═════════════════════════════════════════
+[2026-01-09T12:55:55.858Z] PrismaService type: object
+[2026-01-09T12:55:55.859Z] PrismaService value: DEFINED
+[2026-01-09T12:55:55.860Z] PrismaService constructor: PrismaService
+[2026-01-09T12:57:50.167Z] 
+═════════════════════════════════════════
+[2026-01-09T12:57:50.168Z] search() method called
+[2026-01-09T12:57:50.169Z] ═════════════════════════════════════════
+[2026-01-09T12:57:50.171Z] this.prisma type: object
+[2026-01-09T12:57:50.172Z] this.prisma value: DEFINED
+[2026-01-09T12:57:50.173Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:57:50.490Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-09T12:57:52.564Z] 
+═════════════════════════════════════════
+[2026-01-09T12:57:52.565Z] search() method called
+[2026-01-09T12:57:52.565Z] ═════════════════════════════════════════
+[2026-01-09T12:57:52.566Z] this.prisma type: object
+[2026-01-09T12:57:52.566Z] this.prisma value: DEFINED
+[2026-01-09T12:57:52.566Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:57:52.580Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-09T12:57:53.978Z] 
+═════════════════════════════════════════
+[2026-01-09T12:57:53.979Z] search() method called
+[2026-01-09T12:57:53.979Z] ═════════════════════════════════════════
+[2026-01-09T12:57:53.979Z] this.prisma type: object
+[2026-01-09T12:57:53.979Z] this.prisma value: DEFINED
+[2026-01-09T12:57:53.979Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:57:53.989Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-09T12:57:55.264Z] 
+═════════════════════════════════════════
+[2026-01-09T12:57:55.264Z] search() method called
+[2026-01-09T12:57:55.265Z] ═════════════════════════════════════════
+[2026-01-09T12:57:55.265Z] this.prisma type: object
+[2026-01-09T12:57:55.265Z] this.prisma value: DEFINED
+[2026-01-09T12:57:55.265Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:57:55.270Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-09T12:57:58.249Z] 
+═════════════════════════════════════════
+[2026-01-09T12:57:58.249Z] search() method called
+[2026-01-09T12:57:58.249Z] ═════════════════════════════════════════
+[2026-01-09T12:57:58.250Z] this.prisma type: object
+[2026-01-09T12:57:58.250Z] this.prisma value: DEFINED
+[2026-01-09T12:57:58.250Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:57:58.262Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050100,1050101,1050102,1050103,1050104
+[2026-01-09T12:57:59.206Z] 
+═════════════════════════════════════════
+[2026-01-09T12:57:59.207Z] search() method called
+[2026-01-09T12:57:59.207Z] ═════════════════════════════════════════
+[2026-01-09T12:57:59.207Z] this.prisma type: object
+[2026-01-09T12:57:59.208Z] this.prisma value: DEFINED
+[2026-01-09T12:57:59.208Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:57:59.220Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050110,1050111,1050112,1050113,1050114
+[2026-01-09T12:58:00.548Z] 
+═════════════════════════════════════════
+[2026-01-09T12:58:00.549Z] search() method called
+[2026-01-09T12:58:00.549Z] ═════════════════════════════════════════
+[2026-01-09T12:58:00.549Z] this.prisma type: object
+[2026-01-09T12:58:00.552Z] this.prisma value: DEFINED
+[2026-01-09T12:58:00.553Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:58:00.566Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050120,1050121,1050122,1050123,1050124
+[2026-01-09T12:58:01.894Z] 
+═════════════════════════════════════════
+[2026-01-09T12:58:01.894Z] search() method called
+[2026-01-09T12:58:01.895Z] ═════════════════════════════════════════
+[2026-01-09T12:58:01.895Z] this.prisma type: object
+[2026-01-09T12:58:01.895Z] this.prisma value: DEFINED
+[2026-01-09T12:58:01.895Z] this.prisma.dvi_cities exists: true
+[2026-01-09T12:58:01.901Z] ✅ PRIMARY Query SUCCESS: 5 hotels, codes: 1050130,1050131,1050132,1050133,1050134
+[2026-01-09T13:11:44.416Z] ═════════════════════════════════════════
+[2026-01-09T13:11:44.417Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-09T13:11:44.417Z] ═════════════════════════════════════════
+[2026-01-09T13:11:44.418Z] PrismaService type: object
+[2026-01-09T13:11:44.418Z] PrismaService value: DEFINED
+[2026-01-09T13:11:44.419Z] PrismaService constructor: PrismaService
+[2026-01-09T13:58:52.607Z] 
+═════════════════════════════════════════
+[2026-01-09T13:58:52.615Z] search() method called
+[2026-01-09T13:58:52.616Z] ═════════════════════════════════════════
+[2026-01-09T13:58:52.617Z] this.prisma type: object
+[2026-01-09T13:58:52.617Z] this.prisma value: DEFINED
+[2026-01-09T13:58:52.618Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:58:52.694Z] ✅ PRIMARY Query SUCCESS: 85 hotels, codes: 1015711,1036410,1061850,1070706,1083977,1089685,1089687,1089688,1089689,1089691,1089692,1130285,1130318,1130321,1130323,1130331,1130334,1130336,1130350,1130360,1169407,1234309,1292425,1384054,1415470,1416010,1444099,1474158,1482083,1569418,1569775,1570267,1622768,1637601,1680445,1689933,1698796,1737855,1740615,1742171,1758325,1772271,1839391,1866410,1892540,5019236,5030988,5036884,5116249,5126078,5446127,5453188,5455259,5475332,5865352,5885760,5891025,5951790,6046431,6066833,6068571,6102544,6102966,6107179,6139613,6180896,6186295,6186301,6186822,6187045,6187301,6187591,6187622,6191981,6192974,6192976,6193019,6255704,6262209,6315867,6395191,6434823,6436167,6439456,6442009
+[2026-01-09T13:58:56.753Z] 
+═════════════════════════════════════════
+[2026-01-09T13:58:56.753Z] search() method called
+[2026-01-09T13:58:56.753Z] ═════════════════════════════════════════
+[2026-01-09T13:58:56.754Z] this.prisma type: object
+[2026-01-09T13:58:56.754Z] this.prisma value: DEFINED
+[2026-01-09T13:58:56.754Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:58:56.768Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1046656,1100466,1136004,1136007,1136008,1136032,1136035,1183432,1189108,1192081,1219038,1219041,1219043,1219045,1219049,1219051,1219052,1219074,1219075,1219104,1219106,1219108,1219112,1219117,1219121,1225244,1225246,1286803,1383563,1401440,1413413,1414318,1414495,1414867,1415317,1462940,1500012,1502420,1506971,1507284,1508567,1512669,1512671,1512682,1512739,1514363,1524590,1525217,1525230,1532182,1569498,1569521,1627822,1663582,1699144,1699253,1735424,1735547,1738242,1738524,1739712,1741115,1742061,1743189,1745699,1844066,1857560,1868650,1869318,1882854,1887697,1888098,1890803,5018038,5025867,5034510,5034590,5035152,5105135,5111068,5111181,5126205,5439369,5886733,5886812,6086767,6153175,6166634,6185771,6185775,6187643,6187848,6187878,6189192,6189199,6191262,6192101,6249877,6258390,6265254
+[2026-01-09T13:58:58.571Z] 
+═════════════════════════════════════════
+[2026-01-09T13:58:58.571Z] search() method called
+[2026-01-09T13:58:58.571Z] ═════════════════════════════════════════
+[2026-01-09T13:58:58.572Z] this.prisma type: object
+[2026-01-09T13:58:58.572Z] this.prisma value: DEFINED
+[2026-01-09T13:58:58.573Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:58:58.586Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1014829,1014830,1015117,1015128,1015135,1061749,1130208,1130210,1130212,1130220,1130224,1130226,1130228,1130246,1130248,1130250,1130252,1130253,1130254,1130259,1130262,1130265,1130267,1130271,1130283,1190025,1225239,1285786,1285791,1285792,1285794,1313361,1366939,1366969,1367020,1367084,1367140,1402188,1414494,1414697,1414770,1415321,1415336,1442028,1483221,1505609,1509419,1510232,1513645,1513654,1513656,1513673,1513865,1514441,1529882,1619230,1623217,1663585,1665493,1700009,1703254,1707039,1734406,1735383,1736962,1736965,1737868,1738476,1739944,1741782,1742164,1743322,1745515,1747223,1763940,1772925,1782348,1825176,1826939,1846869,1847814,1851706,1853160,1853339,1853631,1868633,1887892,5008886,5011372,5025970,5029848,5034880,5103362,5103364,5125834,5145260,5153714,5252369,5373527,5404448
+[2026-01-09T13:58:59.554Z] 
+═════════════════════════════════════════
+[2026-01-09T13:58:59.554Z] search() method called
+[2026-01-09T13:58:59.554Z] ═════════════════════════════════════════
+[2026-01-09T13:58:59.555Z] this.prisma type: object
+[2026-01-09T13:58:59.555Z] this.prisma value: DEFINED
+[2026-01-09T13:58:59.555Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:58:59.567Z] ✅ PRIMARY Query SUCCESS: 47 hotels, codes: 1138045,1138062,1138067,1138069,1138075,1286572,1415488,1415782,1415852,1468542,1505359,1505399,1505695,1506919,1515867,1516713,1517571,1595967,1687511,1734547,1735420,1738545,1739022,1740347,1740902,1742190,1807376,1825083,1839111,1883836,1887082,1887654,1888764,1891857,5110464,5115360,5534383,5545607,5546026,6115926,6181349,6183666,6243821,6248402,6253001,6271675,6433776
+[2026-01-09T13:59:01.763Z] 
+═════════════════════════════════════════
+[2026-01-09T13:59:01.764Z] search() method called
+[2026-01-09T13:59:01.764Z] ═════════════════════════════════════════
+[2026-01-09T13:59:01.764Z] this.prisma type: object
+[2026-01-09T13:59:01.764Z] this.prisma value: DEFINED
+[2026-01-09T13:59:01.764Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:59:01.779Z] ✅ PRIMARY Query SUCCESS: 85 hotels, codes: 1015711,1036410,1061850,1070706,1083977,1089685,1089687,1089688,1089689,1089691,1089692,1130285,1130318,1130321,1130323,1130331,1130334,1130336,1130350,1130360,1169407,1234309,1292425,1384054,1415470,1416010,1444099,1474158,1482083,1569418,1569775,1570267,1622768,1637601,1680445,1689933,1698796,1737855,1740615,1742171,1758325,1772271,1839391,1866410,1892540,5019236,5030988,5036884,5116249,5126078,5446127,5453188,5455259,5475332,5865352,5885760,5891025,5951790,6046431,6066833,6068571,6102544,6102966,6107179,6139613,6180896,6186295,6186301,6186822,6187045,6187301,6187591,6187622,6191981,6192974,6192976,6193019,6255704,6262209,6315867,6395191,6434823,6436167,6439456,6442009
+[2026-01-09T13:59:05.208Z] 
+═════════════════════════════════════════
+[2026-01-09T13:59:05.210Z] search() method called
+[2026-01-09T13:59:05.211Z] ═════════════════════════════════════════
+[2026-01-09T13:59:05.212Z] this.prisma type: object
+[2026-01-09T13:59:05.212Z] this.prisma value: DEFINED
+[2026-01-09T13:59:05.213Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:59:05.309Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1046656,1100466,1136004,1136007,1136008,1136032,1136035,1183432,1189108,1192081,1219038,1219041,1219043,1219045,1219049,1219051,1219052,1219074,1219075,1219104,1219106,1219108,1219112,1219117,1219121,1225244,1225246,1286803,1383563,1401440,1413413,1414318,1414495,1414867,1415317,1462940,1500012,1502420,1506971,1507284,1508567,1512669,1512671,1512682,1512739,1514363,1524590,1525217,1525230,1532182,1569498,1569521,1627822,1663582,1699144,1699253,1735424,1735547,1738242,1738524,1739712,1741115,1742061,1743189,1745699,1844066,1857560,1868650,1869318,1882854,1887697,1888098,1890803,5018038,5025867,5034510,5034590,5035152,5105135,5111068,5111181,5126205,5439369,5886733,5886812,6086767,6153175,6166634,6185771,6185775,6187643,6187848,6187878,6189192,6189199,6191262,6192101,6249877,6258390,6265254
+[2026-01-09T13:59:06.789Z] 
+═════════════════════════════════════════
+[2026-01-09T13:59:06.790Z] search() method called
+[2026-01-09T13:59:06.790Z] ═════════════════════════════════════════
+[2026-01-09T13:59:06.790Z] this.prisma type: object
+[2026-01-09T13:59:06.790Z] this.prisma value: DEFINED
+[2026-01-09T13:59:06.790Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:59:06.804Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1014829,1014830,1015117,1015128,1015135,1061749,1130208,1130210,1130212,1130220,1130224,1130226,1130228,1130246,1130248,1130250,1130252,1130253,1130254,1130259,1130262,1130265,1130267,1130271,1130283,1190025,1225239,1285786,1285791,1285792,1285794,1313361,1366939,1366969,1367020,1367084,1367140,1402188,1414494,1414697,1414770,1415321,1415336,1442028,1483221,1505609,1509419,1510232,1513645,1513654,1513656,1513673,1513865,1514441,1529882,1619230,1623217,1663585,1665493,1700009,1703254,1707039,1734406,1735383,1736962,1736965,1737868,1738476,1739944,1741782,1742164,1743322,1745515,1747223,1763940,1772925,1782348,1825176,1826939,1846869,1847814,1851706,1853160,1853339,1853631,1868633,1887892,5008886,5011372,5025970,5029848,5034880,5103362,5103364,5125834,5145260,5153714,5252369,5373527,5404448
+[2026-01-09T13:59:07.792Z] 
+═════════════════════════════════════════
+[2026-01-09T13:59:07.792Z] search() method called
+[2026-01-09T13:59:07.792Z] ═════════════════════════════════════════
+[2026-01-09T13:59:07.793Z] this.prisma type: object
+[2026-01-09T13:59:07.793Z] this.prisma value: DEFINED
+[2026-01-09T13:59:07.793Z] this.prisma.dvi_cities exists: true
+[2026-01-09T13:59:07.799Z] ✅ PRIMARY Query SUCCESS: 47 hotels, codes: 1138045,1138062,1138067,1138069,1138075,1286572,1415488,1415782,1415852,1468542,1505359,1505399,1505695,1506919,1515867,1516713,1517571,1595967,1687511,1734547,1735420,1738545,1739022,1740347,1740902,1742190,1807376,1825083,1839111,1883836,1887082,1887654,1888764,1891857,5110464,5115360,5534383,5545607,5546026,6115926,6181349,6183666,6243821,6248402,6253001,6271675,6433776
+[2026-01-09T14:01:02.231Z] ═════════════════════════════════════════
+[2026-01-09T14:01:02.232Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-09T14:01:02.233Z] ═════════════════════════════════════════
+[2026-01-09T14:01:02.233Z] PrismaService type: object
+[2026-01-09T14:01:02.233Z] PrismaService value: DEFINED
+[2026-01-09T14:01:02.234Z] PrismaService constructor: PrismaService
+[2026-01-09T14:03:19.523Z] ═════════════════════════════════════════
+[2026-01-09T14:03:19.526Z] TBOHotelProvider CONSTRUCTOR CALLED
+[2026-01-09T14:03:19.526Z] ═════════════════════════════════════════
+[2026-01-09T14:03:19.526Z] PrismaService type: object
+[2026-01-09T14:03:19.527Z] PrismaService value: DEFINED
+[2026-01-09T14:03:19.528Z] PrismaService constructor: PrismaService
+[2026-01-09T14:03:28.691Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:28.691Z] search() method called
+[2026-01-09T14:03:28.691Z] ═════════════════════════════════════════
+[2026-01-09T14:03:28.692Z] this.prisma type: object
+[2026-01-09T14:03:28.692Z] this.prisma value: DEFINED
+[2026-01-09T14:03:28.692Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:28.707Z] ✅ PRIMARY Query SUCCESS: 85 hotels, codes: 1015711,1036410,1061850,1070706,1083977,1089685,1089687,1089688,1089689,1089691,1089692,1130285,1130318,1130321,1130323,1130331,1130334,1130336,1130350,1130360,1169407,1234309,1292425,1384054,1415470,1416010,1444099,1474158,1482083,1569418,1569775,1570267,1622768,1637601,1680445,1689933,1698796,1737855,1740615,1742171,1758325,1772271,1839391,1866410,1892540,5019236,5030988,5036884,5116249,5126078,5446127,5453188,5455259,5475332,5865352,5885760,5891025,5951790,6046431,6066833,6068571,6102544,6102966,6107179,6139613,6180896,6186295,6186301,6186822,6187045,6187301,6187591,6187622,6191981,6192974,6192976,6193019,6255704,6262209,6315867,6395191,6434823,6436167,6439456,6442009
+[2026-01-09T14:03:32.502Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:32.503Z] search() method called
+[2026-01-09T14:03:32.504Z] ═════════════════════════════════════════
+[2026-01-09T14:03:32.505Z] this.prisma type: object
+[2026-01-09T14:03:32.505Z] this.prisma value: DEFINED
+[2026-01-09T14:03:32.505Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:32.566Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1046656,1100466,1136004,1136007,1136008,1136032,1136035,1183432,1189108,1192081,1219038,1219041,1219043,1219045,1219049,1219051,1219052,1219074,1219075,1219104,1219106,1219108,1219112,1219117,1219121,1225244,1225246,1286803,1383563,1401440,1413413,1414318,1414495,1414867,1415317,1462940,1500012,1502420,1506971,1507284,1508567,1512669,1512671,1512682,1512739,1514363,1524590,1525217,1525230,1532182,1569498,1569521,1627822,1663582,1699144,1699253,1735424,1735547,1738242,1738524,1739712,1741115,1742061,1743189,1745699,1844066,1857560,1868650,1869318,1882854,1887697,1888098,1890803,5018038,5025867,5034510,5034590,5035152,5105135,5111068,5111181,5126205,5439369,5886733,5886812,6086767,6153175,6166634,6185771,6185775,6187643,6187848,6187878,6189192,6189199,6191262,6192101,6249877,6258390,6265254
+[2026-01-09T14:03:35.824Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:35.825Z] search() method called
+[2026-01-09T14:03:35.825Z] ═════════════════════════════════════════
+[2026-01-09T14:03:35.825Z] this.prisma type: object
+[2026-01-09T14:03:35.826Z] this.prisma value: DEFINED
+[2026-01-09T14:03:35.826Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:35.855Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1014829,1014830,1015117,1015128,1015135,1061749,1130208,1130210,1130212,1130220,1130224,1130226,1130228,1130246,1130248,1130250,1130252,1130253,1130254,1130259,1130262,1130265,1130267,1130271,1130283,1190025,1225239,1285786,1285791,1285792,1285794,1313361,1366939,1366969,1367020,1367084,1367140,1402188,1414494,1414697,1414770,1415321,1415336,1442028,1483221,1505609,1509419,1510232,1513645,1513654,1513656,1513673,1513865,1514441,1529882,1619230,1623217,1663585,1665493,1700009,1703254,1707039,1734406,1735383,1736962,1736965,1737868,1738476,1739944,1741782,1742164,1743322,1745515,1747223,1763940,1772925,1782348,1825176,1826939,1846869,1847814,1851706,1853160,1853339,1853631,1868633,1887892,5008886,5011372,5025970,5029848,5034880,5103362,5103364,5125834,5145260,5153714,5252369,5373527,5404448
+[2026-01-09T14:03:40.830Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:40.831Z] search() method called
+[2026-01-09T14:03:40.832Z] ═════════════════════════════════════════
+[2026-01-09T14:03:40.832Z] this.prisma type: object
+[2026-01-09T14:03:40.832Z] this.prisma value: DEFINED
+[2026-01-09T14:03:40.833Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:40.856Z] ✅ PRIMARY Query SUCCESS: 47 hotels, codes: 1138045,1138062,1138067,1138069,1138075,1286572,1415488,1415782,1415852,1468542,1505359,1505399,1505695,1506919,1515867,1516713,1517571,1595967,1687511,1734547,1735420,1738545,1739022,1740347,1740902,1742190,1807376,1825083,1839111,1883836,1887082,1887654,1888764,1891857,5110464,5115360,5534383,5545607,5546026,6115926,6181349,6183666,6243821,6248402,6253001,6271675,6433776
+[2026-01-09T14:03:48.022Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:48.023Z] search() method called
+[2026-01-09T14:03:48.023Z] ═════════════════════════════════════════
+[2026-01-09T14:03:48.023Z] this.prisma type: object
+[2026-01-09T14:03:48.023Z] this.prisma value: DEFINED
+[2026-01-09T14:03:48.023Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:48.036Z] ✅ PRIMARY Query SUCCESS: 85 hotels, codes: 1015711,1036410,1061850,1070706,1083977,1089685,1089687,1089688,1089689,1089691,1089692,1130285,1130318,1130321,1130323,1130331,1130334,1130336,1130350,1130360,1169407,1234309,1292425,1384054,1415470,1416010,1444099,1474158,1482083,1569418,1569775,1570267,1622768,1637601,1680445,1689933,1698796,1737855,1740615,1742171,1758325,1772271,1839391,1866410,1892540,5019236,5030988,5036884,5116249,5126078,5446127,5453188,5455259,5475332,5865352,5885760,5891025,5951790,6046431,6066833,6068571,6102544,6102966,6107179,6139613,6180896,6186295,6186301,6186822,6187045,6187301,6187591,6187622,6191981,6192974,6192976,6193019,6255704,6262209,6315867,6395191,6434823,6436167,6439456,6442009
+[2026-01-09T14:03:50.953Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:50.954Z] search() method called
+[2026-01-09T14:03:50.954Z] ═════════════════════════════════════════
+[2026-01-09T14:03:50.955Z] this.prisma type: object
+[2026-01-09T14:03:50.955Z] this.prisma value: DEFINED
+[2026-01-09T14:03:50.955Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:50.990Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1046656,1100466,1136004,1136007,1136008,1136032,1136035,1183432,1189108,1192081,1219038,1219041,1219043,1219045,1219049,1219051,1219052,1219074,1219075,1219104,1219106,1219108,1219112,1219117,1219121,1225244,1225246,1286803,1383563,1401440,1413413,1414318,1414495,1414867,1415317,1462940,1500012,1502420,1506971,1507284,1508567,1512669,1512671,1512682,1512739,1514363,1524590,1525217,1525230,1532182,1569498,1569521,1627822,1663582,1699144,1699253,1735424,1735547,1738242,1738524,1739712,1741115,1742061,1743189,1745699,1844066,1857560,1868650,1869318,1882854,1887697,1888098,1890803,5018038,5025867,5034510,5034590,5035152,5105135,5111068,5111181,5126205,5439369,5886733,5886812,6086767,6153175,6166634,6185771,6185775,6187643,6187848,6187878,6189192,6189199,6191262,6192101,6249877,6258390,6265254
+[2026-01-09T14:03:54.067Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:54.068Z] search() method called
+[2026-01-09T14:03:54.068Z] ═════════════════════════════════════════
+[2026-01-09T14:03:54.068Z] this.prisma type: object
+[2026-01-09T14:03:54.069Z] this.prisma value: DEFINED
+[2026-01-09T14:03:54.069Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:54.082Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1014829,1014830,1015117,1015128,1015135,1061749,1130208,1130210,1130212,1130220,1130224,1130226,1130228,1130246,1130248,1130250,1130252,1130253,1130254,1130259,1130262,1130265,1130267,1130271,1130283,1190025,1225239,1285786,1285791,1285792,1285794,1313361,1366939,1366969,1367020,1367084,1367140,1402188,1414494,1414697,1414770,1415321,1415336,1442028,1483221,1505609,1509419,1510232,1513645,1513654,1513656,1513673,1513865,1514441,1529882,1619230,1623217,1663585,1665493,1700009,1703254,1707039,1734406,1735383,1736962,1736965,1737868,1738476,1739944,1741782,1742164,1743322,1745515,1747223,1763940,1772925,1782348,1825176,1826939,1846869,1847814,1851706,1853160,1853339,1853631,1868633,1887892,5008886,5011372,5025970,5029848,5034880,5103362,5103364,5125834,5145260,5153714,5252369,5373527,5404448
+[2026-01-09T14:03:58.614Z] 
+═════════════════════════════════════════
+[2026-01-09T14:03:58.615Z] search() method called
+[2026-01-09T14:03:58.615Z] ═════════════════════════════════════════
+[2026-01-09T14:03:58.616Z] this.prisma type: object
+[2026-01-09T14:03:58.616Z] this.prisma value: DEFINED
+[2026-01-09T14:03:58.617Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:03:58.665Z] ✅ PRIMARY Query SUCCESS: 47 hotels, codes: 1138045,1138062,1138067,1138069,1138075,1286572,1415488,1415782,1415852,1468542,1505359,1505399,1505695,1506919,1515867,1516713,1517571,1595967,1687511,1734547,1735420,1738545,1739022,1740347,1740902,1742190,1807376,1825083,1839111,1883836,1887082,1887654,1888764,1891857,5110464,5115360,5534383,5545607,5546026,6115926,6181349,6183666,6243821,6248402,6253001,6271675,6433776
+[2026-01-09T14:06:55.133Z] 
+═════════════════════════════════════════
+[2026-01-09T14:06:55.134Z] search() method called
+[2026-01-09T14:06:55.134Z] ═════════════════════════════════════════
+[2026-01-09T14:06:55.134Z] this.prisma type: object
+[2026-01-09T14:06:55.134Z] this.prisma value: DEFINED
+[2026-01-09T14:06:55.135Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:06:55.198Z] ✅ PRIMARY Query SUCCESS: 85 hotels, codes: 1015711,1036410,1061850,1070706,1083977,1089685,1089687,1089688,1089689,1089691,1089692,1130285,1130318,1130321,1130323,1130331,1130334,1130336,1130350,1130360,1169407,1234309,1292425,1384054,1415470,1416010,1444099,1474158,1482083,1569418,1569775,1570267,1622768,1637601,1680445,1689933,1698796,1737855,1740615,1742171,1758325,1772271,1839391,1866410,1892540,5019236,5030988,5036884,5116249,5126078,5446127,5453188,5455259,5475332,5865352,5885760,5891025,5951790,6046431,6066833,6068571,6102544,6102966,6107179,6139613,6180896,6186295,6186301,6186822,6187045,6187301,6187591,6187622,6191981,6192974,6192976,6193019,6255704,6262209,6315867,6395191,6434823,6436167,6439456,6442009
+[2026-01-09T14:06:58.714Z] 
+═════════════════════════════════════════
+[2026-01-09T14:06:58.715Z] search() method called
+[2026-01-09T14:06:58.717Z] ═════════════════════════════════════════
+[2026-01-09T14:06:58.718Z] this.prisma type: object
+[2026-01-09T14:06:58.718Z] this.prisma value: DEFINED
+[2026-01-09T14:06:58.719Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:06:58.856Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1046656,1100466,1136004,1136007,1136008,1136032,1136035,1183432,1189108,1192081,1219038,1219041,1219043,1219045,1219049,1219051,1219052,1219074,1219075,1219104,1219106,1219108,1219112,1219117,1219121,1225244,1225246,1286803,1383563,1401440,1413413,1414318,1414495,1414867,1415317,1462940,1500012,1502420,1506971,1507284,1508567,1512669,1512671,1512682,1512739,1514363,1524590,1525217,1525230,1532182,1569498,1569521,1627822,1663582,1699144,1699253,1735424,1735547,1738242,1738524,1739712,1741115,1742061,1743189,1745699,1844066,1857560,1868650,1869318,1882854,1887697,1888098,1890803,5018038,5025867,5034510,5034590,5035152,5105135,5111068,5111181,5126205,5439369,5886733,5886812,6086767,6153175,6166634,6185771,6185775,6187643,6187848,6187878,6189192,6189199,6191262,6192101,6249877,6258390,6265254
+[2026-01-09T14:07:02.015Z] 
+═════════════════════════════════════════
+[2026-01-09T14:07:02.016Z] search() method called
+[2026-01-09T14:07:02.016Z] ═════════════════════════════════════════
+[2026-01-09T14:07:02.016Z] this.prisma type: object
+[2026-01-09T14:07:02.017Z] this.prisma value: DEFINED
+[2026-01-09T14:07:02.017Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:07:02.052Z] ✅ PRIMARY Query SUCCESS: 100 hotels, codes: 1014829,1014830,1015117,1015128,1015135,1061749,1130208,1130210,1130212,1130220,1130224,1130226,1130228,1130246,1130248,1130250,1130252,1130253,1130254,1130259,1130262,1130265,1130267,1130271,1130283,1190025,1225239,1285786,1285791,1285792,1285794,1313361,1366939,1366969,1367020,1367084,1367140,1402188,1414494,1414697,1414770,1415321,1415336,1442028,1483221,1505609,1509419,1510232,1513645,1513654,1513656,1513673,1513865,1514441,1529882,1619230,1623217,1663585,1665493,1700009,1703254,1707039,1734406,1735383,1736962,1736965,1737868,1738476,1739944,1741782,1742164,1743322,1745515,1747223,1763940,1772925,1782348,1825176,1826939,1846869,1847814,1851706,1853160,1853339,1853631,1868633,1887892,5008886,5011372,5025970,5029848,5034880,5103362,5103364,5125834,5145260,5153714,5252369,5373527,5404448
+[2026-01-09T14:07:07.058Z] 
+═════════════════════════════════════════
+[2026-01-09T14:07:07.058Z] search() method called
+[2026-01-09T14:07:07.060Z] ═════════════════════════════════════════
+[2026-01-09T14:07:07.061Z] this.prisma type: object
+[2026-01-09T14:07:07.062Z] this.prisma value: DEFINED
+[2026-01-09T14:07:07.062Z] this.prisma.dvi_cities exists: true
+[2026-01-09T14:07:07.069Z] ✅ PRIMARY Query SUCCESS: 47 hotels, codes: 1138045,1138062,1138067,1138069,1138075,1286572,1415488,1415782,1415852,1468542,1505359,1505399,1505695,1506919,1515867,1516713,1517571,1595967,1687511,1734547,1735420,1738545,1739022,1740347,1740902,1742190,1807376,1825083,1839111,1883836,1887082,1887654,1888764,1891857,5110464,5115360,5534383,5545607,5546026,6115926,6181349,6183666,6243821,6248402,6253001,6271675,6433776

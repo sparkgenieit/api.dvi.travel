@@ -276,56 +276,9 @@ export class ItinerariesController {
 
   @Get('hotel_details/:quoteId')
   @ApiOperation({
-    summary: 'Get hotel packages from database (Production)',
+    summary: 'Get dynamic hotel packages from TBO API',
     description:
-      'Fetches hotel details from the database for the itinerary. Returns hotel packages with pricing based on saved itinerary data.',
-  })
-  @ApiParam({
-    name: 'quoteId',
-    required: true,
-    description: 'Quote ID generated for the itinerary',
-    example: 'DVI202512032',
-  })
-  @ApiOkResponse({ description: 'Hotel packages from database' })
-  @Public()
-  async getItineraryHotelDetails(
-    @Param('quoteId') quoteId: string,
-  ): Promise<ItineraryHotelDetailsResponseDto> {
-    const startTime = Date.now();
-    this.logger.log('\n════════════════════════════════════════════════════════════════════════════════════════');
-    this.logger.log('🏨 INCOMING ITINERARY HOTEL DETAILS REQUEST (DATABASE)');
-    this.logger.log(`📍 Request Timestamp: ${new Date().toISOString()}`);
-    this.logger.log(`📋 Quote ID: ${quoteId}`);
-    this.logger.log('────────────────────────────────────────────────────────────────────────────────────────');
-
-    try {
-      // Use database service to fetch hotel details from saved itinerary
-      const result = await this.hotelDetailsService.getHotelDetailsByQuoteId(quoteId);
-      const duration = Date.now() - startTime;
-
-      this.logger.log('\n✅ HOTEL DETAILS RETRIEVED FROM DATABASE');
-      this.logger.log(`📊 Hotel Tabs: ${result.hotelTabs?.length || 0} packages`);
-      this.logger.log(`📊 Hotel Rows: ${result.hotels?.length || 0} total hotels`);
-      this.logger.log(`⏱️  Total Duration: ${duration}ms`);
-      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error('\n❌ HOTEL DETAILS RETRIEVAL FAILED');
-      this.logger.error(`🚨 Error Message: ${errorMessage}`);
-      this.logger.error(`⏱️  Duration: ${duration}ms`);
-      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
-      throw error;
-    }
-  }
-
-  @Get('hotel_api_details/:quoteId')
-  @ApiOperation({
-    summary: 'Get dynamic hotel packages from TBO API (Staging)',
-    description:
-      'Fetches itinerary dates/destinations and generates 4 hotel packages from TBO in real-time. Returns Budget, Mid-Range, Premium, and Luxury options. For staging frontend only.',
+      'Fetches itinerary dates/destinations and generates 4 hotel packages from TBO in real-time. Returns Budget, Mid-Range, Premium, and Luxury options.',
   })
   @ApiParam({
     name: 'quoteId',
@@ -335,22 +288,22 @@ export class ItinerariesController {
   })
   @ApiOkResponse({ description: 'Dynamic hotel packages from TBO API' })
   @Public()
-  async getItineraryHotelApiDetails(
+  async getItineraryHotelDetails(
     @Param('quoteId') quoteId: string,
   ): Promise<ItineraryHotelDetailsResponseDto> {
     const startTime = Date.now();
     this.logger.log('\n════════════════════════════════════════════════════════════════════════════════════════');
-    this.logger.log('🏨 INCOMING ITINERARY HOTEL DETAILS REQUEST (TBO API)');
+    this.logger.log('🏨 INCOMING ITINERARY HOTEL DETAILS REQUEST (TBO)');
     this.logger.log(`📍 Request Timestamp: ${new Date().toISOString()}`);
     this.logger.log(`📋 Quote ID: ${quoteId}`);
     this.logger.log('────────────────────────────────────────────────────────────────────────────────────────');
 
     try {
-      // Use TBO service to fetch dynamic packages from TBO API
+      // Use TBO service to fetch dynamic packages
       const result = await this.hotelDetailsTboService.getHotelDetailsByQuoteIdFromTbo(quoteId);
       const duration = Date.now() - startTime;
 
-      this.logger.log('\n✅ HOTEL PACKAGES GENERATED FROM TBO API');
+      this.logger.log('\n✅ HOTEL PACKAGES GENERATED FROM TBO');
       this.logger.log(`📊 Hotel Tabs: ${result.hotelTabs?.length || 0} packages`);
       this.logger.log(`📊 Hotel Rows: ${result.hotels?.length || 0} total hotels`);
       this.logger.log(`⏱️  Total Duration: ${duration}ms`);
@@ -372,7 +325,7 @@ export class ItinerariesController {
   @ApiOperation({
     summary: 'Get hotel ROOM details for an itinerary by Quote ID',
     description:
-      'Returns structured hotel room details (per route / hotel / room / roomType) roughly mirroring the PHP structured_hotel_room_details block.',
+      'Returns FRESH hotel room details from TBO API in real-time (no stale data). Structured per route / hotel / room / roomType.',
   })
   @ApiParam({
     name: 'quoteId',
@@ -380,11 +333,38 @@ export class ItinerariesController {
     description: 'Quote ID generated for the itinerary',
     example: 'DVI202512032',
   })
-  @ApiOkResponse({ description: 'Hotel room details for the given quoteId' })
+  @ApiOkResponse({ description: 'Fresh hotel room details from TBO API' })
+  @Public()
   async getItineraryHotelRoomDetails(
     @Param('quoteId') quoteId: string,
   ): Promise<ItineraryHotelRoomDetailsResponseDto> {
-    return this.hotelDetailsService.getHotelRoomDetailsByQuoteId(quoteId);
+    const startTime = Date.now();
+    this.logger.log('\n════════════════════════════════════════════════════════════════════════════════════════');
+    this.logger.log('🏨 INCOMING ITINERARY HOTEL ROOM DETAILS REQUEST (TBO - FRESH DATA)');
+    this.logger.log(`📍 Request Timestamp: ${new Date().toISOString()}`);
+    this.logger.log(`📋 Quote ID: ${quoteId}`);
+    this.logger.log('────────────────────────────────────────────────────────────────────────────────────────');
+
+    try {
+      // Use TBO service to fetch FRESH room details (no stale data)
+      const result = await this.hotelDetailsTboService.getHotelRoomDetailsFromTbo(quoteId);
+      const duration = Date.now() - startTime;
+
+      this.logger.log('\n✅ FRESH ROOM DETAILS GENERATED FROM TBO');
+      this.logger.log(`📊 Room Entries: ${result.rooms?.length || 0}`);
+      this.logger.log(`⏱️  Total Duration: ${duration}ms`);
+      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error('\n❌ FRESH ROOM DETAILS GENERATION FAILED');
+      this.logger.error(`🚨 Error Message: ${errorMessage}`);
+      this.logger.error(`⏱️  Duration: ${duration}ms`);
+      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
+      throw error;
+    }
   }
 
   @Get('latest')

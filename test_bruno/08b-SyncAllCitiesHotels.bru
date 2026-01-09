@@ -1,0 +1,81 @@
+meta {
+  name: 08b - Sync All Cities & Hotels
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://127.0.0.1:4006/api/v1/hotels/sync/all
+}
+
+headers {
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJhZG1pbkBkdmkuY28uaW4iLCJyb2xlIjoxLCJhZ2VudElkIjowLCJzdGFmZklkIjowLCJndWlkZUlkIjowLCJpYXQiOjE3NjcyNDkzMjAsImV4cCI6MTc2Nzg1NDEyMH0.0-AJW4SWm1NFTzJFjEAe69-byHfu0X1sFmGwP_fTOmw
+  Content-Type: application/json
+}
+
+body:json {
+}
+
+docs {
+  ## Sync All Cities & Hotels - MAIN SYNC ENDPOINT
+  
+  ### Endpoint:
+  POST /api/v1/hotels/sync/all
+  
+  ### Service Method Called:
+  `syncAllCities()` - Main method that:
+  1. Calls syncCities('IN') - Updates dvi_cities with TBO codes
+  2. Gets all cities with tbo_city_code
+  3. Calls syncHotelsForCity() for each city
+  
+  ### What Gets Synced:
+  #### Cities (12 total):
+  - Delhi (418069)
+  - Mumbai (144306)
+  - Bangalore (111124)
+  - Agra (100589)
+  - Hyderabad (145710)
+  - Jaipur (122175)
+  - Kolkata (113128)
+  - Chennai (127343)
+  - Mahabalipuram (126117)
+  - Thanjavur (139605)
+  - Madurai (127067)
+  - Rameswaram (133179)
+  
+  #### Hotels per City:
+  8 hotel codes per city (from FALLBACK_HOTELS mapping)
+  Total: 12 cities × 8 hotels = 96 hotels
+  
+  ### Database Tables Updated:
+  1. **dvi_cities**
+     - SET tbo_city_code = '418069' WHERE name = 'Delhi'
+     - SET tbo_city_code = '144306' WHERE name = 'Mumbai'
+     - ... (for all 12 cities)
+  
+  2. **tbo_hotel_master**
+     - UPSERT hotel records with:
+       - tbo_hotel_code (e.g., '1035259')
+       - tbo_city_code (e.g., '127343')
+       - hotel_name (e.g., 'Hotel 1035259')
+       - city_name (e.g., 'Chennai')
+       - star_rating (default: 4)
+       - status (default: 1 = active)
+  
+  ### Response Example:
+  {
+    "success": true,
+    "message": "Cities and hotels synced successfully",
+    "summary": [
+      { "city": "cities_updated", "hotelsAdded": 12 },
+      { "city": "Delhi", "hotelsAdded": 8 },
+      { "city": "Mumbai", "hotelsAdded": 8 },
+      ...
+    ],
+    "totalHotels": 96
+  }
+  
+  ### Usage:
+  Run this ONCE before testing hotel search endpoints.
+  It populates the database with master data needed by TBOHotelProvider.search()
+}

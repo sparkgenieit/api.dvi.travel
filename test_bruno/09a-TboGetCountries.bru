@@ -1,0 +1,40 @@
+meta {
+  name: 09a - TBO GetCountries (SOAP/REST)
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://api.tbotechnology.in/TBOHolidays_HotelAPI/CountryList
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "TokenId": ""
+  }
+}
+
+docs {
+  ## TBO GetCountries - Master Data API (SOAP/REST)
+  
+  ### Endpoint:
+  GET https://affiliate.tektravels.com/SharedData.svc/rest/CountryList
+  
+  ### Authentication:
+  Basic Auth: Doview:Doview@12345
+  
+  ### Service Method:
+  Called from tbo-soap-sync.service.ts to sync countries
+  
+  ### Response:
+  Returns list of all countries with their codes
+  Used to populate dvi_countries table
+  
+  ### Purpose:
+  Get master country data from TBO system
+}
