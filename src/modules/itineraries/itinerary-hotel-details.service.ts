@@ -318,13 +318,30 @@ async getHotelRoomDetailsByQuoteId(
         orderBy: [
           { group_type: 'asc' as const },
           { itinerary_route_date: 'asc' as const },
+          { updatedon: 'desc' as const }, // ✅ Order by updatedon to get latest first
         ],
       });
+
+    // ✅ Deduplicate: Keep only the LATEST hotel per (route, groupType)
+    const hotelsByRouteAndGroup = new Map<string, any>();
+    hotelRowsRaw.forEach((h: any) => {
+      const key = `${h.itinerary_route_id}-${h.group_type}`;
+      const existing = hotelsByRouteAndGroup.get(key);
+      
+      // Keep this one if: (1) No existing, (2) This has updatedon and existing doesn't, (3) This is newer
+      if (!existing || 
+          (!existing.updatedon && h.updatedon) ||
+          (h.updatedon && existing.updatedon && new Date(h.updatedon) > new Date(existing.updatedon))) {
+        hotelsByRouteAndGroup.set(key, h);
+      }
+    });
+    
+    const hotelRowsDeduped = Array.from(hotelsByRouteAndGroup.values());
 
     // 3) Distinct hotels for name/category
     const hotelIds = Array.from(
       new Set(
-        hotelRowsRaw
+        hotelRowsDeduped
           .map((h) => (h as any).hotel_id as number | null)
           .filter((id): id is number => typeof id === 'number' && id > 0),
       ),
@@ -369,7 +386,7 @@ async getHotelRoomDetailsByQuoteId(
       .sort((a, b) => a.groupType - b.groupType);
 
     // 5) Per-row hotel list (with group_type & per-row cost)
-    const hotels: ItineraryHotelRowDto[] = hotelRowsRaw.map((h, idx) => {
+    const hotels: ItineraryHotelRowDto[] = hotelRowsDeduped.map((h, idx) => {
       const master = hotelMap.get(Number((h as any).hotel_id)) || null;
       const dateLabel = h.itinerary_route_date
         ? h.itinerary_route_date.toISOString().slice(0, 10)

@@ -246,6 +246,7 @@ export class ItinerariesController {
   }
 
   @Get('details/:quoteId')
+  @Public()
   @ApiOperation({
     summary: 'Get full itinerary details by Quote ID',
     description:
@@ -325,7 +326,7 @@ export class ItinerariesController {
   @ApiOperation({
     summary: 'Get hotel ROOM details for an itinerary by Quote ID',
     description:
-      'Returns FRESH hotel room details from TBO API in real-time (no stale data). Structured per route / hotel / room / roomType.',
+      'Returns FRESH hotel room details from TBO API in real-time (no stale data). Structured per route / hotel / room / roomType. Optionally filter by specific itinerary route.',
   })
   @ApiParam({
     name: 'quoteId',
@@ -333,21 +334,54 @@ export class ItinerariesController {
     description: 'Quote ID generated for the itinerary',
     example: 'DVI202512032',
   })
+  @ApiQuery({
+    name: 'itineraryRouteId',
+    required: false,
+    description: 'Optional: Filter rooms for a specific itinerary route/day',
+    example: '12345',
+    type: 'integer',
+  })
+  @ApiQuery({
+    name: 'clearCache',
+    required: false,
+    description: 'Optional: Clear backend memory cache before fetching fresh data from TBO',
+    example: 'true',
+    type: 'boolean',
+  })
   @ApiOkResponse({ description: 'Fresh hotel room details from TBO API' })
   @Public()
   async getItineraryHotelRoomDetails(
     @Param('quoteId') quoteId: string,
+    @Query('itineraryRouteId') itineraryRouteId?: string,
+    @Query('clearCache') clearCache?: string,
   ): Promise<ItineraryHotelRoomDetailsResponseDto> {
     const startTime = Date.now();
     this.logger.log('\n════════════════════════════════════════════════════════════════════════════════════════');
     this.logger.log('🏨 INCOMING ITINERARY HOTEL ROOM DETAILS REQUEST (TBO - FRESH DATA)');
     this.logger.log(`📍 Request Timestamp: ${new Date().toISOString()}`);
     this.logger.log(`📋 Quote ID: ${quoteId}`);
+    if (itineraryRouteId) {
+      this.logger.log(`🔍 Filter Route ID: ${itineraryRouteId}`);
+    }
+    if (clearCache === 'true') {
+      this.logger.log(`🗑️  Clear Cache Requested: YES`);
+    }
     this.logger.log('────────────────────────────────────────────────────────────────────────────────────────');
 
     try {
+      // ✅ Clear backend memory cache if requested
+      if (clearCache === 'true') {
+        this.hotelDetailsTboService.clearCacheForQuote(quoteId);
+        this.logger.log('🗑️  Backend cache cleared - will fetch fresh data from TBO');
+      }
+      
       // Use TBO service to fetch FRESH room details (no stale data)
-      const result = await this.hotelDetailsTboService.getHotelRoomDetailsFromTbo(quoteId);
+      // Pass optional itineraryRouteId to filter results
+      const routeIdNum = itineraryRouteId ? parseInt(itineraryRouteId, 10) : undefined;
+      const result = await this.hotelDetailsTboService.getHotelRoomDetailsFromTbo(
+        quoteId,
+        routeIdNum,
+      );
       const duration = Date.now() - startTime;
 
       this.logger.log('\n✅ FRESH ROOM DETAILS GENERATED FROM TBO');
@@ -632,6 +666,7 @@ export class ItinerariesController {
         routeId: { type: 'number', example: 1 },
         hotelId: { type: 'number', example: 123 },
         roomTypeId: { type: 'number', example: 456 },
+        groupType: { type: 'number', example: 2, description: '1=Budget, 2=Mid-Range, 3=Premium, 4=Luxury' },
         mealPlan: {
           type: 'object',
           properties: {
@@ -648,6 +683,43 @@ export class ItinerariesController {
   @ApiOkResponse({ description: 'Hotel selected successfully' })
   async selectHotel(@Body() body: any) {
     return this.svc.selectHotel(body);
+  }
+
+  @Post('hotels/bulk-save')
+  @ApiOperation({ summary: 'Save multiple hotel selections at once before confirming itinerary' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 3 },
+        hotels: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              routeId: { type: 'number', example: 89 },
+              hotelId: { type: 'number', example: 1089687 },
+              roomTypeId: { type: 'number', example: 1 },
+              groupType: { type: 'number', example: 1, description: '1=Budget, 2=Mid-Range, 3=Premium, 4=Luxury' },
+              mealPlan: {
+                type: 'object',
+                properties: {
+                  all: { type: 'boolean' },
+                  breakfast: { type: 'boolean' },
+                  lunch: { type: 'boolean' },
+                  dinner: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
+      required: ['planId', 'hotels'],
+    },
+  })
+  @ApiOkResponse({ description: 'All hotels saved successfully' })
+  async bulkSaveHotels(@Body() body: { planId: number; hotels: any[] }) {
+    return this.svc.bulkSaveHotels(body.planId, body.hotels);
   }
 
   @Post('vehicles/select-vendor')
@@ -795,6 +867,23 @@ export class ItinerariesController {
   @ApiOkResponse({ description: 'Returns unique locations from arrival and departure' })
   async getConfirmedLocations() {
     return this.svc.getLocationsForFilter();
+  }
+
+  @Get('confirmed/:confirmedId')
+  @ApiOperation({ 
+    summary: 'Get confirmed itinerary details by ID',
+    description: 'Returns confirmed itinerary with booked hotel details from database'
+  })
+  @ApiParam({ 
+    name: 'confirmedId', 
+    example: 31, 
+    description: 'Confirmed Plan ID' 
+  })
+  @Public()
+  async getConfirmedItineraryDetails(
+    @Param('confirmedId', ParseIntPipe) confirmedId: number,
+  ) {
+    return this.svc.getConfirmedItineraryDetails(confirmedId);
   }
 
   @Get(':id/voucher-details')

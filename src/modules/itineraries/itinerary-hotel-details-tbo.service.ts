@@ -19,6 +19,13 @@ import {
 @Injectable()
 export class ItineraryHotelDetailsTboService {
   private readonly logger = new Logger(ItineraryHotelDetailsTboService.name);
+  
+  // Cache structure: key = "quoteId:routeId" or "quoteId" (no route filter)
+  // Stores the entire response to avoid re-fetching TBO data
+  private hotelRoomDetailsCache = new Map<string, {
+    data: ItineraryHotelRoomDetailsResponseDto;
+    timestamp: number;
+  }>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -110,7 +117,8 @@ export class ItineraryHotelDetailsTboService {
   }
 
   /**
-   * Fetch available hotels from TBO for each route
+   * Fetch available hotels from TBO for each route with OPTIMIZED city mapping
+   * Uses batch city lookup and parallel processing instead of sequential queries
    */
   private async fetchHotelsForRoutes(
     routes: any[],
@@ -118,6 +126,13 @@ export class ItineraryHotelDetailsTboService {
   ): Promise<Map<number, HotelSearchResult[]>> {
     const hotelsByRoute = new Map<number, HotelSearchResult[]>();
     const totalRoutes = routes.length;
+
+    // 🔥 OPTIMIZATION 1: Batch load ALL cities upfront instead of querying per route
+    const cityCodeMap = await this.batchMapDestinationsToCityCodes(routes);
+    this.logger.log(`✅ Pre-loaded ${Object.keys(cityCodeMap).length} city codes for all routes`);
+
+    // 🔥 OPTIMIZATION 2: Prepare all hotel search tasks for parallel execution
+    const searchTasks: Promise<void>[] = [];
 
     for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
       const route = routes[routeIndex];
@@ -130,64 +145,128 @@ export class ItineraryHotelDetailsTboService {
         continue;
       }
       
-      try {
-        // Use next_visiting_location (where you're staying) NOT location_name (where you're departing from)
-        const destination = (route as any).next_visiting_location;
-        const routeDate = new Date((route as any).itinerary_route_date);
-
-        // Set check-out to next day (standard 1-night stay)
-        const checkOutDate = new Date(routeDate);
-        checkOutDate.setDate(checkOutDate.getDate() + 1);
-
-        this.logger.log(`   🔍 Route ${routeId} (index ${routeIndex}): Searching hotels for "${destination}" (${routeDate.toISOString().split('T')[0]})`);
-
-        // Map destination to city code (now queries database)
-        const cityCode = await this.mapDestinationToCityCode(destination);
-        this.logger.log(`   📌 Route ${routeId}: mapDestinationToCityCode returned: "${cityCode}"`);
-        
-        // Skip searching if city code is empty (couldn't find city in database)
-        if (!cityCode || cityCode === '') {
-          this.logger.warn(`   ❌ Route ${routeId}: Skipping hotel search for "${destination}" - no city code found`);
+      // Push search task to run in parallel
+      searchTasks.push(
+        this.searchHotelsForRoute(route, routeIndex, cityCodeMap, hotelsByRoute).catch(error => {
+          const routeId = (route as any).itinerary_route_ID;
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          this.logger.error(`❌ HOTEL SEARCH ERROR for route ${routeId}: ${errorMsg}`);
           hotelsByRoute.set(routeId, []);
-          continue; // Skip to next route
-        }
-        
-        this.logger.log(`      Calling hotelSearchService.searchHotels...`);
-        this.logger.log(`         - cityCode: ${cityCode}`);
-        this.logger.log(`         - checkInDate: ${routeDate.toISOString().split('T')[0]}`);
-        this.logger.log(`         - checkOutDate: ${checkOutDate.toISOString().split('T')[0]}`);
-
-        // Call TBO search API - let TBO return available hotels for this city
-        const searchCriteria = {
-          cityCode,
-          checkInDate: routeDate.toISOString().split('T')[0],
-          checkOutDate: checkOutDate.toISOString().split('T')[0],
-          roomCount: 1,
-          guestCount: 2,
-          providers: ['tbo'],
-        };
-        this.logger.log(`         - About to call searchHotels with: ${JSON.stringify(searchCriteria)}`);
-        const hotels = await this.hotelSearchService.searchHotels(searchCriteria);
-        this.logger.log(`      ✅ searchHotels returned ${hotels ? hotels.length : 'UNDEFINED'} hotels`);
-        if (!hotels || hotels.length === 0) {
-          this.logger.warn(`      ⚠️  EMPTY ARRAY RETURNED FROM searchHotels!`);
-        }
-        hotelsByRoute.set(routeId, hotels || []);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        const errorStack = error instanceof Error ? error.stack : 'No stack';
-        const fullError = `ERROR: ${errorMsg}\nSTACK: ${errorStack}`;
-        this.logger.error(`      ❌ HOTEL SEARCH ERROR: ${fullError}`);
-        // Write error to file for debugging
-        try {
-          const fs = require('fs');
-          fs.appendFileSync('d:\\hotel-error.log', `[${new Date().toISOString()}] Route ${routeId}: ${fullError}\n`);
-        } catch (e) {}
-        hotelsByRoute.set(routeId, []);
-      }
+        })
+      );
     }
 
+    // 🔥 OPTIMIZATION 3: Execute all searches in parallel instead of sequentially
+    this.logger.log(`⏳ Starting ${searchTasks.length} parallel hotel searches...`);
+    await Promise.all(searchTasks);
+    this.logger.log(`✅ All parallel searches completed`);
+
     return hotelsByRoute;
+  }
+
+  /**
+   * Batch load city codes for all destinations in one pass
+   * Reduces database queries from N×3 (N routes × 3 attempts) to 1 query
+   */
+  private async batchMapDestinationsToCityCodes(routes: any[]): Promise<Record<string, string>> {
+    const cityCodeMap: Record<string, string> = {};
+    
+    // Extract unique destinations from all routes
+    const uniqueDestinations = [...new Set(routes.map(r => (r as any).next_visiting_location))];
+    this.logger.log(`📍 Extracting city codes for ${uniqueDestinations.length} unique destinations`);
+
+    if (uniqueDestinations.length === 0) return cityCodeMap;
+
+    // ⚡ Load ALL cities from database in ONE query instead of per-route queries
+    const allCities = await this.prisma.dvi_cities.findMany({
+      select: { name: true, tbo_city_code: true },
+    });
+    this.logger.log(`✅ Loaded ${allCities.length} cities from database in single query`);
+
+    // Build a map for fast lookup
+    const cityNameMap: Record<string, string> = {};
+    const cityPrefixMap: Record<string, string> = {};
+    
+    allCities.forEach(city => {
+      if (city.tbo_city_code) {
+        cityNameMap[city.name.toLowerCase()] = city.tbo_city_code;
+        const prefix = city.name.split(',')[0].trim().toUpperCase();
+        cityPrefixMap[prefix] = city.tbo_city_code;
+      }
+    });
+
+    // Map each destination to city code
+    uniqueDestinations.forEach(destination => {
+      if (!destination) return;
+
+      // Try exact match (case-insensitive)
+      let cityCode = cityNameMap[destination.toLowerCase()];
+      
+      if (!cityCode) {
+        // Try partial match with first part
+        const firstPart = destination.split(',')[0].trim();
+        cityCode = cityNameMap[firstPart.toLowerCase()];
+      }
+
+      if (!cityCode) {
+        // Try prefix match
+        const prefix = destination.split(',')[0].trim().toUpperCase();
+        cityCode = cityPrefixMap[prefix];
+      }
+
+      if (cityCode) {
+        this.logger.log(`✅ "${destination}" → TBO Code: ${cityCode}`);
+        cityCodeMap[destination] = cityCode;
+      } else {
+        this.logger.warn(`❌ No city code found for: "${destination}"`);
+      }
+    });
+
+    return cityCodeMap;
+  }
+
+  /**
+   * Search hotels for a single route (used in parallel execution)
+   */
+  private async searchHotelsForRoute(
+    route: any,
+    routeIndex: number,
+    cityCodeMap: Record<string, string>,
+    hotelsByRoute: Map<number, HotelSearchResult[]>,
+  ): Promise<void> {
+    const routeId = (route as any).itinerary_route_ID;
+    const destination = (route as any).next_visiting_location;
+    const routeDate = new Date((route as any).itinerary_route_date);
+
+    // Set check-out to next day (standard 1-night stay)
+    const checkOutDate = new Date(routeDate);
+    checkOutDate.setDate(checkOutDate.getDate() + 1);
+
+    this.logger.log(`🔍 Route ${routeId}: Searching hotels for "${destination}" (${routeDate.toISOString().split('T')[0]})`);
+
+    // Get city code from pre-loaded map (no database query!)
+    const cityCode = cityCodeMap[destination];
+    
+    if (!cityCode) {
+      this.logger.warn(`❌ Route ${routeId}: No city code for "${destination}" - skipping`);
+      hotelsByRoute.set(routeId, []);
+      return;
+    }
+
+    const searchCriteria = {
+      cityCode,
+      checkInDate: routeDate.toISOString().split('T')[0],
+      checkOutDate: checkOutDate.toISOString().split('T')[0],
+      roomCount: 1,
+      guestCount: 2,
+      providers: ['tbo'],
+    };
+
+    this.logger.log(`   🏨 Searching hotels with cityCode: ${cityCode}`);
+    const hotels = await this.hotelSearchService.searchHotels(searchCriteria);
+    this.logger.log(`   ✅ Found ${hotels ? hotels.length : 0} hotels for route ${routeId}`);
+    
+    hotelsByRoute.set(routeId, hotels || []);
   }
 
   /**
@@ -229,9 +308,14 @@ export class ItineraryHotelDetailsTboService {
 
     // For each price tier
     for (let tier = 0; tier < 4; tier++) {
-      const selectedHotels: Array<HotelSearchResult & { routeId: number }> = [];
+      const tieredHotels: Array<HotelSearchResult & { routeId: number }> = [];
 
-      // For each route, select hotel that matches this tier's price expectation
+      // Calculate quartile boundaries
+      const q1 = uniquePrices[Math.floor(uniquePrices.length * 0.25)];
+      const q2 = uniquePrices[Math.floor(uniquePrices.length * 0.50)];
+      const q3 = uniquePrices[Math.floor(uniquePrices.length * 0.75)];
+
+      // For each route, get ALL hotels that match this tier's price range
       for (const route of routes) {
         const routeId = (route as any).itinerary_route_ID;
         const availableHotels = hotelsByRoute.get(routeId) || [];
@@ -248,56 +332,57 @@ export class ItineraryHotelDetailsTboService {
             rating: 0,
             routeId: routeId
           };
-          selectedHotels.push(placeholderHotel);
+          tieredHotels.push(placeholderHotel);
           this.logger.debug(
             `   Tier ${tier + 1}, Route ${routeId}: No hotels - Added placeholder with ₹0`
           );
           continue;
         }
 
-        // Sort by price
-        const sortedByPrice = [...availableHotels].sort((a, b) => a.price - b.price);
+        // ✅ Get ALL hotels that match this tier's price range
+        for (const hotel of availableHotels) {
+          let matchesTier = false;
 
-        // Select hotel based on tier and unique prices available
-        let selectedHotel: HotelSearchResult;
-        
-        if (uniquePrices.length === 1) {
-          // Only one price point - use same for all tiers
-          selectedHotel = sortedByPrice[0];
-        } else if (uniquePrices.length === 2) {
-          // Two price points: Budget/Mid-Range use lower, Premium/Luxury use higher
-          if (tier < 2) {
-            // Budget (0) and Mid-Range (1) - pick from lower price options
-            selectedHotel = sortedByPrice[0];
+          if (uniquePrices.length === 1) {
+            // Only one price point - all tiers get same hotels
+            matchesTier = true;
+          } else if (uniquePrices.length === 2) {
+            // Two price points: Budget/Mid use lower, Premium/Luxury use higher
+            matchesTier = tier < 2 ? hotel.price <= uniquePrices[0] : hotel.price > uniquePrices[0];
           } else {
-            // Premium (2) and Luxury (3) - pick from higher price options
-            selectedHotel = sortedByPrice[sortedByPrice.length - 1];
+            // Multiple prices: use quartiles
+            switch (tier) {
+              case 0: // Budget
+                matchesTier = hotel.price <= q1;
+                break;
+              case 1: // Mid-Range
+                matchesTier = hotel.price > q1 && hotel.price <= q2;
+                break;
+              case 2: // Premium
+                matchesTier = hotel.price > q2 && hotel.price <= q3;
+                break;
+              case 3: // Luxury
+                matchesTier = hotel.price > q3;
+                break;
+            }
           }
-        } else {
-          // Multiple price points - distribute evenly
-          // Budget = lowest, Mid-Range = lower-mid, Premium = upper-mid, Luxury = highest
-          const targetIndex = Math.floor((tier / 3) * (sortedByPrice.length - 1));
-          selectedHotel = sortedByPrice[Math.min(targetIndex, sortedByPrice.length - 1)];
-        }
 
-        // Attach routeId to track which route this hotel belongs to
-        const hotelWithRoute = { ...selectedHotel, routeId } as HotelSearchResult & { routeId: number };
-        selectedHotels.push(hotelWithRoute);
-        this.logger.debug(
-          `   Tier ${tier + 1}, Route ${routeId}: Selected ₹${selectedHotel.price}`
-        );
+          if (matchesTier) {
+            const hotelWithRoute = { ...hotel, routeId } as HotelSearchResult & { routeId: number };
+            tieredHotels.push(hotelWithRoute);
+          }
+        }
       }
 
-      // Add package even if we only have hotels for SOME routes
-      // (routes with no hotels will show as "No Hotels Available")
-      if (selectedHotels.length > 0) {
-        const totalPrice = selectedHotels.reduce((sum, h) => sum + h.price, 0);
+      // Add package with ALL matching hotels (not just one per route)
+      if (tieredHotels.length > 0) {
+        const totalPrice = tieredHotels.reduce((sum, h) => sum + h.price, 0);
         packages.push({
           groupType: tier + 1,
           label: labels[tier],
-          hotels: selectedHotels,
+          hotels: tieredHotels,
         });
-        this.logger.log(`   ✅ ${labels[tier]}: ₹${totalPrice} total (${selectedHotels.length} routes, includes placeholders for routes with no hotels)`);
+        this.logger.log(`   ✅ ${labels[tier]}: ${tieredHotels.length} hotels total, ₹${totalPrice} combined`);
       } else {
         this.logger.log(`   ❌ ${labels[tier]}: No hotels found for any route (tier SKIPPED)`);
       }
@@ -384,82 +469,27 @@ export class ItineraryHotelDetailsTboService {
   }
 
   /**
-   * Map destination name to database city ID by querying dvi_cities table
-   * Fetches from database - NO hardcoding!
-   * The TBO code will be fetched from dvi_cities.tbo_city_code
-   */
-  private async mapDestinationToCityCode(destination: string): Promise<string> {
-    try {
-      // Step 1: Try exact match first
-      let city = await this.prisma.dvi_cities.findFirst({
-        where: { name: destination },
-      });
-
-      if (!city) {
-        // Step 2: Try partial match with first part (before comma)
-        // E.g., "Hyderabad, Rajiv Gandhi International Airport" → "Hyderabad"
-        const firstPart = destination.split(',')[0].trim();
-        
-        if (firstPart !== destination) {
-          this.logger.log(`   Trying partial match: "${firstPart}"`);
-          city = await this.prisma.dvi_cities.findFirst({
-            where: { name: firstPart },
-          });
-        }
-      }
-
-      if (!city) {
-        // Step 3: Try fuzzy match - city name contains destination prefix
-        const prefix = destination.split(',')[0].trim().toUpperCase();
-        this.logger.log(`   Trying fuzzy match with prefix: "${prefix}"`);
-        
-        city = await this.prisma.dvi_cities.findFirst({
-          where: {
-            name: {
-              contains: prefix,
-            },
-          },
-        });
-      }
-
-      if (city && city.tbo_city_code) {
-        this.logger.log(`✅ Found city in database: "${destination}" → Mapped to: "${city.name}" → TBO Code: ${city.tbo_city_code}`);
-        return city.tbo_city_code;
-      }
-
-      // If still not found or no TBO code, return empty string instead of throwing
-      // This allows other routes to continue processing
-      if (!city) {
-        this.logger.warn(
-          `⚠️  SKIPPING: City "${destination}" not found in dvi_cities table. ` +
-          `Tried: exact match, first-part match, and fuzzy match. ` +
-          `This route will have no hotels.`
-        );
-      } else {
-        this.logger.warn(
-          `⚠️  SKIPPING: City "${destination}" found in database but has no TBO city code. ` +
-          `This route will have no hotels.`
-        );
-      }
-      // Return empty string instead of throwing error
-      // This allows package generation to continue with other routes
-      return '';
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`⚠️  Error mapping destination "${destination}": ${msg}. Skipping this route.`);
-      return ''; // Return empty string to allow other routes to continue
-    }
-  }
-
-  /**
    * Get fresh hotel room details from TBO API (no stale data)
    * Fetches real-time data and returns in room details format
+   * Uses caching by route to minimize TBO API calls within a session
+   * @param quoteId - The quote ID to fetch hotel rooms for
+   * @param filterRouteId - Optional: Filter results to only this route ID
    */
   async getHotelRoomDetailsFromTbo(
     quoteId: string,
+    filterRouteId?: number,
   ): Promise<ItineraryHotelRoomDetailsResponseDto> {
     const startTime = Date.now();
     this.logger.log(`\n📡 FRESH ROOM DETAILS FROM TBO: Fetching live data for quote: ${quoteId}`);
+    if (filterRouteId) {
+      this.logger.log(`🔍 Filtering to route ID: ${filterRouteId}`);
+    }
+
+    // ✅ CHECK CACHE FIRST (per-route caching)
+    const cachedResult = this.getCachedRoomDetails(quoteId, filterRouteId);
+    if (cachedResult) {
+      return cachedResult;
+    }
 
     // Step 1: Get itinerary plan
     const plan = await this.prisma.dvi_itinerary_plan_details.findFirst({
@@ -488,8 +518,19 @@ export class ItineraryHotelDetailsTboService {
     const noOfNights = Number((plan as any).no_of_nights || 0);
     this.logger.log(`🌙 Plan has ${noOfNights} nights`);
 
-    // Step 3: Fetch FRESH hotels from TBO for each route
-    const hotelsByRoute = await this.fetchHotelsForRoutes(routes, noOfNights);
+    // Step 3: Fetch FRESH hotels from TBO
+    // OPTIMIZATION: If filterRouteId provided, only fetch hotels for that specific route
+    let routesToProcess = routes;
+    if (filterRouteId) {
+      routesToProcess = routes.filter(r => (r as any).itinerary_route_ID === filterRouteId);
+      if (routesToProcess.length === 0) {
+        this.logger.warn(`⚠️  Route ID ${filterRouteId} not found`);
+        throw new BadRequestException(`Route ID ${filterRouteId} not found in this itinerary`);
+      }
+      this.logger.log(`✅ Optimized: Fetching hotels for 1 route only (filtered)`);
+    }
+
+    const hotelsByRoute = await this.fetchHotelsForRoutes(routesToProcess, noOfNights);
 
     // Step 4: Transform fresh TBO data into room details format
     const roomDetailsList: ItineraryHotelRoomDto[] = [];
@@ -500,9 +541,19 @@ export class ItineraryHotelDetailsTboService {
 
     // Group hotels by route and hotelCode
     hotelsByRoute.forEach((hotelsForRoute, routeId) => {
+      // FILTER: Only process this route if filterRouteId is not provided OR if it matches
+      if (filterRouteId && routeId !== filterRouteId) {
+        this.logger.debug(`🔍 Skipping route ${routeId} (filter: ${filterRouteId})`);
+        return;
+      }
+
+      // ✅ Extract all prices for this route to calculate quartiles
+      const allPrices = hotelsForRoute.map((h: HotelSearchResult) => h.price || 0);
+
       hotelsForRoute.forEach((hotel: HotelSearchResult) => {
-        // Use hotel position/index as group type (1-4)
-        const groupType = this.getGroupTypeFromHotel(hotel, hotelsForRoute.indexOf(hotel));
+        // ✅ Assign groupType based on PRICE QUARTILE, not array position
+        const hotelPrice = hotel.price || 0;
+        const groupType = this.getGroupTypeFromPrice(hotelPrice, allPrices);
         const key = `${routeId}-${hotel.hotelCode || hotel.hotelName}`;
         
         if (!hotelsByRouteAndGroup.has(key)) {
@@ -513,55 +564,88 @@ export class ItineraryHotelDetailsTboService {
     });
 
     // Build room entries from fresh TBO data
+    // ✅ FIXED: Iterate through ALL hotels in each group, not just the first one
     hotelsByRouteAndGroup.forEach((hotelArray, _key) => {
-      const hotel = hotelArray[0]; // Use first instance
       const routeId = parseInt(_key.split('-')[0]);
       const route = routes.find(r => (r as any).itinerary_route_ID === routeId);
 
-      roomDetailsList.push({
-        itineraryPlanId: planId,
-        itineraryRouteId: routeId,
-        itineraryPlanHotelRoomDetailsId: roomDetailsId++,
-        hotelId: parseInt(hotel.hotelCode) || 0,
-        hotelName: hotel.hotelName || 'Hotel',
-        hotelCategory: this.getCategoryFromRating(hotel.category || hotel.rating),
-        roomTypeId: hotel.groupType || 1,
-        roomTypeName: `${['Budget', 'Mid-Range', 'Premium', 'Luxury'][hotel.groupType - 1]} Room`,
-        roomId: parseInt(hotel.hotelCode) || 0,
-        availableRoomTypes: (hotel.roomTypes || []).map((rt, idx) => ({
-          roomTypeId: idx + 1,
-          roomTypeTitle: rt.roomName,
-        })),
-        pricePerNight: Number(hotel.price || 0),
-        numberOfNights: noOfNights,
-        totalPrice: Number(hotel.price || 0) * noOfNights,
-        currency: hotel.currency || 'INR',
-        mealPlan: hotel.mealPlan || 'Not Specified',
-      } as any);
+      // ✅ Loop through ALL unique hotels in this route/group (not just first)
+      hotelArray.forEach((hotel: any) => {
+        // ✅ FIXED: Use actual room type from TBO, not groupType
+        const firstRoomType = hotel.roomTypes?.[0];
+        const actualRoomTypeId = firstRoomType?.roomTypeId || 1;
+        const actualRoomTypeName = firstRoomType?.roomName || 'Standard Room';
+
+        roomDetailsList.push({
+          itineraryPlanId: planId,
+          itineraryRouteId: routeId,
+          itineraryPlanHotelRoomDetailsId: roomDetailsId++,
+          hotelId: parseInt(hotel.hotelCode) || 0,
+          hotelName: hotel.hotelName || 'Hotel',
+          hotelCategory: this.getCategoryFromRating(hotel.category || hotel.rating),
+          groupType: hotel.groupType || 1, // ✅ ADD: Include groupType (tier: 1-4)
+          roomTypeId: actualRoomTypeId, // ✅ FIXED: Use actual TBO room type ID
+          roomTypeName: actualRoomTypeName, // ✅ FIXED: Use actual TBO room type name
+          roomId: parseInt(hotel.hotelCode) || 0,
+          availableRoomTypes: (hotel.roomTypes || []).map((rt, idx) => ({
+            roomTypeId: rt.roomTypeId || idx + 1,
+            roomTypeTitle: rt.roomName,
+          })),
+          pricePerNight: Number(hotel.price || 0),
+          numberOfNights: noOfNights,
+          totalPrice: Number(hotel.price || 0) * noOfNights,
+          currency: hotel.currency || 'INR',
+          mealPlan: hotel.mealPlan || 'Not Specified',
+        } as any);
+      });
     });
 
     const duration = Date.now() - startTime;
     this.logger.log(`✅ FRESH ROOM DETAILS GENERATED`);
     this.logger.log(`📊 Room Entries: ${roomDetailsList.length}`);
+    if (filterRouteId) {
+      this.logger.log(`🔍 Filter Applied: Route ID ${filterRouteId}`);
+    } else {
+      this.logger.log(`📅 All Routes Included`);
+    }
     this.logger.log(`⏱️  Duration: ${duration}ms\n`);
 
-    return {
+    const result = {
       quoteId: (plan as any).itinerary_quote_ID ?? '',
       planId,
       rooms: roomDetailsList,
     };
+
+    // ✅ CACHE THE RESULT for future requests
+    this.setCachedRoomDetails(quoteId, result, filterRouteId);
+
+    return result;
   }
 
   /**
-   * Determine group type (price tier) from hotel based on position in list
-   * Helps categorize Budget, Mid-Range, Premium, Luxury
+   * Determine group type (price tier) based on hotel price relative to all hotels
+   * Distributes hotels across 4 tiers: Budget (1), Mid-Range (2), Premium (3), Luxury (4)
    */
-  private getGroupTypeFromHotel(hotel: HotelSearchResult, index: number): number {
-    // Use position-based grouping (assuming results roughly sorted by price)
-    if (index === 0) return 1; // Budget
-    if (index === 1) return 2; // Mid-Range
-    if (index === 2) return 3; // Premium
-    return 4; // Luxury
+  private getGroupTypeFromPrice(
+    hotelPrice: number,
+    allPrices: number[]
+  ): number {
+    if (allPrices.length === 0) return 1;
+    if (allPrices.length === 1) return 1;
+
+    // Sort prices to find quartiles
+    const sortedPrices = [...allPrices].sort((a, b) => a - b);
+    
+    // Calculate quartile boundaries
+    const q1 = sortedPrices[Math.floor(sortedPrices.length * 0.25)];
+    const q2 = sortedPrices[Math.floor(sortedPrices.length * 0.50)];
+    const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
+
+    // Assign tier based on price quartile
+    if (hotelPrice <= q1) return 1; // Budget (bottom 25%)
+    if (hotelPrice <= q2) return 2; // Mid-Range (25-50%)
+    if (hotelPrice <= q3) return 3; // Premium (50-75%)
+    return 4; // Luxury (top 25%)
   }
 
   /**
@@ -578,5 +662,79 @@ export class ItineraryHotelDetailsTboService {
     if (val === 3) return 3; // Premium (3-star equivalent)
     if (val === 2) return 2; // Mid-Range (2-star)
     return 1; // Budget
+  }
+
+  /**
+   * Generate cache key for hotel room details
+   * Format: "quoteId" or "quoteId:routeId" if filtered
+   */
+  private getCacheKey(quoteId: string, routeId?: number): string {
+    if (routeId) {
+      return `${quoteId}:${routeId}`;
+    }
+    return quoteId;
+  }
+
+  /**
+   * Get cached hotel room details if available
+   */
+  private getCachedRoomDetails(quoteId: string, routeId?: number): ItineraryHotelRoomDetailsResponseDto | null {
+    const cacheKey = this.getCacheKey(quoteId, routeId);
+    const cached = this.hotelRoomDetailsCache.get(cacheKey);
+    
+    if (cached) {
+      this.logger.log(`💾 [CACHE HIT] Using cached data for ${cacheKey}`);
+      return cached.data;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Store hotel room details in cache
+   */
+  private setCachedRoomDetails(
+    quoteId: string,
+    data: ItineraryHotelRoomDetailsResponseDto,
+    routeId?: number,
+  ): void {
+    const cacheKey = this.getCacheKey(quoteId, routeId);
+    this.hotelRoomDetailsCache.set(cacheKey, {
+      data,
+      timestamp: Date.now(),
+    });
+    this.logger.log(`💾 [CACHE SET] Cached data for ${cacheKey}`);
+  }
+
+  /**
+   * Clear cache for a specific quote (called on refresh/update)
+   * Clears both general cache (quoteId) and route-specific caches (quoteId:routeId)
+   */
+  clearCacheForQuote(quoteId: string): void {
+    const keysToDelete: string[] = [];
+    
+    for (const key of this.hotelRoomDetailsCache.keys()) {
+      if (key.startsWith(`${quoteId}:`)) { // Matches "quoteId:routeId"
+        keysToDelete.push(key);
+      }
+    }
+    
+    // Also delete the base key
+    keysToDelete.push(quoteId);
+    
+    for (const key of keysToDelete) {
+      this.hotelRoomDetailsCache.delete(key);
+      this.logger.log(`🗑️  [CACHE CLEARED] Removed cache for ${key}`);
+    }
+  }
+
+  /**
+   * Get current cache size and stats (for debugging)
+   */
+  getCacheStats(): { size: number; entries: string[] } {
+    return {
+      size: this.hotelRoomDetailsCache.size,
+      entries: Array.from(this.hotelRoomDetailsCache.keys()),
+    };
   }
 }

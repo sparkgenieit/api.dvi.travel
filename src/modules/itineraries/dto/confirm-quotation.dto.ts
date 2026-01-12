@@ -84,6 +84,10 @@ export class TboHotelSelectionDto {
   @ApiProperty({ example: 1 })
   @IsInt()
   routeId!: number;
+  
+  @ApiProperty({ example: 2, description: 'Hotel tier: 1=Budget, 2=Mid-Range, 3=Premium, 4=Luxury' })
+  @IsInt()
+  groupType!: number;
 
   @ApiProperty({ example: '1035259' })
   @IsString()

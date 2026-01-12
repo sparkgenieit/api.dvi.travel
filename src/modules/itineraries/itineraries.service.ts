@@ -22,6 +22,7 @@ import { ItineraryDetailsService } from "./itinerary-details.service";
 import { TimeConverter } from "./engines/helpers/time-converter";
 import { HotspotDetailRow } from "./engines/helpers/types";
 import { TboHotelBookingService } from "./services/tbo-hotel-booking.service";
+import { ItineraryHotelDetailsTboService } from "./itinerary-hotel-details-tbo.service";
 
 @Injectable()
 export class ItinerariesService {
@@ -38,6 +39,7 @@ export class ItinerariesService {
     private readonly routeValidation: RouteValidationService,
     private readonly itineraryDetails: ItineraryDetailsService,
     private readonly tboHotelBooking: TboHotelBookingService,
+    private readonly hotelDetailsTboService: ItineraryHotelDetailsTboService,
   ) {}
 
   async createPlan(dto: CreateItineraryDto, req: any) {
@@ -728,9 +730,16 @@ export class ItinerariesService {
     routeId: number; 
     hotelId: number; 
     roomTypeId: number;
+    groupType?: number;  // ✅ ADD groupType parameter
     mealPlan?: { all?: boolean; breakfast?: boolean; lunch?: boolean; dinner?: boolean; };
   }) {
     const userId = 1;
+
+    // Get the quote ID to clear the cache
+    const plan = await this.prisma.dvi_itinerary_plan_details.findUnique({
+      where: { itinerary_plan_ID: data.planId },
+    });
+    const quoteId = (plan as any)?.itinerary_quote_ID || '';
 
     // Check if hotel assignment already exists in hotel_details
     const existingHotelDetails = await (this.prisma as any).dvi_itinerary_plan_hotel_details.findFirst({
@@ -749,27 +758,36 @@ export class ItinerariesService {
 
     if (existingHotelDetails) {
       // Update existing hotel assignment
+      console.log(`📝 Updating existing hotel - Old ID: ${existingHotelDetails.hotel_id}, New ID: ${data.hotelId}, GroupType: ${data.groupType}`);
       await (this.prisma as any).dvi_itinerary_plan_hotel_details.update({
         where: { itinerary_plan_hotel_details_ID: existingHotelDetails.itinerary_plan_hotel_details_ID },
         data: {
           hotel_id: data.hotelId,
+          group_type: data.groupType || 1,  // ✅ Save groupType
           updatedon: new Date(),
         },
       });
+      const updated = await (this.prisma as any).dvi_itinerary_plan_hotel_details.findUnique({
+        where: { itinerary_plan_hotel_details_ID: existingHotelDetails.itinerary_plan_hotel_details_ID },
+      });
+      console.log(`✅ Updated. New values - hotel_id: ${(updated as any).hotel_id}, group_type: ${(updated as any).group_type}`);
       hotelDetailsId = existingHotelDetails.itinerary_plan_hotel_details_ID;
     } else {
       // Create new hotel assignment
+      console.log(`✨ Creating new hotel - ID: ${data.hotelId}, GroupType: ${data.groupType}`);
       const created = await (this.prisma as any).dvi_itinerary_plan_hotel_details.create({
         data: {
           itinerary_plan_id: data.planId,
           itinerary_route_id: data.routeId,
           hotel_id: data.hotelId,
+          group_type: data.groupType || 1,  // ✅ Save groupType
           createdby: userId,
           createdon: new Date(),
           status: 1,
           deleted: 0,
         },
       });
+      console.log(`✅ Created. Values - hotel_id: ${(created as any).hotel_id}, group_type: ${(created as any).group_type}`);
       hotelDetailsId = created.itinerary_plan_hotel_details_ID;
     }
 
@@ -815,9 +833,50 @@ export class ItinerariesService {
       });
     }
 
+    // ✅ Clear cache for this quote so next request gets fresh data
+    if (quoteId) {
+      this.hotelDetailsTboService.clearCacheForQuote(quoteId);
+    }
+
     return {
       success: true,
       message: 'Hotel selected successfully',
+    };
+  }
+
+  /**
+   * Bulk save hotel selections - used before confirming itinerary
+   */
+  async bulkSaveHotels(planId: number, hotels: any[]) {
+    const userId = 1;
+
+    // Get the quote ID to clear the cache
+    const plan = await this.prisma.dvi_itinerary_plan_details.findUnique({
+      where: { itinerary_plan_ID: planId },
+    });
+    const quoteId = (plan as any)?.itinerary_quote_ID || '';
+
+    console.log(`📦 Bulk saving ${hotels.length} hotel(s) for plan ${planId}`);
+
+    for (const hotel of hotels) {
+      await this.selectHotel({
+        planId,
+        routeId: hotel.routeId,
+        hotelId: hotel.hotelId,
+        roomTypeId: hotel.roomTypeId || 1,
+        groupType: hotel.groupType,
+        mealPlan: hotel.mealPlan,
+      });
+    }
+
+    // Clear cache once at the end
+    if (quoteId) {
+      this.hotelDetailsTboService.clearCacheForQuote(quoteId);
+    }
+
+    return {
+      success: true,
+      message: `Successfully saved ${hotels.length} hotel selections`,
     };
   }
 
@@ -3222,5 +3281,213 @@ export class ItinerariesService {
         refund_amount: totalRefundAmount,
       };
     });
+  }
+
+  /**
+   * Get confirmed itinerary details with booked hotels from database
+   * Returns ONLY the selected/confirmed hotels, not all options
+   */
+  async getConfirmedItineraryDetails(confirmedPlanId: number) {
+    console.log('🔍 getConfirmedItineraryDetails called with confirmedPlanId:', confirmedPlanId);
+    console.log('   this.prisma exists?', !!this.prisma);
+    
+    if (!this.prisma) {
+      throw new Error('PrismaService not initialized in ItinerariesService');
+    }
+
+    // Get the confirmed plan
+    const plan = await this.prisma.dvi_confirmed_itinerary_plan_details.findUnique({
+      where: { confirmed_itinerary_plan_ID: confirmedPlanId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Confirmed itinerary not found');
+    }
+
+    // Get the original itinerary plan details separately (no relation in schema)
+    const originalPlan = await this.prisma.dvi_itinerary_plan_details.findUnique({
+      where: { itinerary_plan_ID: plan.itinerary_plan_ID },
+    });
+
+    if (!originalPlan) {
+      throw new NotFoundException('Original itinerary plan not found');
+    }
+
+    console.log('   ✅ Found confirmed plan and original plan');
+
+    // Get all routes for this itinerary
+    // NOTE: Schema has no itinerary_route_order field, using array index + 1 for day calculation
+    const routes = await this.prisma.dvi_itinerary_route_details.findMany({
+      where: {
+        itinerary_plan_ID: plan.itinerary_plan_ID,
+        deleted: 0,
+      },
+      orderBy: { itinerary_route_ID: 'asc' },
+    });
+
+    console.log('   📍 Found', routes.length, 'routes');
+
+    // Save prisma reference for use in callbacks (to avoid context loss)
+    const prisma = this.prisma;
+
+    // For each route, get the confirmed hotel booking
+    const routesWithHotels = await Promise.all(routes.map(async (route, index) => {
+      // Get confirmed hotel for this route (should be 1 hotel = the one that was booked)
+      const confirmedHotels = await prisma.dvi_confirmed_itinerary_plan_hotel_details.findMany({
+        where: {
+          itinerary_plan_id: plan.itinerary_plan_ID,
+          itinerary_route_id: route.itinerary_route_ID,
+          deleted: 0,
+        },
+      });
+
+      // For each confirmed hotel, get hotel details and room details separately
+      const hotelsWithRooms = await Promise.all(confirmedHotels.map(async (hotel) => {
+        // Get hotel details from dvi_hotel table (no relation defined, manual join)
+        const hotelDetails = await prisma.dvi_hotel.findUnique({
+          where: { hotel_id: hotel.hotel_id },
+          select: {
+            hotel_id: true,
+            hotel_name: true,
+            hotel_address: true, // Changed from hotel_location (doesn't exist)
+            hotel_city: true,
+            hotel_category: true, // Changed from rating (doesn't exist)
+          },
+        });
+
+        const roomDetails = await prisma.dvi_confirmed_itinerary_plan_hotel_room_details.findMany({
+          where: {
+            itinerary_plan_id: plan.itinerary_plan_ID,
+            itinerary_route_id: route.itinerary_route_ID,
+            deleted: 0,
+          },
+        });
+
+        return {
+          hotel_id: hotel.hotel_id,
+          hotel_name: hotelDetails?.hotel_name || 'Unknown Hotel',
+          destination: route.next_visiting_location || route.location_name, // Changed from non-existent itinerary_route_destination_city
+          day: index + 1, // Changed from non-existent itinerary_route_order, calculate from index
+          date: route.itinerary_route_date,
+          category: this.mapHotelCategoryToName(hotel.hotel_category_id || hotelDetails?.hotel_category || 0),
+          roomType: roomDetails[0]?.room_id ? `Room ${roomDetails[0].room_id}` : 'Standard',
+          totalHotelCost: hotel.total_hotel_cost,
+          hotelTabs: [
+            {
+              groupType: hotel.group_type || 1,
+              name: this.mapHotelGroupTypeToCategory(hotel.group_type || 1),
+              hotels: [
+                {
+                  hotel_id: hotel.hotel_id,
+                  hotel_name: hotelDetails?.hotel_name || 'Unknown',
+                  rating: this.mapHotelCategoryToStars(hotel.hotel_category_id || hotelDetails?.hotel_category || 0), // Map category to stars
+                  location: `${hotelDetails?.hotel_city || ''}, ${hotelDetails?.hotel_address || ''}`.trim(),
+                  totalCost: hotel.total_hotel_cost,
+                },
+              ],
+            },
+          ],
+          roomDetails: roomDetails.map((r) => ({
+            room_id: r.room_id,
+            room_type_id: r.room_type_id,
+            room_rate: r.room_rate,
+            extra_bed_count: r.extra_bed_count,
+            extra_bed_rate: r.extra_bed_rate,
+            child_with_bed_count: r.child_with_bed_count,
+            child_with_bed_charges: r.child_with_bed_charges,
+            child_without_bed_count: r.child_without_bed_count,
+            child_without_bed_charges: r.child_without_bed_charges,
+            total_room_cost: r.total_room_cost,
+          })),
+        };
+      }));
+
+      return {
+        route_id: route.itinerary_route_ID,
+        destination: route.next_visiting_location || route.location_name, // Changed from non-existent itinerary_route_destination_city
+        date: route.itinerary_route_date,
+        day: index + 1, // Changed from non-existent itinerary_route_order
+        hotels: hotelsWithRooms,
+      };
+    }));
+
+    // Flatten all hotels from all routes for the frontend hotels array
+    const allHotels = routesWithHotels.flatMap(route => route.hotels);
+
+    // Calculate start and end dates
+    const startDate = originalPlan.trip_start_date_and_time;
+    const endDate = originalPlan.trip_end_date_and_time;
+    const nightsCount = routesWithHotels.length;
+
+    return {
+      id: confirmedPlanId.toString(),
+      quoteId: originalPlan.itinerary_quote_ID.toString(),
+      agent: '', // TODO: Get from booking data
+      primaryCustomer: '', // TODO: Get from customer data
+      arrivalLocation: routesWithHotels[0]?.destination || '',
+      departureLocation: routesWithHotels[routesWithHotels.length - 1]?.destination || '',
+      startDate: startDate,
+      endDate: endDate,
+      nights: nightsCount,
+      days: nightsCount + 1,
+      adults: 2, // TODO: Get from itinerary details
+      children: 0, // TODO: Get from itinerary details
+      infants: 0, // TODO: Get from itinerary details
+      guide: false, // TODO: Get from itinerary details
+      entryTicket: false, // TODO: Get from itinerary details
+      rooms: 1, // TODO: Get from itinerary details
+      hotels: allHotels,
+      totalCost: 0, // Calculate from confirmed bookings
+      createdDate: new Date().toISOString().split('T')[0],
+      status: 'confirmed' as const,
+      // Also include the detailed structure for reference
+      routes_with_hotels: routesWithHotels,
+      plan: {
+        itinerary_plan_ID: originalPlan.itinerary_plan_ID,
+        confirmed_itinerary_plan_ID: confirmedPlanId,
+        booking_id: originalPlan.itinerary_quote_ID,
+        plan_name: `Itinerary ${originalPlan.itinerary_plan_ID}`,
+        start_date: originalPlan.trip_start_date_and_time,
+        end_date: originalPlan.trip_end_date_and_time,
+        total_cost: 0, // Calculate from confirmed bookings
+      },
+    };
+  }
+
+  /**
+   * Map hotel group type to category name
+   */
+  private mapHotelGroupTypeToCategory(groupType: number): string {
+    const categoryMap = {
+      1: 'Budget',
+      2: 'Mid-Range',
+      3: 'Premium',
+      4: 'Luxury',
+    };
+    return categoryMap[groupType] || 'Budget';
+  }
+
+  /**
+   * Map hotel category (from dvi_hotel.hotel_category) to star rating
+   * The hotel_category field is an integer, typically 1-5 or similar
+   */
+  private mapHotelCategoryToStars(category: number): number {
+    // Map category ID to star rating
+    // Assuming: 1=1star, 2=2star, 3=3star, 4=4star, 5=5star
+    return Math.min(Math.max(category, 1), 5); // Clamp between 1-5
+  }
+
+  /**
+   * Map hotel category to friendly name
+   */
+  private mapHotelCategoryToName(category: number): string {
+    const categoryNames = {
+      1: '1-Star',
+      2: '2-Star',
+      3: '3-Star',
+      4: '4-Star',
+      5: '5-Star',
+    };
+    return categoryNames[category] || 'Standard';
   }
 }
