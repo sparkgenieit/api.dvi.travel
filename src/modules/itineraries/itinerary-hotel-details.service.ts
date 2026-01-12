@@ -1,6 +1,6 @@
 // FILE: src/itineraries/itinerary-hotel-details.service.ts
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { dvi_itinerary_plan_details, Prisma } from '@prisma/client';
 
@@ -22,6 +22,9 @@ export interface ItineraryHotelRowDto {
   mealPlan: string;
   totalHotelCost: number;
   totalHotelTaxAmount: number;
+  // TBO Booking Code - for API interactions
+  searchReference?: string;
+  bookingCode?: string;
 }
 
 export interface ItineraryHotelDetailsResponseDto {
@@ -78,6 +81,8 @@ export interface ItineraryHotelRoomDetailsResponseDto {
 
 @Injectable()
 export class ItineraryHotelDetailsService {
+  private readonly logger = new Logger(ItineraryHotelDetailsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -86,15 +91,26 @@ export class ItineraryHotelDetailsService {
   async getHotelDetailsByQuoteId(
     quoteId: string,
   ): Promise<ItineraryHotelDetailsResponseDto> {
+    const startTime = Date.now();
+    this.logger.log(`\n🔍 HOTEL DETAILS SERVICE: Looking up quote ID: ${quoteId}`);
+
     const plan = await this.prisma.dvi_itinerary_plan_details.findFirst({
       where: { itinerary_quote_ID: quoteId, deleted: 0 },
     });
 
     if (!plan) {
+      this.logger.warn(`⚠️  Quote ID not found: ${quoteId}`);
       throw new NotFoundException('Itinerary not found');
     }
 
-    return this.getHotelDetailsForPlan(plan);
+    this.logger.log(`✅ Found itinerary plan - ID: ${plan.itinerary_plan_ID}, Quote: ${plan.itinerary_quote_ID}`);
+    
+    const result = await this.getHotelDetailsForPlan(plan);
+    
+    this.logger.log(`📊 Hotel details retrieved - Tabs: ${result.hotelTabs?.length || 0}, Rows: ${result.hotels?.length || 0}`);
+    this.logger.log(`⏱️  Service Processing Time: ${Date.now() - startTime}ms`);
+
+    return result;
   }
 
   /**
@@ -142,8 +158,8 @@ export class ItineraryHotelDetailsService {
 
  /**
  * NEW: Public endpoint-style method for /itineraries/hotel_room_details/:quoteId
- * Rough equivalent of PHP structured_hotel_room_details[] construction,
- * but ENRICHED with hotel & room-type labels for React cards.
+ * ENHANCED: Returns room details from TBO API hotels with proper pricing
+ * Shows multiple hotel options per category (Budget, Mid-Range, Premium, Luxury)
  */
 async getHotelRoomDetailsByQuoteId(
   quoteId: string,
@@ -158,13 +174,16 @@ async getHotelRoomDetailsByQuoteId(
 
   const planId = plan.itinerary_plan_ID;
 
-  // 1) Raw room rows
-  const roomRowsRaw =
-    await this.prisma.dvi_itinerary_plan_hotel_room_details.findMany({
-      where: { itinerary_plan_id: planId, deleted: 0 },
-    });
-
-  if (!roomRowsRaw.length) {
+  // 1) Get hotels from dvi_itinerary_plan_hotel_details (these are from TBO API)
+  const hotelRowsRaw = await this.prisma.dvi_itinerary_plan_hotel_details.findMany({
+    where: { itinerary_plan_id: planId, deleted: 0 },
+    orderBy: [
+      { group_type: 'asc' },
+      { itinerary_route_id: 'asc' },
+    ],
+  });
+  
+  if (!hotelRowsRaw || hotelRowsRaw.length === 0) {
     return {
       quoteId: plan.itinerary_quote_ID ?? '',
       planId,
@@ -172,140 +191,109 @@ async getHotelRoomDetailsByQuoteId(
     };
   }
 
-  // 2) Collect hotel_ids and room_type_ids to enrich labels
+  // 2) Get routes for mapping
+  const routes = await this.prisma.dvi_itinerary_route_details.findMany({
+    where: { itinerary_plan_ID: planId, deleted: 0 },
+  });
+
+  const routeMap = new Map<number, any>(
+    routes.map((r: any) => [Number(r.itinerary_route_ID), r]),
+  );
+
+  // 3) Get hotel master data to map hotel_id -> hotel_name
   const hotelIds = Array.from(
     new Set(
-      roomRowsRaw
-        .map((r: any) => Number(r.hotel_id ?? 0))
-        .filter((id) => id > 0),
+      hotelRowsRaw
+        .map((h) => (h as any).hotel_id as number | null)
+        .filter((id): id is number => typeof id === 'number' && id > 0),
     ),
   );
 
-  const roomTypeIds = Array.from(
-    new Set(
-      roomRowsRaw
-        .map((r: any) => Number(r.room_type_id ?? 0))
-        .filter((id) => id > 0),
-    ),
-  );
-
-  const hotels = hotelIds.length
+  const hotelMasters = hotelIds.length
     ? await this.prisma.dvi_hotel.findMany({
         where: { hotel_id: { in: hotelIds }, deleted: false },
       })
     : [];
 
-  const roomTypes = roomTypeIds.length
-    ? await this.prisma.dvi_hotel_roomtype.findMany({
-        where: { room_type_id: { in: roomTypeIds } },
-      })
-    : [];
-
-  const hotelMap = new Map<number, any>(
-    hotels.map((h: any) => [Number(h.hotel_id), h]),
+  const hotelMap = new Map(
+    hotelMasters.map((h) => [Number((h as any).hotel_id), h]),
   );
 
-  const roomTypeMap = new Map<number, any>(
-    roomTypes.map((rt: any) => [Number(rt.room_type_id), rt]),
-  );
+  // 4) Build room details from hotel rows - RETURN UNIQUE HOTELS ONLY
+  // Group by hotel_id and route_id to avoid duplicates per room type
+  const roomDetailsList: ItineraryHotelRoomDto[] = [];
+  let roomDetailsId = 1;
 
-  // 3) Get route dates for each room to fetch available room types
-  const routeIds = Array.from(
-    new Set(
-      roomRowsRaw
-        .map((r: any) => Number(r.itinerary_route_id ?? 0))
-        .filter((id) => id > 0),
-    ),
-  );
+  // Create a map to track unique hotels per route
+  const hotelsByRoute = new Map<string, any[]>();
 
-  const routes = routeIds.length
-    ? await this.prisma.dvi_itinerary_route_details.findMany({
-        where: { itinerary_route_ID: { in: routeIds }, deleted: 0 },
-      })
-    : [];
+  hotelRowsRaw.forEach((hotelRow: any) => {
+    const routeId = Number(hotelRow.itinerary_route_id ?? 0);
+    const groupType = Number(hotelRow.group_type ?? 0);
+    const hotelId = Number(hotelRow.hotel_id ?? 0);
+    const key = `${routeId}-${groupType}`;
 
-  const routeDateMap = new Map<number, Date>(
-    routes.map((r: any) => [
-      Number(r.itinerary_route_ID),
-      r.itinerary_route_date,
-    ]),
-  );
+    if (!hotelsByRoute.has(key)) {
+      hotelsByRoute.set(key, []);
+    }
+    hotelsByRoute.get(key)!.push(hotelRow);
+  });
 
-  // 4) Map to DTO with available room types
-  const rooms: ItineraryHotelRoomDto[] = await Promise.all(
-    roomRowsRaw.map(async (row: any) => {
-      const itineraryPlanId = Number(row.itinerary_plan_id ?? planId ?? 0);
-      const itineraryRouteId = Number(row.itinerary_route_id ?? 0);
-      const itineraryPlanHotelRoomDetailsId = Number(
-        row.itinerary_plan_hotel_room_details_ID ?? row.id ?? 0,
-      );
-
+  // For each route/category group, create room entries for ALL unique hotels
+  hotelsByRoute.forEach((hotelRowsForGroup, _key) => {
+    // Get unique hotel IDs within this route/category group
+    const uniqueHotels = new Map<number, any>();
+    hotelRowsForGroup.forEach(row => {
       const hotelId = Number(row.hotel_id ?? 0);
-      const roomTypeId = Number(row.room_type_id ?? 0);
-      const roomId = Number(row.room_id ?? 0);
+      if (!uniqueHotels.has(hotelId)) {
+        uniqueHotels.set(hotelId, row);
+      }
+    });
 
-      const hotel = hotelMap.get(hotelId) || null;
-      const roomType = roomTypeMap.get(roomTypeId) || null;
-
-      const hotelName = hotel ? (hotel.hotel_name as string) ?? '' : '';
-      const hotelCategory = hotel
-        ? Number(hotel.hotel_category ?? hotel.hotel_star ?? 0) || null
-        : null;
-
-      const roomTypeName = roomType
-        ? (roomType.room_type_title as string) ?? ''
-        : '';
-
-      const pricePerNight = Number(
-        row.total_price ?? row.price_per_night ?? row.room_price ?? 0,
-      );
-
-      const gstType: string | null =
-        (row.gst_type as string | undefined) ?? null;
-      const gstPercentage = Number(row.gst_percentage ?? 0);
-
-      const totalExtraBed = Number(row.total_extra_bed ?? 0);
-      const totalChildWithBed = Number(row.total_child_with_bed ?? 0);
-      const totalChildWithoutBed = Number(row.total_child_without_bed ?? 0);
-
-      const extraBedCharge = Number(row.extra_bed_charge ?? 0);
-      const childWithBedCharge = Number(row.child_with_bed_charge ?? 0);
-      const childWithoutBedCharge = Number(row.child_without_bed_charge ?? 0);
-
-      // Get available room types for this hotel based on route date
-      const routeDate = routeDateMap.get(itineraryRouteId);
-      const availableRoomTypes = routeDate
-        ? await this.getAvailableRoomTypesForHotel(hotelId, routeDate)
-        : [];
-
-      return {
-        itineraryPlanId,
-        itineraryRouteId,
-        itineraryPlanHotelRoomDetailsId,
+    // Create ONE room entry per UNIQUE hotel in this route/category
+    uniqueHotels.forEach((hotelRow, hotelId) => {
+      const routeId = Number(hotelRow.itinerary_route_id ?? 0);
+      const groupType = Number(hotelRow.group_type ?? 0);
+      
+      // Get hotel master data for actual hotel name
+      const hotelMaster = hotelMap.get(hotelId) || null;
+      const hotelName = hotelMaster ? ((hotelMaster as any).hotel_name ?? 'Hotel') : 'Hotel';
+      const hotelCategory = hotelMaster ? Number((hotelMaster as any).hotel_category ?? 2) : 2;
+      
+      // Create 1 room entry per unique hotel per category
+      roomDetailsList.push({
+        itineraryPlanId: planId,
+        itineraryRouteId: routeId,
+        itineraryPlanHotelRoomDetailsId: roomDetailsId++,
         hotelId,
         hotelName,
         hotelCategory,
-        roomTypeId,
-        roomTypeName,
-        roomId,
-        availableRoomTypes,
-        pricePerNight,
-        gstType,
-        gstPercentage,
-        totalExtraBed,
-        totalChildWithBed,
-        totalChildWithoutBed,
-        extraBedCharge,
-        childWithBedCharge,
-        childWithoutBedCharge,
-      };
-    }),
-  );
+        roomTypeId: groupType,
+        roomTypeName: `${['Budget', 'Mid-Range', 'Premium', 'Luxury'][groupType - 1]} Room`,
+        roomId: hotelId,
+        availableRoomTypes: [
+          {
+            roomTypeId: groupType,
+            roomTypeTitle: `${['Budget', 'Mid-Range', 'Premium', 'Luxury'][groupType - 1]} Room`,
+          },
+        ],
+        pricePerNight: Number(hotelRow.total_hotel_cost ?? 0),
+        gstType: '1',
+        gstPercentage: 0,
+        totalExtraBed: 0,
+        totalChildWithBed: 0,
+        totalChildWithoutBed: 0,
+        extraBedCharge: 0,
+        childWithBedCharge: 0,
+        childWithoutBedCharge: 0,
+      });
+    });
+  });
 
   return {
     quoteId: plan.itinerary_quote_ID ?? '',
     planId,
-    rooms,
+    rooms: roomDetailsList,
   };
 }
 
@@ -330,13 +318,30 @@ async getHotelRoomDetailsByQuoteId(
         orderBy: [
           { group_type: 'asc' as const },
           { itinerary_route_date: 'asc' as const },
+          { updatedon: 'desc' as const }, // ✅ Order by updatedon to get latest first
         ],
       });
+
+    // ✅ Deduplicate: Keep only the LATEST hotel per (route, groupType)
+    const hotelsByRouteAndGroup = new Map<string, any>();
+    hotelRowsRaw.forEach((h: any) => {
+      const key = `${h.itinerary_route_id}-${h.group_type}`;
+      const existing = hotelsByRouteAndGroup.get(key);
+      
+      // Keep this one if: (1) No existing, (2) This has updatedon and existing doesn't, (3) This is newer
+      if (!existing || 
+          (!existing.updatedon && h.updatedon) ||
+          (h.updatedon && existing.updatedon && new Date(h.updatedon) > new Date(existing.updatedon))) {
+        hotelsByRouteAndGroup.set(key, h);
+      }
+    });
+    
+    const hotelRowsDeduped = Array.from(hotelsByRouteAndGroup.values());
 
     // 3) Distinct hotels for name/category
     const hotelIds = Array.from(
       new Set(
-        hotelRowsRaw
+        hotelRowsDeduped
           .map((h) => (h as any).hotel_id as number | null)
           .filter((id): id is number => typeof id === 'number' && id > 0),
       ),
@@ -381,7 +386,7 @@ async getHotelRoomDetailsByQuoteId(
       .sort((a, b) => a.groupType - b.groupType);
 
     // 5) Per-row hotel list (with group_type & per-row cost)
-    const hotels: ItineraryHotelRowDto[] = hotelRowsRaw.map((h, idx) => {
+    const hotels: ItineraryHotelRowDto[] = hotelRowsDeduped.map((h, idx) => {
       const master = hotelMap.get(Number((h as any).hotel_id)) || null;
       const dateLabel = h.itinerary_route_date
         ? h.itinerary_route_date.toISOString().slice(0, 10)

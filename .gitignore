@@ -3,5 +3,6 @@ dist/
 .env
 front_end/
 legacy_php/
+dvi_project_api/
 src/stable-dvi_backend.zip
 tmp/

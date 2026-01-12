@@ -1,0 +1,47 @@
+meta {
+  name: 03 - PreBook Hotel
+  type: http
+  seq: 3
+}
+
+post {
+  url: https://affiliate.tektravels.com/HotelAPI/Prebook
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  Accept: application/json
+}
+
+body:json {
+  {
+    "HotelCode": "21345",
+    "RoomId": "123456",
+    "CheckIn": "2026-02-15",
+    "CheckOut": "2026-02-16",
+    "CityCode": "1",
+    "GuestNationality": "IN",
+    "PaxRooms": [
+      {
+        "Adults": 2,
+        "Children": 0,
+        "ChildrenAges": []
+      }
+    ],
+    "BookingCode": "booking_code_from_search",
+    "ResponseTime": 23.0
+  }
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Has PreBookId", function() {
+    const body = res.getBody();
+    expect(body.PreBookId).to.exist;
+  });
+}

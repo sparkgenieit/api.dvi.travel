@@ -1,0 +1,60 @@
+meta {
+  name: 09d - TBO Authenticate (SOAP/REST)
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://api.tbotechnology.in/TBOHolidays_HotelAPI/Authenticate
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "ClientId": "ApiIntegrationNew",
+    "UserName": "Doview",
+    "Password": "Doview@12345",
+    "EndUserIp": "192.168.1.1"
+  }
+}
+
+docs {
+  ## TBO Authenticate - Get TokenId (SOAP/REST)
+  
+  ### Endpoint:
+  POST https://affiliate.tektravels.com/SharedData.svc/rest/Authenticate
+  
+  ### Authentication:
+  Basic Auth: Doview:Doview@12345
+  
+  ### Request Body:
+  {
+    "ClientId": "ApiIntegrationNew",
+    "UserName": "Doview",
+    "Password": "Doview@12345",
+    "EndUserIp": "192.168.1.1"
+  }
+  
+  ### Service Method:
+  `authenticate()` in tbo-hotel.provider.ts
+  
+  ### Response:
+  {
+    "Status": 1,
+    "TokenId": "xxxxxx",
+    "Error": null
+  }
+  
+  ### Purpose:
+  Get TokenId for authenticated API calls to TBO
+  Token is cached and valid for 24 hours
+  
+  ### Usage:
+  1. Call this endpoint first
+  2. Copy the TokenId from response
+  3. Use TokenId in subsequent GetCities/GetHotels calls
+}

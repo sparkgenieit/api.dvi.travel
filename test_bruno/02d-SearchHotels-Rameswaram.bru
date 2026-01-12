@@ -1,0 +1,44 @@
+meta {
+  name: 02d - Search Hotels - Rameswaram
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://affiliate.tektravels.com/HotelAPI/Search
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  Accept: application/json
+}
+
+body:json {
+  {
+    "CheckIn": "2026-03-29",
+    "CheckOut": "2026-03-30",
+    "CityCode": "133179",
+    "GuestNationality": "IN",
+    "PaxRooms": [
+      {
+        "Adults": 2,
+        "Children": 0
+      }
+    ],
+    "IsDetailedResponse": true
+  }
+}
+
+docs {
+  ## Route 4: Rameswaram
+  
+  - **Quote**: DVI2026011
+  - **Route**: 4
+  - **Destination**: Rameswaram
+  - **Date**: 2026-03-29
+  - **TBO City Code**: 133179
+  
+  Note: Route 5 (Madurai Airport on 2026-03-30) is SKIPPED because it's the departure day.
+}

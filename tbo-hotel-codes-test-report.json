@@ -1,0 +1,171 @@
+{
+  "timestamp": "2026-01-08T14:50:13.868Z",
+  "summary": {
+    "totalTested": 20,
+    "validCodes": 0,
+    "invalidCodes": 20,
+    "validPercentage": "0.0"
+  },
+  "results": [
+    {
+      "city": "Mahabalipuram",
+      "hotelCode": 1050100,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Mahabalipuram",
+      "hotelCode": 1050101,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Mahabalipuram",
+      "hotelCode": 1050102,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Mahabalipuram",
+      "hotelCode": 1050103,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Mahabalipuram",
+      "hotelCode": 1050104,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Thanjavur",
+      "hotelCode": 1050110,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Thanjavur",
+      "hotelCode": 1050111,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Thanjavur",
+      "hotelCode": 1050112,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Thanjavur",
+      "hotelCode": 1050113,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Thanjavur",
+      "hotelCode": 1050114,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Madurai",
+      "hotelCode": 1050120,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Madurai",
+      "hotelCode": 1050121,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Madurai",
+      "hotelCode": 1050122,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Madurai",
+      "hotelCode": 1050123,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Madurai",
+      "hotelCode": 1050124,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Rameswaram",
+      "hotelCode": 1050130,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Rameswaram",
+      "hotelCode": 1050131,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Rameswaram",
+      "hotelCode": 1050132,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Rameswaram",
+      "hotelCode": 1050133,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    },
+    {
+      "city": "Rameswaram",
+      "hotelCode": 1050134,
+      "status": "ERROR_500",
+      "details": {
+        "message": "Not able to fetch Hotel details"
+      }
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+meta {
+  name: 00 - Complete Backend Flow (End-to-End)
+  type: http
+  seq: 1
+}
+
+docs {
+  # Complete Backend Flow - Mirrors How Your API Works
+  
+  This request sequence shows the EXACT flow your backend performs:
+  
+  ## Step 1: Call Your Local Backend Endpoint
+  - Endpoint: GET /api/v1/itineraries/hotel_details/DVI2026011
+  - Backend queries database and builds TBO API payloads
+  - Returns 4 price-tier hotel packages
+  
+  ## Step 2: Extract Real Data from Response
+  - Extract quoteId, planId, routes, destinations
+  - Extract TBO city codes
+  - Extract check-in/check-out dates
+  
+  ## Step 3: Make TBO API Calls (Using Extracted Data)
+  - Call TBO Search for Route 1 (Mahabalipuram)
+  - Call TBO Search for Route 2 (Thanjavur)
+  - Call TBO Search for Route 3 (Madurai)
+  - Call TBO Search for Route 4 (Rameswaram)
+  
+  ## Step 4: Validate Results
+  - Compare TBO responses with backend response
+  - Verify hotel data matches
+  - Verify pricing is correct
+}
+
+get {
+  url: http://localhost:4006/api/v1/itineraries/hotel_details/DVI2026011
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Backend returns 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Extract backend response data", function() {
+    const body = res.getBody();
+    
+    // Store for next requests
+    bru.setVar('quoteId', body.quoteId);
+    bru.setVar('planId', body.planId);
+    bru.setVar('totalHotels', body.hotels.length);
+    bru.setVar('totalPackages', body.hotelTabs.length);
+    
+    console.log(`\n✅ Backend Response Data:`);
+    console.log(`   Quote ID: ${body.quoteId}`);
+    console.log(`   Plan ID: ${body.planId}`);
+    console.log(`   Total Hotels: ${body.hotels.length}`);
+    console.log(`   Total Packages: ${body.hotelTabs.length}`);
+    console.log(`   Hotel Tabs: ${body.hotelTabs.map(t => t.label).join(', ')}`);
+    
+    expect(body.quoteId).to.equal('DVI2026011');
+    expect(body.hotelTabs.length).to.equal(4);
+  });
+}
+
+script:post-response {
+  const body = res.getBody();
+  
+  // Extract routes from hotels
+  const routes = {};
+  body.hotels.forEach(hotel => {
+    if (!routes[hotel.itineraryRouteId]) {
+      routes[hotel.itineraryRouteId] = {
+        day: hotel.day,
+        destination: hotel.destination,
+        checkIn: hotel.day.split('|')[1].trim()
+      };
+    }
+  });
+  
+  console.log(`\n📅 Routes Found:`);
+  Object.entries(routes).forEach(([routeId, route]) => {
+    console.log(`   Route ${routeId}: ${route.destination} (${route.checkIn})`);
+  });
+}

@@ -1,0 +1,70 @@
+meta {
+  name: 09 - TBO SOAP/REST APIs - Master Data Sync
+  type: http
+  seq: 9
+}
+
+docs {
+  ## TBO SOAP/REST Master Data Sync APIs
+  
+  These are the actual SOAP/REST API calls that the sync service uses internally.
+  
+  ### Service Files:
+  - tbo-soap-sync.service.ts - Calls these SOAP APIs
+  - tbo-hotel.provider.ts - Uses GetHotels for fallback
+  
+  ### SOAP/REST Endpoints:
+  Base URL: https://affiliate.tektravels.com/SharedData.svc/rest/
+  
+  ### Complete Sync Flow:
+  
+  1. **Authenticate** (09d)
+     - POST Authenticate
+     - Get TokenId (valid 24 hours)
+  
+  2. **Get Countries** (09a)
+     - GET CountryList
+     - Gets all countries
+  
+  3. **Get Cities for Country** (09b)
+     - POST GetCountryCities with CountryCode="IN"
+     - Gets all cities with TBO codes for India
+     - Response: [{ CityCode: "418069", CityName: "Delhi" }, ...]
+  
+  4. **Get Hotels for Each City** (09c)
+     - POST GetHotels with CityCode
+     - Gets all hotels in that city
+     - Response: [{ HotelCode: "1035259", HotelName: "...", ... }, ...]
+  
+  ### Database Tables Populated:
+  1. dvi_countries - From CountryList
+  2. dvi_cities - From GetCountryCities (with TBO codes)
+  3. dvi_hotel - From GetHotels (hotel details)
+  4. tbo_hotel_master - Hotel codes for quick lookup
+  
+  ### Implementation Status:
+  - ✅ Authenticate method implemented
+  - ❌ CountryList not used (hardcoded)
+  - ❌ GetCountryCities not used (hardcoded city mappings)
+  - ⚠️  GetHotels used as fallback (currently using hardcoded codes)
+  
+  ### Current Approach:
+  Uses FALLBACK_HOTELS hardcoded mappings in tbo-soap-sync.service.ts:
+  ```typescript
+  private readonly FALLBACK_HOTELS: { [key: string]: string[] } = {
+    '127343': ['1035259', '1035258', '1035260', ...], // Chennai
+    '126117': ['1050100', '1050101', '1050102', ...], // Mahabalipuram
+  };
+  ```
+  
+  ### To Enable Real SOAP Calls:
+  1. Modify syncCities() to call GetCountryCities
+  2. Modify syncHotelsForCity() to call GetHotels
+  3. Parse responses and insert into database
+  
+  ### Test Order:
+  1. Run 09d (Authenticate) - Get TokenId
+  2. Run 09a (GetCountries) - See all countries
+  3. Run 09b (GetCountryCities) - Get cities for India
+  4. Run 09c (GetHotels) - Get hotels for specific city
+}

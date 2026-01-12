@@ -1,0 +1,47 @@
+meta {
+  name: 05 - DVI Local Endpoint
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:4006/api/v1/itineraries/hotel_details/DVI2026011
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Has hotel packages", function() {
+    const body = res.getBody();
+    expect(body.hotelTabs).to.exist;
+    expect(body.hotels).to.exist;
+  });
+  
+  test("Has 4 price tiers", function() {
+    const body = res.getBody();
+    expect(body.hotelTabs.length).to.equal(4);
+  });
+}
+
+docs {
+  ## DVI Hotel Details Endpoint
+  
+  This endpoint fetches dynamic hotel packages from TBO API.
+  
+  ### Response
+  - **hotelTabs**: Array of 4 price-tier packages (Budget, Mid-Range, Premium, Luxury)
+  - **hotels**: Detailed hotel rows for each package
+  - **totalRoomCount**: Total number of hotel entries
+  
+  ### Price Tiers
+  1. Budget Hotels - Lowest price
+  2. Mid-Range Hotels
+  3. Premium Hotels
+  4. Luxury Hotels - Highest price
+}

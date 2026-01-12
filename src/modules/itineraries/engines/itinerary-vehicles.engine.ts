@@ -63,10 +63,12 @@ async function getPhpTotalVehicleQty(tx: any, whereBase: any): Promise<number> {
     }),
   ]);
 
-  console.log(
-    "[vehiclesEngine] PHP_QTY_AGG",
-    JSON.stringify({ whereBase, sumAgg, zeroCount }),
-  );
+  if (ENABLE_LOG) {
+    console.log(
+      "[vehiclesEngine] PHP_QTY_AGG",
+      JSON.stringify({ whereBase, sumAgg, zeroCount }),
+    );
+  }
 
   const sumVal = Number(sumAgg?._sum?.total_vehicle_qty ?? 0);
   return sumVal + Number(zeroCount ?? 0);

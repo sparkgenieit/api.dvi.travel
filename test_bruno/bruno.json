@@ -1,0 +1,10 @@
+{
+  "name": "TBO Hotel API - Full Collection",
+  "type": "http",
+  "seq": 1,
+  "variables": {
+    "tbo_token_id": "",
+    "token_expiry": "",
+    "base_url": "https://affiliate.tektravels.com/HotelAPI"
+  }
+}

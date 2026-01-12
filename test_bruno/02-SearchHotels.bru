@@ -1,0 +1,73 @@
+meta {
+  name: 02 - Search Hotels
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://affiliate.tektravels.com/HotelAPI/Search
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  Accept: application/json
+}
+
+body:json {
+  {
+    "CheckIn": "2026-03-26",
+    "CheckOut": "2026-03-27",
+    "CityCode": "126117",
+    "GuestNationality": "IN",
+    "PaxRooms": [
+      {
+        "Adults": 2,
+        "Children": 0
+      }
+    ],
+    "IsDetailedResponse": true
+  }
+}
+
+docs {
+  ## TBO Search Hotels API - Real Backend Payload
+  
+  This payload is exactly what the backend sends for quote DVI2026011, Route 1.
+  
+  ### Source Data:
+  - **Quote**: DVI2026011
+  - **Route 1 Date**: 2026-03-26
+  - **Destination**: Mahabalipuram
+  - **TBO City Code**: 126117
+  
+  ### Database Queries Used:
+  1. Query dvi_itinerary_plan_details WHERE itinerary_quote_ID = 'DVI2026011'
+     - Result: planId = 3, noOfNights = 4
+  
+  2. Query dvi_itinerary_route_details WHERE itinerary_plan_ID = 3
+     - Route 1: Mahabalipuram (2026-03-26)
+     - Route 2: Thanjavur (2026-03-27)
+     - Route 3: Madurai (2026-03-28)
+     - Route 4: Rameswaram (2026-03-29)
+     - Route 5: Madurai Airport (2026-03-30) - SKIPPED (departure day)
+  
+  3. Query dvi_cities WHERE name = 'Mahabalipuram'
+     - Result: tbo_city_code = 126117
+  
+  ### Payload Explanation:
+  - **CheckIn**: Route date (2026-03-26)
+  - **CheckOut**: Route date + 1 day (2026-03-27)
+  - **CityCode**: TBO city code from dvi_cities (126117)
+  - **Adults**: 2 (standard for hotel searches)
+  - **Refundable**: true (only refundable hotels)
+  - **MealType**: WithMeal (with meal plans)
+  
+  ### Note:
+  The backend makes THIS SAME CALL 4 times (once per route, skipping departure day):
+  1. Mahabalipuram: CityCode 126117
+  2. Thanjavur: CityCode 139605
+  3. Madurai: CityCode 127067
+  4. Rameswaram: CityCode 133179
+}

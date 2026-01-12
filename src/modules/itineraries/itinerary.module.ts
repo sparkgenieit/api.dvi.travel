@@ -6,11 +6,12 @@ import { ItinerariesController } from './itineraries.controller';
 import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
+import { ItineraryHotelDetailsTboService } from './itinerary-hotel-details-tbo.service';
 import { ItineraryExportService } from './itinerary-export.service';
+import { TboHotelBookingService } from './services/tbo-hotel-booking.service';
 import { HotelEngineService } from './engines/hotel-engine.service';
 import { HotelPricingService } from './hotels/hotel-pricing.service';
 
-import { PrismaService } from '../../prisma.service';
 import { ItineraryHotspotsEngine } from './engines/itinerary-hotspots.engine';
 import { ItineraryVehiclesEngine } from './engines/itinerary-vehicles.engine';
 
@@ -22,16 +23,21 @@ import { TravellersEngineService } from './engines/travellers-engine.service';
 import { VehiclesEngineService } from './engines/vehicles-engine.service';
 import { ViaRoutesEngine } from './engines/via-routes.engine';
 import { RouteValidationService } from './validation/route-validation.service';
+import { RouteSuggestionsService } from './route-suggestions.service';
+import { RouteSuggestionsV2Service } from './route-suggestions-v2.service';
+import { HotelsModule } from '../hotels/hotels.module';
 
 @Module({
+  imports: [HotelsModule],
   controllers: [ItinerariesController],
   providers: [
     // core services
     ItinerariesService,
     ItineraryDetailsService,
     ItineraryHotelDetailsService,
+    ItineraryHotelDetailsTboService,
     ItineraryExportService,
-    PrismaService,
+    TboHotelBookingService,
 
     // existing engines you already had
     HotelEngineService,
@@ -47,6 +53,8 @@ import { RouteValidationService } from './validation/route-validation.service';
     VehiclesEngineService,
     ViaRoutesEngine,
     RouteValidationService,
+    RouteSuggestionsService,
+    RouteSuggestionsV2Service,
   ],
 })
 export class ItinerariesModule {}

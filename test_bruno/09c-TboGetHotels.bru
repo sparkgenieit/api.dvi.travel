@@ -1,0 +1,83 @@
+meta {
+  name: 09c - TBO GetHotels for City (SOAP/REST)
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://api.tbotechnology.in/TBOHolidays_HotelAPI/TBOHotelCodeList
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "CityCode": "127343",
+    "IsDetailedResponse": "true"
+  }
+}
+
+docs {
+  ## TBO GetHotels for City - SOAP/REST Master API
+  
+  ### Endpoint:
+  POST https://affiliate.tektravels.com/SharedData.svc/rest/GetHotels
+  
+  ### Authentication:
+  Basic Auth: Doview:Doview@12345
+  
+  ### Request Body:
+  {
+    "CityCode": "127343",
+    "TokenId": "",
+    "StarRating": 0
+  }
+  
+  ### Path Parameters:
+  - **CityCode**: TBO city code (e.g., "127343" for Chennai)
+  - **TokenId**: Authentication token (can be empty for public data)
+  - **StarRating**: 0 = all ratings, 1-5 for specific star
+  
+  ### Service Method:
+  `fetchHotelsFromTBOApi(tboCityCode)` in tbo-hotel.provider.ts
+  Also: `syncHotelsForCity(tboCityCode)` in tbo-soap-sync.service.ts
+  
+  ### Response Example:
+  {
+    "Status": 1,
+    "Hotels": [
+      {
+        "HotelCode": "1035259",
+        "HotelName": "Hotel Name",
+        "CountryName": "India",
+        "CountryCode": "IN",
+        "CityName": "Chennai",
+        "Address": "...",
+        "HotelRating": "FourStar",
+        "PhoneNumber": "...",
+        "HotelWebsiteUrl": "...",
+        "Description": "...",
+        "HotelFacilities": [...],
+        "Map": "13.1939|-79.8711"
+      },
+      ...
+    ]
+  }
+  
+  ### Purpose:
+  Fetch all hotel master data for a city from TBO
+  Used to populate tbo_hotel_master table
+  
+  ### Sample City Codes:
+  - 127343 = Chennai
+  - 126117 = Mahabalipuram
+  - 139605 = Thanjavur
+  - 127067 = Madurai
+  - 133179 = Rameswaram
+  - 418069 = Delhi
+  - 144306 = Mumbai
+  - 111124 = Bangalore
+}

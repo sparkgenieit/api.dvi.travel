@@ -214,6 +214,97 @@ export class HotelPricingService {
   }
 
   /**
+   * Get MULTIPLE hotels by category (for user selection)
+   * - Filters by category
+   * - Returns all hotels matching the city (or state fallback)
+   * - Sorted by lowest price first
+   * - Max 10 results
+   */
+  async getHotelsByCategory(hotel_category: number, city?: string | null, onDate?: Date, limit: number = 10) {
+    const hotelCategory = Number(hotel_category) || 0;
+    const cityTrim = (city ?? "").trim();
+    const whereBase: any = { hotel_category: hotelCategory, deleted: false, status: 1 };
+
+    let targetStateId: string | null = null;
+    let allHotels: any[] = [];
+
+    if (cityTrim) {
+      // 1. Try to resolve city name to ID
+      const { candidates, stateId } = await this.resolveCityCandidates(cityTrim);
+      targetStateId = stateId;
+
+      for (const c of candidates) {
+        const hotels = await this.prisma.dvi_hotel.findMany({
+          where: { ...whereBase, hotel_city: c },
+          select: {
+            hotel_id: true,
+            hotel_name: true,
+            hotel_margin: true,
+            hotel_margin_gst_type: true,
+            hotel_margin_gst_percentage: true,
+            hotel_hotspot_status: true,
+            hotel_city: true,
+            hotel_state: true,
+          },
+        });
+
+        if (hotels.length > 0) {
+          allHotels = allHotels.concat(hotels);
+        }
+      }
+    }
+
+    // 2. If no city match, try state fallback
+    if (allHotels.length === 0 && targetStateId) {
+      const stateHotels = await this.prisma.dvi_hotel.findMany({
+        where: { ...whereBase, hotel_state: targetStateId },
+        select: {
+          hotel_id: true,
+          hotel_name: true,
+          hotel_margin: true,
+          hotel_margin_gst_type: true,
+          hotel_margin_gst_percentage: true,
+          hotel_hotspot_status: true,
+          hotel_city: true,
+          hotel_state: true,
+        },
+      });
+      allHotels = stateHotels;
+    }
+
+    // 3. Final fallback: any hotel in category
+    if (allHotels.length === 0) {
+      allHotels = await this.prisma.dvi_hotel.findMany({
+        where: whereBase,
+        select: {
+          hotel_id: true,
+          hotel_name: true,
+          hotel_margin: true,
+          hotel_margin_gst_type: true,
+          hotel_margin_gst_percentage: true,
+          hotel_hotspot_status: true,
+          hotel_city: true,
+          hotel_state: true,
+        },
+      });
+    }
+
+    // Filter by valid rates if date provided
+    if (onDate && allHotels.length > 0) {
+      const validHotels = [];
+      for (const h of allHotels) {
+        const hasRates = await this.hasValidRates(h.hotel_id, onDate);
+        if (hasRates) {
+          validHotels.push(h);
+        }
+      }
+      allHotels = validHotels;
+    }
+
+    return allHotels.slice(0, limit);
+  }
+
+  /**
    * Room prices for that date from dvi_hotel_room_price_book.
    * We return ALL room rows, PHP will typically pick the first non-zero rate.
    * GST for rooms is stored elsewhere → gstPct=0, gstType=2 (exclusive) for now.

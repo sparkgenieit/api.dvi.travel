@@ -134,6 +134,7 @@ export interface ItineraryDetailsResponseDto {
   quoteId: string;
   planId: number;
   isConfirmed?: boolean;
+  confirmed_itinerary_plan_ID?: number; // ID needed for /confirmed/:id endpoint
   dateRange: string;
   roomCount: number;
   extraBed: number;
@@ -340,6 +341,18 @@ export class ItineraryDetailsService {
   // ---------------------------------------------------------------------------
   // Itinerary DETAILS (parity-ish with PHP, WITHOUT hotels)
   // ---------------------------------------------------------------------------
+  
+  /**
+   * Helper method to get planId from quoteId
+   */
+  async getPlanIdFromQuoteId(quoteId: string): Promise<number | null> {
+    const plan = await this.prisma.dvi_itinerary_plan_details.findFirst({
+      where: { itinerary_quote_ID: quoteId, deleted: 0 },
+      select: { itinerary_plan_ID: true },
+    });
+    return plan ? plan.itinerary_plan_ID : null;
+  }
+  
   async getItineraryDetails(
     quoteId: string,
     groupType?: number,
@@ -571,6 +584,13 @@ export class ItineraryDetailsService {
             if (hotelInfo?.hotel_name) {
               toName = hotelInfo.hotel_name;
             }
+          }
+
+          // Skip travel segment if from and to locations are the same
+          if (previousStopName.trim() === toName.trim()) {
+            // Still update previousStopName to maintain consistency
+            previousStopName = toName;
+            continue;
           }
 
           if (!Number.isNaN(distanceNum)) {
@@ -1444,6 +1464,7 @@ export class ItineraryDetailsService {
       quoteId: plan.itinerary_quote_ID ?? '',
       planId: plan.itinerary_plan_ID,
       isConfirmed: !!confirmedPlan,
+      confirmed_itinerary_plan_ID: confirmedPlan?.confirmed_itinerary_plan_ID,
       dateRange,
       roomCount,
       extraBed: plan.total_extra_bed ?? 0,

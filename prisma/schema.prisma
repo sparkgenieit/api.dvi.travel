@@ -542,6 +542,16 @@ model dvi_agent_subscription_plan {
 model dvi_cancelled_itineraries {
   cancelled_itinerary_ID         Int       @id @default(autoincrement())
   itinerary_plan_id              Int       @default(0)
+  cancellation_reason            String?   @db.Text
+  cancellation_reference         String?   @db.VarChar(100)
+  modify_hotspot                 Int       @default(1) @db.TinyInt
+  modify_hotel                   Int       @default(1) @db.TinyInt
+  modify_vehicle                 Int       @default(1) @db.TinyInt
+  modify_guide                   Int       @default(1) @db.TinyInt
+  modify_activity                Int       @default(1) @db.TinyInt
+  cancelled_by                   Int       @default(0)
+  cancelled_on                   DateTime? @db.DateTime(0)
+  cancellation_status            String    @default("pending") @db.VarChar(50)
   total_cancelled_service_amount Float     @default(0) @db.Float
   total_cancellation_charge      Float     @default(0) @db.Float
   total_refund_amount            Int       @default(0)
@@ -551,6 +561,9 @@ model dvi_cancelled_itineraries {
   updatedon                      DateTime? @db.DateTime(0)
   status                         Int       @default(0) @db.TinyInt
   deleted                        Int       @default(0) @db.TinyInt
+
+  @@index([cancellation_reference], map: "idx_cancellation_reference")
+  @@index([itinerary_plan_id], map: "idx_itinerary_plan_id")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -581,6 +594,21 @@ model dvi_cancelled_itinerary_details {
   updatedon                                          DateTime? @db.DateTime(0)
   status                                             Int       @default(0) @db.TinyInt
   deleted                                            Int       @default(0) @db.TinyInt
+}
+
+model dvi_cancellation_logs {
+  log_id             Int       @id @default(autoincrement())
+  cancellation_id    Int
+  itinerary_plan_id  Int
+  action_type        String    @db.VarChar(100)
+  action_details     String?   @db.Text
+  status             String    @default("success") @db.VarChar(50)
+  error_message      String?   @db.Text
+  created_by         Int       @default(0)
+  created_on         DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([cancellation_id], map: "idx_cancellation_id")
+  @@index([itinerary_plan_id], map: "idx_itinerary_plan_id")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -1103,6 +1131,7 @@ model dvi_cities {
   updatedon DateTime? @db.DateTime(0)
   status    Int       @default(0)
   deleted   Int       @default(0)
+  tbo_city_code String? @db.VarChar(10)
 
   @@index([state_id], map: "idx_city_agent_id")
   @@index([createdon], map: "idx_city_createdon")
@@ -2990,6 +3019,8 @@ model dvi_hotel {
   hotel_id                                              Int       @id @default(autoincrement())
   hotel_name                                            String?   @db.VarChar(100)
   hotel_code                                            String?   @db.VarChar(200)
+  tbo_hotel_code                                        String?   @db.VarChar(200) // Base TBO hotel code (e.g., "1035259")
+  tbo_city_code                                         String?   @db.VarChar(32)   // TBO city code (e.g., "8")
   hotel_mobile                                          String?   @db.VarChar(200)
   hotel_email                                           String?   @db.VarChar(200)
   hotel_country                                         String?   @db.VarChar(50)
@@ -5555,4 +5586,81 @@ model old_dvi_stored_locations {
   @@index([deleted], map: "idx_stored_locations_deleted")
   @@index([status], map: "idx_stored_locations_status")
   @@index([source_location(length: 768)], map: "source_location_2")
+}
+
+model tbo_city_master {
+  id                Int       @id @default(autoincrement())
+  tbo_city_code     String    @unique @db.VarChar(10)
+  city_name         String    @db.VarChar(100)
+  country_code      String    @default("IN") @db.VarChar(2)
+  destination_id    String?   @db.VarChar(50)
+  description       String?   @db.Text
+  created_at        DateTime? @default(now()) @db.DateTime(0)
+  updated_at        DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  status            Int?      @default(1) @db.TinyInt
+
+  @@index([city_name], map: "idx_tbo_city_master_name")
+  @@index([country_code], map: "idx_tbo_city_master_country")
+}
+
+model tbo_hotel_master {
+  id                Int       @id @default(autoincrement())
+  tbo_hotel_code    String    @unique @db.VarChar(50)
+  tbo_city_code     String    @db.VarChar(10)
+  hotel_name        String?   @db.VarChar(255)
+  hotel_address     String?   @db.VarChar(500)
+  city_name         String?   @db.VarChar(100)
+  star_rating       Int?      @default(0)
+  hotel_image_url   String?   @db.VarChar(500)
+  description       String?   @db.Text
+  check_in_time     String?   @db.VarChar(10)
+  check_out_time    String?   @db.VarChar(10)
+  facilities        Json?
+  created_at        DateTime? @default(now()) @db.DateTime(0)
+  updated_at        DateTime? @default(now()) @updatedAt @db.DateTime(0)
+  status            Int?      @default(1) @db.TinyInt
+
+  @@index([tbo_city_code], map: "idx_tbo_hotel_master_city_code")
+  @@index([star_rating], map: "idx_tbo_hotel_master_star_rating")
+  @@index([created_at], map: "idx_tbo_hotel_master_created_at")
+  @@index([hotel_name], map: "idx_tbo_hotel_master_hotel_name")
+}
+
+/// TBO Hotel Booking Confirmations
+/// Stores confirmation data from TBO API when hotels are booked
+model tbo_hotel_booking_confirmation {
+  tbo_hotel_booking_confirmation_ID Int       @id @default(autoincrement())
+  confirmed_itinerary_plan_ID       Int       @default(0)
+  itinerary_plan_ID                 Int       @default(0)
+  itinerary_route_ID                Int       @default(0)
+  tbo_hotel_code                    String    @db.VarChar(50)
+  tbo_booking_id                    String?   @db.VarChar(100)
+  tbo_booking_reference_number      String?   @db.VarChar(100)
+  tbo_trace_id                      String?   @db.VarChar(100)
+  booking_code                      String    @db.Text
+  check_in_date                     DateTime? @db.Date
+  check_out_date                    DateTime? @db.Date
+  number_of_rooms                   Int       @default(0)
+  net_amount                        Float     @default(0) @db.Float
+  guest_nationality                 String?   @db.VarChar(10)
+  total_guests                      Int       @default(0)
+  api_response                      Json?
+  createdby                         Int       @default(0)
+  createdon                         DateTime? @default(now()) @db.DateTime(0)
+  updatedon                         DateTime? @db.DateTime(0)
+  status                            Int       @default(1) @db.TinyInt
+  deleted                           Int       @default(0) @db.TinyInt
+
+  @@index([confirmed_itinerary_plan_ID], map: "idx_tbo_booking_confirmed_plan_id")
+  @@index([itinerary_plan_ID], map: "idx_tbo_booking_itinerary_plan_id")
+  @@index([itinerary_route_ID], map: "idx_tbo_booking_route_id")
+  @@index([tbo_hotel_code], map: "idx_tbo_booking_hotel_code")
+  @@index([tbo_booking_id], map: "idx_tbo_booking_id")
+  @@index([tbo_booking_reference_number], map: "idx_tbo_booking_ref_number")
+  @@index([check_in_date], map: "idx_tbo_booking_check_in_date")
+  @@index([check_out_date], map: "idx_tbo_booking_check_out_date")
+  @@index([createdby], map: "idx_tbo_booking_createdby")
+  @@index([createdon], map: "idx_tbo_booking_createdon")
+  @@index([status], map: "idx_tbo_booking_status")
+  @@index([deleted], map: "idx_tbo_booking_deleted")
 }

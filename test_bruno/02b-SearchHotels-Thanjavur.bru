@@ -1,0 +1,42 @@
+meta {
+  name: 02b - Search Hotels - Thanjavur
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://affiliate.tektravels.com/HotelAPI/Search
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Basic VEJPQXBpOlRCT0FwaUAxMjM=
+  Accept: application/json
+}
+
+body:json {
+  {
+    "CheckIn": "2026-03-27",
+    "CheckOut": "2026-03-28",
+    "CityCode": "139605",
+    "GuestNationality": "IN",
+    "PaxRooms": [
+      {
+        "Adults": 2,
+        "Children": 0
+      }
+    ],
+    "IsDetailedResponse": true
+  }
+}
+
+docs {
+  ## Route 2: Thanjavur
+  
+  - **Quote**: DVI2026011
+  - **Route**: 2
+  - **Destination**: Thanjavur
+  - **Date**: 2026-03-27
+  - **TBO City Code**: 139605
+}

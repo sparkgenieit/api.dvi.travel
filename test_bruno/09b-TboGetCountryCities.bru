@@ -1,0 +1,46 @@
+meta {
+  name: 09b - TBO GetCities for Country (SOAP/REST)
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://api.tbotechnology.in/TBOHolidays_HotelAPI/GetCountryCities
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "CountryCode": "IN",
+    "TokenId": ""
+  }
+}
+
+docs {
+  ## TBO GetCities for Country - SOAP/REST Master API
+  
+  ### Endpoint:
+  POST https://affiliate.tektravels.com/SharedData.svc/rest/GetCountryCities
+  
+  ### Authentication:
+  Basic Auth: Doview:Doview@12345
+  
+  ### Request Body:
+  {
+    "CountryCode": "IN",
+    "TokenId": ""
+  }
+  
+  ### Service Method:
+  Called from tbo-soap-sync.service.ts to get cities for a country
+  
+  ### Response Example:
+  Returns all TBO cities for country code "IN" (India)
+  
+  ### Purpose:
+  Get all cities with TBO city codes for syncing to dvi_cities table
+}

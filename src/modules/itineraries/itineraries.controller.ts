@@ -16,6 +16,8 @@ import {
   Delete,
   Res,
   ParseIntPipe,
+  Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -37,6 +39,11 @@ import {
 import { LatestItineraryQueryDto } from './dto/latest-itinerary-query.dto';
 import { ConfirmQuotationDto } from './dto/confirm-quotation.dto';
 import { CancelItineraryDto } from './dto/cancel-itinerary.dto';
+import {
+  GetHotelRoomCategoriesDto,
+  UpdateRoomCategoryDto,
+  HotelRoomCategoriesListResponseDto,
+} from './dto/hotel-room-selection.dto';
 import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import {
@@ -44,9 +51,12 @@ import {
   ItineraryHotelRoomDetailsResponseDto,
 } from './itinerary-hotel-details.service';
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
+import { ItineraryHotelDetailsTboService } from './itinerary-hotel-details-tbo.service';
 import { ItineraryExportService } from './itinerary-export.service';
 import { Public } from '../../auth/public.decorator';
 import { Response, Request } from 'express';
+import { RouteSuggestionsService } from './route-suggestions.service';
+import { RouteSuggestionsV2Service } from './route-suggestions-v2.service';
 
 @ApiTags('Itineraries')
 @ApiBearerAuth()
@@ -59,11 +69,16 @@ import { Response, Request } from 'express';
 )
 @Controller('itineraries')
 export class ItinerariesController {
+  private logger = new Logger('ItinerariesController');
+
   constructor(
     private readonly svc: ItinerariesService,
     private readonly detailsService: ItineraryDetailsService,
     private readonly hotelDetailsService: ItineraryHotelDetailsService,
+    private readonly hotelDetailsTboService: ItineraryHotelDetailsTboService,
     private readonly exportService: ItineraryExportService,
+    private readonly routeSuggestionsService: RouteSuggestionsService,
+    private readonly routeSuggestionsV2Service: RouteSuggestionsV2Service,
   ) {}
 
   @Post()
@@ -237,6 +252,7 @@ export class ItinerariesController {
   }
 
   @Get('details/:quoteId')
+  @Public()
   @ApiOperation({
     summary: 'Get full itinerary details by Quote ID',
     description:
@@ -267,9 +283,9 @@ export class ItinerariesController {
 
   @Get('hotel_details/:quoteId')
   @ApiOperation({
-    summary: 'Get hotel details for an itinerary by Quote ID',
+    summary: 'Get dynamic hotel packages from TBO API',
     description:
-      'Returns hotel tabs + per-day hotel rows (group_type, totals, visibility) mirroring PHP GetHOTEL_ITINEARY_PLAN_DETAILS logic.',
+      'Fetches itinerary dates/destinations and generates 4 hotel packages from TBO in real-time. Returns Budget, Mid-Range, Premium, and Luxury options.',
   })
   @ApiParam({
     name: 'quoteId',
@@ -277,18 +293,46 @@ export class ItinerariesController {
     description: 'Quote ID generated for the itinerary',
     example: 'DVI202512032',
   })
-  @ApiOkResponse({ description: 'Hotel details for the given quoteId' })
+  @ApiOkResponse({ description: 'Dynamic hotel packages from TBO API' })
+  @Public()
   async getItineraryHotelDetails(
     @Param('quoteId') quoteId: string,
   ): Promise<ItineraryHotelDetailsResponseDto> {
-    return this.hotelDetailsService.getHotelDetailsByQuoteId(quoteId);
+    const startTime = Date.now();
+    this.logger.log('\n════════════════════════════════════════════════════════════════════════════════════════');
+    this.logger.log('🏨 INCOMING ITINERARY HOTEL DETAILS REQUEST (TBO)');
+    this.logger.log(`📍 Request Timestamp: ${new Date().toISOString()}`);
+    this.logger.log(`📋 Quote ID: ${quoteId}`);
+    this.logger.log('────────────────────────────────────────────────────────────────────────────────────────');
+
+    try {
+      // Use TBO service to fetch dynamic packages
+      const result = await this.hotelDetailsTboService.getHotelDetailsByQuoteIdFromTbo(quoteId);
+      const duration = Date.now() - startTime;
+
+      this.logger.log('\n✅ HOTEL PACKAGES GENERATED FROM TBO');
+      this.logger.log(`📊 Hotel Tabs: ${result.hotelTabs?.length || 0} packages`);
+      this.logger.log(`📊 Hotel Rows: ${result.hotels?.length || 0} total hotels`);
+      this.logger.log(`⏱️  Total Duration: ${duration}ms`);
+      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error('\n❌ HOTEL PACKAGES GENERATION FAILED');
+      this.logger.error(`🚨 Error Message: ${errorMessage}`);
+      this.logger.error(`⏱️  Duration: ${duration}ms`);
+      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
+      throw error;
+    }
   }
 
   @Get('hotel_room_details/:quoteId')
   @ApiOperation({
     summary: 'Get hotel ROOM details for an itinerary by Quote ID',
     description:
-      'Returns structured hotel room details (per route / hotel / room / roomType) roughly mirroring the PHP structured_hotel_room_details block.',
+      'Returns FRESH hotel room details from TBO API in real-time (no stale data). Structured per route / hotel / room / roomType. Optionally filter by specific itinerary route.',
   })
   @ApiParam({
     name: 'quoteId',
@@ -296,11 +340,71 @@ export class ItinerariesController {
     description: 'Quote ID generated for the itinerary',
     example: 'DVI202512032',
   })
-  @ApiOkResponse({ description: 'Hotel room details for the given quoteId' })
+  @ApiQuery({
+    name: 'itineraryRouteId',
+    required: false,
+    description: 'Optional: Filter rooms for a specific itinerary route/day',
+    example: '12345',
+    type: 'integer',
+  })
+  @ApiQuery({
+    name: 'clearCache',
+    required: false,
+    description: 'Optional: Clear backend memory cache before fetching fresh data from TBO',
+    example: 'true',
+    type: 'boolean',
+  })
+  @ApiOkResponse({ description: 'Fresh hotel room details from TBO API' })
+  @Public()
   async getItineraryHotelRoomDetails(
     @Param('quoteId') quoteId: string,
+    @Query('itineraryRouteId') itineraryRouteId?: string,
+    @Query('clearCache') clearCache?: string,
   ): Promise<ItineraryHotelRoomDetailsResponseDto> {
-    return this.hotelDetailsService.getHotelRoomDetailsByQuoteId(quoteId);
+    const startTime = Date.now();
+    this.logger.log('\n════════════════════════════════════════════════════════════════════════════════════════');
+    this.logger.log('🏨 INCOMING ITINERARY HOTEL ROOM DETAILS REQUEST (TBO - FRESH DATA)');
+    this.logger.log(`📍 Request Timestamp: ${new Date().toISOString()}`);
+    this.logger.log(`📋 Quote ID: ${quoteId}`);
+    if (itineraryRouteId) {
+      this.logger.log(`🔍 Filter Route ID: ${itineraryRouteId}`);
+    }
+    if (clearCache === 'true') {
+      this.logger.log(`🗑️  Clear Cache Requested: YES`);
+    }
+    this.logger.log('────────────────────────────────────────────────────────────────────────────────────────');
+
+    try {
+      // ✅ Clear backend memory cache if requested
+      if (clearCache === 'true') {
+        this.hotelDetailsTboService.clearCacheForQuote(quoteId);
+        this.logger.log('🗑️  Backend cache cleared - will fetch fresh data from TBO');
+      }
+      
+      // Use TBO service to fetch FRESH room details (no stale data)
+      // Pass optional itineraryRouteId to filter results
+      const routeIdNum = itineraryRouteId ? parseInt(itineraryRouteId, 10) : undefined;
+      const result = await this.hotelDetailsTboService.getHotelRoomDetailsFromTbo(
+        quoteId,
+        routeIdNum,
+      );
+      const duration = Date.now() - startTime;
+
+      this.logger.log('\n✅ FRESH ROOM DETAILS GENERATED FROM TBO');
+      this.logger.log(`📊 Room Entries: ${result.rooms?.length || 0}`);
+      this.logger.log(`⏱️  Total Duration: ${duration}ms`);
+      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error('\n❌ FRESH ROOM DETAILS GENERATION FAILED');
+      this.logger.error(`🚨 Error Message: ${errorMessage}`);
+      this.logger.error(`⏱️  Duration: ${duration}ms`);
+      this.logger.log('════════════════════════════════════════════════════════════════════════════════════════\n');
+      throw error;
+    }
   }
 
   @Get('latest')
@@ -336,6 +440,115 @@ export class ItinerariesController {
       Number(planId),
       Number(routeId),
       Number(hotspotId),
+    );
+  }
+
+  @Post('default-route-suggestions')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Get default route suggestions based on arrival/departure locations and travel dates',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        _no_of_route_days: {
+          type: 'number',
+          example: 4,
+          description: 'Number of route days',
+        },
+        _arrival_location: {
+          type: 'string',
+          example: 'Chennai International Airport',
+          description: 'Arrival location name',
+        },
+        _departure_location: {
+          type: 'string',
+          example: 'Chennai International Airport',
+          description: 'Departure location name',
+        },
+        _formattedStartDate: {
+          type: 'string',
+          example: '06-01-2026',
+          description: 'Start date in d-m-Y format',
+        },
+        _formattedEndDate: {
+          type: 'string',
+          example: '09-01-2026',
+          description: 'End date in d-m-Y format',
+        },
+      },
+      required: [
+        '_no_of_route_days',
+        '_arrival_location',
+        '_departure_location',
+        '_formattedStartDate',
+        '_formattedEndDate',
+      ],
+    },
+  })
+  async getDefaultRouteSuggestions(@Body() body: any) {
+    return this.routeSuggestionsService.getDefaultRouteSuggestions(
+      body._no_of_route_days,
+      body._arrival_location,
+      body._departure_location,
+      body._formattedStartDate,
+      body._formattedEndDate,
+    );
+  }
+
+  @Post('default-route-suggestions/v2')
+  @Public()
+  @ApiOperation({
+    summary: 'Get default route suggestions with minimal JSON data (recommended)',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        _no_of_route_days: {
+          type: 'number',
+          example: 5,
+          description: 'Number of route days',
+        },
+        _arrival_location: {
+          type: 'string',
+          example: 'Chennai International Airport',
+          description: 'Arrival location name',
+        },
+        _departure_location: {
+          type: 'string',
+          example: 'Madurai Airport',
+          description: 'Departure location name',
+        },
+        _formattedStartDate: {
+          type: 'string',
+          example: '06-01-2026',
+          description: 'Start date in d-m-Y format',
+        },
+        _formattedEndDate: {
+          type: 'string',
+          example: '10-01-2026',
+          description: 'End date in d-m-Y format',
+        },
+      },
+      required: [
+        '_no_of_route_days',
+        '_arrival_location',
+        '_departure_location',
+        '_formattedStartDate',
+        '_formattedEndDate',
+      ],
+    },
+  })
+  async getDefaultRouteSuggestionsV2(@Body() body: any) {
+    return this.routeSuggestionsV2Service.getDefaultRouteSuggestions(
+      body._no_of_route_days,
+      body._arrival_location,
+      body._departure_location,
+      body._formattedStartDate,
+      body._formattedEndDate,
     );
   }
 
@@ -459,6 +672,7 @@ export class ItinerariesController {
         routeId: { type: 'number', example: 1 },
         hotelId: { type: 'number', example: 123 },
         roomTypeId: { type: 'number', example: 456 },
+        groupType: { type: 'number', example: 2, description: '1=Budget, 2=Mid-Range, 3=Premium, 4=Luxury' },
         mealPlan: {
           type: 'object',
           properties: {
@@ -475,6 +689,43 @@ export class ItinerariesController {
   @ApiOkResponse({ description: 'Hotel selected successfully' })
   async selectHotel(@Body() body: any) {
     return this.svc.selectHotel(body);
+  }
+
+  @Post('hotels/bulk-save')
+  @ApiOperation({ summary: 'Save multiple hotel selections at once before confirming itinerary' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 3 },
+        hotels: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              routeId: { type: 'number', example: 89 },
+              hotelId: { type: 'number', example: 1089687 },
+              roomTypeId: { type: 'number', example: 1 },
+              groupType: { type: 'number', example: 1, description: '1=Budget, 2=Mid-Range, 3=Premium, 4=Luxury' },
+              mealPlan: {
+                type: 'object',
+                properties: {
+                  all: { type: 'boolean' },
+                  breakfast: { type: 'boolean' },
+                  lunch: { type: 'boolean' },
+                  dinner: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
+      required: ['planId', 'hotels'],
+    },
+  })
+  @ApiOkResponse({ description: 'All hotels saved successfully' })
+  async bulkSaveHotels(@Body() body: { planId: number; hotels: any[] }) {
+    return this.svc.bulkSaveHotels(body.planId, body.hotels);
   }
 
   @Post('vehicles/select-vendor')
@@ -546,12 +797,25 @@ export class ItinerariesController {
     return this.svc.checkWalletBalance(agentId);
   }
 
+  @Public()
   @Post('confirm-quotation')
-  @ApiOperation({ summary: 'Confirm quotation with guest details' })
+  @ApiOperation({ summary: 'Confirm quotation with guest details and optional TBO hotel bookings' })
   @ApiBody({ type: ConfirmQuotationDto })
   @ApiOkResponse({ description: 'Quotation confirmed successfully' })
-  async confirmQuotation(@Body() dto: ConfirmQuotationDto) {
-    return this.svc.confirmQuotation(dto);
+  async confirmQuotation(@Body() dto: ConfirmQuotationDto, @Req() req: Request) {
+    const baseResult = await this.svc.confirmQuotation(dto);
+    
+    // If TBO hotels are selected, process bookings outside the transaction
+    if (dto.tbo_hotels && dto.tbo_hotels.length > 0) {
+      const clientIp = (req.ip || req.headers['x-forwarded-for'] || '192.168.1.1') as string;
+      return await this.svc.processConfirmationWithTboBookings(
+        baseResult,
+        dto,
+        clientIp,
+      );
+    }
+    
+    return baseResult;
   }
 
   @Post('cancel')
@@ -609,6 +873,23 @@ export class ItinerariesController {
   @ApiOkResponse({ description: 'Returns unique locations from arrival and departure' })
   async getConfirmedLocations() {
     return this.svc.getLocationsForFilter();
+  }
+
+  @Get('confirmed/:confirmedId')
+  @ApiOperation({ 
+    summary: 'Get confirmed itinerary details by ID',
+    description: 'Returns confirmed itinerary with booked hotel details from database'
+  })
+  @ApiParam({ 
+    name: 'confirmedId', 
+    example: 31, 
+    description: 'Confirmed Plan ID' 
+  })
+  @Public()
+  async getConfirmedItineraryDetails(
+    @Param('confirmedId', ParseIntPipe) confirmedId: number,
+  ) {
+    return this.svc.getConfirmedItineraryDetails(confirmedId);
   }
 
   @Get(':id/voucher-details')
@@ -683,6 +964,101 @@ export class ItinerariesController {
     @Body() body: { startTime: string; endTime: string },
   ) {
     return this.svc.updateRouteTimes(planId, routeId, body.startTime, body.endTime);
+  }
+
+  /**
+   * Hotel Cancellation Endpoints
+   */
+  @Get('cancellation/:confirmedPlanId')
+  @ApiOperation({ summary: 'Get confirmed itinerary with hotels for cancellation page' })
+  @ApiParam({ name: 'confirmedPlanId', example: 1, description: 'Confirmed Plan ID' })
+  async getConfirmedItineraryForCancellation(
+    @Param('confirmedPlanId', ParseIntPipe) confirmedPlanId: number,
+  ) {
+    return this.svc.getConfirmedItineraryForCancellation(confirmedPlanId);
+  }
+
+  @Post('cancellation/:confirmedPlanId/charges')
+  @ApiOperation({ summary: 'Get cancellation charges for entire day' })
+  @ApiParam({ name: 'confirmedPlanId', example: 1, description: 'Confirmed Plan ID' })
+  async getEntireDayCancellationCharges(
+    @Param('confirmedPlanId', ParseIntPipe) confirmedPlanId: number,
+    @Body() body: { hotel_id: number; date: string; cancellation_percentage?: number },
+  ) {
+    return this.svc.getEntireDayCancellationCharges(
+      confirmedPlanId,
+      body.hotel_id,
+      body.date,
+      body.cancellation_percentage || 10,
+    );
+  }
+
+  @Post('cancellation/:confirmedPlanId/cancel-hotel')
+  @ApiOperation({ summary: 'Execute hotel cancellation' })
+  @ApiParam({ name: 'confirmedPlanId', example: 1, description: 'Confirmed Plan ID' })
+  async cancelHotel(
+    @Param('confirmedPlanId', ParseIntPipe) confirmedPlanId: number,
+    @Body()
+    body: {
+      hotel_id: number;
+      date: string;
+      total_cancellation_charge: number;
+      total_refund_amount: number;
+      defect_type?: string;
+    },
+  ) {
+    return this.svc.cancelHotel(
+      confirmedPlanId,
+      body.hotel_id,
+      body.date,
+      body.total_cancellation_charge,
+      body.total_refund_amount,
+      body.defect_type || 'dvi',
+    );
+  }
+
+  @Get('hotel-rooms/categories')
+  @ApiOperation({ summary: 'Get hotel room categories for selection modal' })
+  @ApiQuery({ name: 'itinerary_plan_hotel_details_ID', required: true, type: Number })
+  @ApiQuery({ name: 'itinerary_plan_id', required: true, type: Number })
+  @ApiQuery({ name: 'itinerary_route_id', required: true, type: Number })
+  @ApiQuery({ name: 'hotel_id', required: true, type: Number })
+  @ApiQuery({ name: 'group_type', required: true, type: Number })
+  @ApiOkResponse({ type: HotelRoomCategoriesListResponseDto })
+  async getHotelRoomCategories(@Query() query: GetHotelRoomCategoriesDto) {
+    // Parse and validate group_type
+    const groupType = Number(query.group_type);
+    if (!groupType || groupType < 1 || groupType > 4) {
+      throw new BadRequestException('Invalid group_type. Must be between 1-4 (Budget, Mid-Range, Premium, Luxury)');
+    }
+    
+    return this.svc.getHotelRoomCategories({
+      itinerary_plan_hotel_details_ID: Number(query.itinerary_plan_hotel_details_ID),
+      itinerary_plan_id: Number(query.itinerary_plan_id),
+      itinerary_route_id: Number(query.itinerary_route_id),
+      hotel_id: Number(query.hotel_id),
+      group_type: groupType,
+    });
+  }
+
+  @Post('hotel-rooms/update-category')
+  @ApiOperation({ summary: 'Update room category selection' })
+  @ApiBody({ type: UpdateRoomCategoryDto })
+  async updateRoomCategory(@Body() dto: UpdateRoomCategoryDto) {
+    return this.svc.updateRoomCategory({
+      itinerary_plan_hotel_room_details_ID: dto.itinerary_plan_hotel_room_details_ID,
+      itinerary_plan_hotel_details_ID: dto.itinerary_plan_hotel_details_ID,
+      itinerary_plan_id: dto.itinerary_plan_id,
+      itinerary_route_id: dto.itinerary_route_id,
+      hotel_id: dto.hotel_id,
+      group_type: dto.group_type,
+      room_type_id: dto.room_type_id,
+      room_qty: dto.room_qty,
+      all_meal_plan: dto.all_meal_plan,
+      breakfast_meal_plan: dto.breakfast_meal_plan,
+      lunch_meal_plan: dto.lunch_meal_plan,
+      dinner_meal_plan: dto.dinner_meal_plan,
+    });
   }
 
   /**

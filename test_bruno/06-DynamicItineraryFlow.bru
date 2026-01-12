@@ -1,0 +1,133 @@
+meta {
+  name: 06 - Test Itinerary Flow (Dynamic)
+  type: http
+  seq: 6
+}
+
+docs {
+  ## Dynamic Itinerary Hotel Details Test
+  
+  This test shows exactly what your endpoint does:
+  
+  ### Flow:
+  1. Accepts Quote ID (e.g., DVI2026011)
+  2. Queries dvi_itinerary_plan_details to get plan
+  3. Queries dvi_itinerary_route_details to get destinations/dates
+  4. Maps each destination to TBO city code from dvi_cities
+  5. For each route, calls TBO Search API with:
+     - CheckIn date from route
+     - CheckOut = CheckIn + 1 day
+     - CityCode from dvi_cities.tbo_city_code
+  6. Collects all hotel results
+  7. Generates 4 price-tier packages (Budget → Luxury)
+  8. Returns structured response with hotelTabs and hotelRows
+  
+  ### Database Flow:
+  ```
+  dvi_itinerary_plan_details
+  ├─ Find by itinerary_quote_ID = "DVI2026011"
+  ├─ Get: plan_ID, no_of_nights
+  │
+  └─> dvi_itinerary_route_details
+     ├─ Find by itinerary_plan_ID
+     ├─ Get: itinerary_route_date, next_visiting_location
+     │
+     └─> dvi_cities
+        ├─ Find by name = next_visiting_location
+        ├─ Get: tbo_city_code
+        │
+        └─> TBO API Search
+           ├─ CheckIn: itinerary_route_date
+           ├─ CheckOut: itinerary_route_date + 1 day
+           ├─ CityCode: tbo_city_code
+           └─ Returns: HotelResult[]
+  ```
+  
+  ### Price Tier Algorithm:
+  For each of 4 tiers (Budget, Mid-Range, Premium, Luxury):
+  - Collect all unique price points from all hotels across all routes
+  - For each route, select hotel that fits tier's price expectation:
+    - 1 price point: All tiers use same hotel
+    - 2 price points: Tiers 1-2 use lower, Tiers 3-4 use higher
+    - 3+ price points: Distribute evenly from lowest to highest
+  - If no hotels for a route: Add placeholder with price 0
+  
+  ### Result:
+  4 complete packages, each with hotels for all routes (including placeholders)
+}
+
+get {
+  url: http://localhost:4006/api/v1/itineraries/hotel_details/DVI2026011
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Has quoteId", function() {
+    const body = res.getBody();
+    expect(body.quoteId).to.equal("DVI2026011");
+  });
+  
+  test("Has 4 hotel tabs", function() {
+    const body = res.getBody();
+    expect(body.hotelTabs).to.be.an('array');
+    expect(body.hotelTabs.length).to.equal(4);
+  });
+  
+  test("Hotel tabs are in order: Budget < Mid < Premium < Luxury", function() {
+    const body = res.getBody();
+    const tabs = body.hotelTabs;
+    expect(tabs[0].label).to.include("Budget");
+    expect(tabs[1].label).to.include("Mid-Range");
+    expect(tabs[2].label).to.include("Premium");
+    expect(tabs[3].label).to.include("Luxury");
+  });
+  
+  test("Total price increases per tier", function() {
+    const body = res.getBody();
+    const tabs = body.hotelTabs;
+    for (let i = 1; i < tabs.length; i++) {
+      expect(tabs[i].totalAmount).to.be.greaterThanOrEqual(tabs[i-1].totalAmount);
+    }
+  });
+  
+  test("Has hotel rows with destinations", function() {
+    const body = res.getBody();
+    expect(body.hotels).to.be.an('array');
+    expect(body.hotels.length).to.be.greaterThan(0);
+    
+    body.hotels.forEach(hotel => {
+      expect(hotel.destination).to.exist;
+      expect(hotel.hotelName).to.exist;
+      expect(hotel.day).to.exist;
+      expect(hotel.totalHotelCost).to.exist;
+    });
+  });
+}
+
+script:pre-request {
+  // You can add pre-request logic here
+  // For example, dynamic quote ID:
+  // const quoteId = bru.getEnvVar('QUOTE_ID') || 'DVI2026011';
+  // bru.setVar('url', `http://localhost:4006/api/v1/itineraries/hotel_details/${quoteId}`);
+}
+
+script:post-response {
+  // Save response for analysis
+  const body = res.getBody();
+  
+  console.log("📊 RESPONSE ANALYSIS:");
+  console.log(`Quote: ${body.quoteId}`);
+  console.log(`Plan: ${body.planId}`);
+  console.log(`Hotels: ${body.hotels.length} total entries`);
+  
+  body.hotelTabs.forEach(tab => {
+    console.log(`\n${tab.label}: ₹${tab.totalAmount}`);
+  });
+}
