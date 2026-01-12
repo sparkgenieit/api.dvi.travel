@@ -54,6 +54,7 @@ export interface ItineraryHotelRoomDto {
   hotelId: number;
   hotelName: string;
   hotelCategory: number | null;
+  groupType: number;
   roomTypeId: number;
   roomTypeName: string;
   roomId: number;
@@ -268,6 +269,7 @@ async getHotelRoomDetailsByQuoteId(
         hotelId,
         hotelName,
         hotelCategory,
+        groupType,
         roomTypeId: groupType,
         roomTypeName: `${['Budget', 'Mid-Range', 'Premium', 'Luxury'][groupType - 1]} Room`,
         roomId: hotelId,
