@@ -17,6 +17,7 @@ import {
   Res,
   ParseIntPipe,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -38,6 +39,11 @@ import {
 import { LatestItineraryQueryDto } from './dto/latest-itinerary-query.dto';
 import { ConfirmQuotationDto } from './dto/confirm-quotation.dto';
 import { CancelItineraryDto } from './dto/cancel-itinerary.dto';
+import {
+  GetHotelRoomCategoriesDto,
+  UpdateRoomCategoryDto,
+  HotelRoomCategoriesListResponseDto,
+} from './dto/hotel-room-selection.dto';
 import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import {
@@ -1009,6 +1015,50 @@ export class ItinerariesController {
       body.total_refund_amount,
       body.defect_type || 'dvi',
     );
+  }
+
+  @Get('hotel-rooms/categories')
+  @ApiOperation({ summary: 'Get hotel room categories for selection modal' })
+  @ApiQuery({ name: 'itinerary_plan_hotel_details_ID', required: true, type: Number })
+  @ApiQuery({ name: 'itinerary_plan_id', required: true, type: Number })
+  @ApiQuery({ name: 'itinerary_route_id', required: true, type: Number })
+  @ApiQuery({ name: 'hotel_id', required: true, type: Number })
+  @ApiQuery({ name: 'group_type', required: true, type: Number })
+  @ApiOkResponse({ type: HotelRoomCategoriesListResponseDto })
+  async getHotelRoomCategories(@Query() query: GetHotelRoomCategoriesDto) {
+    // Parse and validate group_type
+    const groupType = Number(query.group_type);
+    if (!groupType || groupType < 1 || groupType > 4) {
+      throw new BadRequestException('Invalid group_type. Must be between 1-4 (Budget, Mid-Range, Premium, Luxury)');
+    }
+    
+    return this.svc.getHotelRoomCategories({
+      itinerary_plan_hotel_details_ID: Number(query.itinerary_plan_hotel_details_ID),
+      itinerary_plan_id: Number(query.itinerary_plan_id),
+      itinerary_route_id: Number(query.itinerary_route_id),
+      hotel_id: Number(query.hotel_id),
+      group_type: groupType,
+    });
+  }
+
+  @Post('hotel-rooms/update-category')
+  @ApiOperation({ summary: 'Update room category selection' })
+  @ApiBody({ type: UpdateRoomCategoryDto })
+  async updateRoomCategory(@Body() dto: UpdateRoomCategoryDto) {
+    return this.svc.updateRoomCategory({
+      itinerary_plan_hotel_room_details_ID: dto.itinerary_plan_hotel_room_details_ID,
+      itinerary_plan_hotel_details_ID: dto.itinerary_plan_hotel_details_ID,
+      itinerary_plan_id: dto.itinerary_plan_id,
+      itinerary_route_id: dto.itinerary_route_id,
+      hotel_id: dto.hotel_id,
+      group_type: dto.group_type,
+      room_type_id: dto.room_type_id,
+      room_qty: dto.room_qty,
+      all_meal_plan: dto.all_meal_plan,
+      breakfast_meal_plan: dto.breakfast_meal_plan,
+      lunch_meal_plan: dto.lunch_meal_plan,
+      dinner_meal_plan: dto.dinner_meal_plan,
+    });
   }
 
   /**
