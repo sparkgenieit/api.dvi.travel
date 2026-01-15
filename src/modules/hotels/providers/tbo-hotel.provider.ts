@@ -848,7 +848,7 @@ export class TBOHotelProvider implements IHotelProvider {
       
       let hotel: any = null;
 
-      // Strategy 1: If city code provided, search for this city's hotel first
+      // Strategy 1: If city code provided, search for this city's hotel first in dvi_hotel
       if (cityCode) {
         hotel = await this.prisma.dvi_hotel.findFirst({
           where: {
@@ -867,10 +867,10 @@ export class TBOHotelProvider implements IHotelProvider {
           };
         }
 
-        this.logger.log(`🔍 Hotel ${hotelCode} not found in city ${cityCode}, searching globally...`);
+        this.logger.log(`🔍 Hotel ${hotelCode} not found in dvi_hotel for city ${cityCode}, searching globally...`);
       }
 
-      // Strategy 2: Search by hotel code only (global search)
+      // Strategy 2: Search by hotel code only in dvi_hotel (global search)
       hotel = await this.prisma.dvi_hotel.findFirst({
         where: {
           tbo_hotel_code: hotelCode,
@@ -879,7 +879,7 @@ export class TBOHotelProvider implements IHotelProvider {
       });
 
       if (hotel) {
-        this.logger.log(`✅ Found hotel by code: ${hotelCode} -> ${hotel.hotel_name}`);
+        this.logger.log(`✅ Found hotel by code in dvi_hotel: ${hotelCode} -> ${hotel.hotel_name}`);
         return {
           hotel_name: hotel.hotel_name,
           hotel_address: hotel.hotel_address || '',
@@ -887,7 +887,27 @@ export class TBOHotelProvider implements IHotelProvider {
         };
       }
 
-      this.logger.warn(`⚠️  Hotel ${hotelCode} not found in database`);
+      // Strategy 3: Fallback to tbo_hotel_master table (synced from TBO GetHotels API)
+      this.logger.log(`🔍 Hotel ${hotelCode} not found in dvi_hotel, checking tbo_hotel_master...`);
+      
+      const tboHotel: any = await this.prisma.tbo_hotel_master.findFirst({
+        where: {
+          tbo_hotel_code: hotelCode,
+          ...(cityCode ? { tbo_city_code: cityCode } : {}),
+          status: 1,
+        },
+      });
+
+      if (tboHotel) {
+        this.logger.log(`✅ Found hotel in tbo_hotel_master: ${hotelCode} -> ${tboHotel.hotel_name}`);
+        return {
+          hotel_name: tboHotel.hotel_name || `Hotel ${hotelCode}`,
+          hotel_address: tboHotel.hotel_address || '',
+          star_rating: tboHotel.star_rating || 0,
+        };
+      }
+
+      this.logger.warn(`⚠️  Hotel ${hotelCode} not found in any database table`);
       return null;
     } catch (error) {
       const err = error as Error;

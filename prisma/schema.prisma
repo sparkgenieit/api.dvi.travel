@@ -3789,6 +3789,7 @@ model dvi_itinerary_plan_hotel_details {
   total_amenities_cost                   Float     @default(0) @db.Float
   total_amenities_gst_amount             Float     @default(0) @db.Float
   total_hotel_tax_amount                 Float     @default(0) @db.Float
+  hotel_cancellation_status              Int       @default(0)
   createdby                              Int       @default(0)
   createdon                              DateTime? @db.DateTime(0)
   updatedon                              DateTime? @db.DateTime(0)
