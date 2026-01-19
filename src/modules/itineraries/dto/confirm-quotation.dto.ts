@@ -9,7 +9,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 
-export class TboHotelPassengerDto {
+export class HotelPassengerDto {
   @ApiProperty({ example: 'Mr' })
   @IsString()
   title!: string;
@@ -80,14 +80,14 @@ export class TboHotelPassengerDto {
   pan?: string;
 }
 
-export class TboHotelSelectionDto {
+export class HotelSelectionDto {
+  @ApiProperty({ example: 'tbo', description: 'Hotel provider: tbo, ResAvenue, etc.' })
+  @IsString()
+  provider!: string;
+
   @ApiProperty({ example: 1 })
   @IsInt()
   routeId!: number;
-  
-  @ApiProperty({ example: 2, description: 'Hotel tier: 1=Budget, 2=Mid-Range, 3=Premium, 4=Luxury' })
-  @IsInt()
-  groupType!: number;
 
   @ApiProperty({ example: '1035259' })
   @IsString()
@@ -121,9 +121,9 @@ export class TboHotelSelectionDto {
   @IsNumber()
   netAmount!: number;
 
-  @ApiProperty({ type: [TboHotelPassengerDto] })
+  @ApiProperty({ type: [HotelPassengerDto] })
   @IsArray()
-  passengers!: TboHotelPassengerDto[];
+  passengers!: HotelPassengerDto[];
 }
 
 export class ConfirmQuotationDto {
@@ -229,13 +229,13 @@ export class ConfirmQuotationDto {
   hotel_group_type?: string;
 
   @ApiProperty({
-    type: [TboHotelSelectionDto],
-    description: 'Selected TBO hotels to be booked during confirmation',
+    type: [HotelSelectionDto],
+    description: 'Selected hotels to be booked during confirmation (multi-provider)',
     required: false,
   })
   @IsOptional()
   @IsArray()
-  tbo_hotels?: TboHotelSelectionDto[];
+  hotel_bookings?: HotelSelectionDto[];
 
   @ApiProperty({ example: '192.168.1.1', required: false })
   @IsOptional()

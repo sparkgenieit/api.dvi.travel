@@ -6,10 +6,11 @@ import {
   Logger,
 } from '@nestjs/common';
 // @ts-ignore - Database table names may not match exactly
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../../../prisma.service';
 import { IHotelProvider } from '../interfaces/hotel-provider.interface';
 import { HotelConfirmationDTO } from '../dto/hotel.dto';
 import { TBOHotelProvider } from '../providers/tbo-hotel.provider';
+import { ResAvenueHotelProvider } from '../providers/resavenue-hotel.provider';
 
 @Injectable()
 export class HotelConfirmService {
@@ -19,13 +20,16 @@ export class HotelConfirmService {
 
   constructor(
     private readonly tboHotelProvider: TBOHotelProvider,
+    private readonly resavenueHotelProvider: ResAvenueHotelProvider,
     prismaService: PrismaService,
     private tboProvider: TBOHotelProvider,
+    private resavenueProvider: ResAvenueHotelProvider,
   ) {
     this.prisma = prismaService;
     this.providers = new Map([
       ['tbo', this.tboProvider],
-      // Add HOBSE and Revenue providers here when implemented
+      ['resavenue', this.resavenueProvider],
+      // Add HOBSE provider here when implemented
     ]);
   }
 

@@ -3021,6 +3021,7 @@ model dvi_hotel {
   hotel_code                                            String?   @db.VarChar(200)
   tbo_hotel_code                                        String?   @db.VarChar(200) // Base TBO hotel code (e.g., "1035259")
   tbo_city_code                                         String?   @db.VarChar(32)   // TBO city code (e.g., "8")
+  resavenue_hotel_code                                  String?   @db.VarChar(200) // ResAvenue hotel code (e.g., "261")
   hotel_mobile                                          String?   @db.VarChar(200)
   hotel_email                                           String?   @db.VarChar(200)
   hotel_country                                         String?   @db.VarChar(50)
@@ -3055,6 +3056,8 @@ model dvi_hotel {
   @@index([hotel_category], map: "idx_hotel_hotel_category")
   @@index([hotel_city], map: "idx_hotel_hotel_city")
   @@index([hotel_code], map: "idx_hotel_hotel_code")
+  @@index([tbo_hotel_code], map: "idx_hotel_tbo_hotel_code")
+  @@index([resavenue_hotel_code], map: "idx_hotel_resavenue_hotel_code")
   @@index([hotel_country], map: "idx_hotel_hotel_country")
   @@index([hotel_email], map: "idx_hotel_hotel_email")
   @@index([hotel_free_cancel_policy_no_of_days_from_booking_date], map: "idx_hotel_hotel_free_cancel_policy_no_of_days_from_booking_date")
@@ -5664,4 +5667,40 @@ model tbo_hotel_booking_confirmation {
   @@index([createdon], map: "idx_tbo_booking_createdon")
   @@index([status], map: "idx_tbo_booking_status")
   @@index([deleted], map: "idx_tbo_booking_deleted")
+}
+
+/// ResAvenue Hotel Booking Confirmations
+/// Stores confirmation data from ResAvenue API when hotels are booked
+model resavenue_hotel_booking_confirmation {
+  resavenue_hotel_booking_confirmation_ID Int       @id @default(autoincrement())
+  confirmed_itinerary_plan_ID             Int       @default(0)
+  itinerary_plan_ID                       Int       @default(0)
+  itinerary_route_ID                      Int       @default(0)
+  resavenue_hotel_code                    String    @db.VarChar(50)
+  resavenue_booking_reference             String?   @db.VarChar(100)
+  booking_code                            String    @db.Text
+  check_in_date                           DateTime? @db.Date
+  check_out_date                          DateTime? @db.Date
+  number_of_rooms                         Int       @default(0)
+  net_amount                              Float     @default(0) @db.Float
+  guest_nationality                       String?   @db.VarChar(10)
+  total_guests                            Int       @default(0)
+  api_response                            Json?
+  createdby                               Int       @default(0)
+  createdon                               DateTime? @default(now()) @db.DateTime(0)
+  updatedon                               DateTime? @db.DateTime(0)
+  status                                  Int       @default(1) @db.TinyInt
+  deleted                                 Int       @default(0) @db.TinyInt
+
+  @@index([confirmed_itinerary_plan_ID], map: "idx_resavenue_booking_confirmed_plan_id")
+  @@index([itinerary_plan_ID], map: "idx_resavenue_booking_itinerary_plan_id")
+  @@index([itinerary_route_ID], map: "idx_resavenue_booking_route_id")
+  @@index([resavenue_hotel_code], map: "idx_resavenue_booking_hotel_code")
+  @@index([resavenue_booking_reference], map: "idx_resavenue_booking_ref")
+  @@index([check_in_date], map: "idx_resavenue_booking_check_in_date")
+  @@index([check_out_date], map: "idx_resavenue_booking_check_out_date")
+  @@index([createdby], map: "idx_resavenue_booking_createdby")
+  @@index([createdon], map: "idx_resavenue_booking_createdon")
+  @@index([status], map: "idx_resavenue_booking_status")
+  @@index([deleted], map: "idx_resavenue_booking_deleted")
 }

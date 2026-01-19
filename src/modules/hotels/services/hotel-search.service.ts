@@ -13,6 +13,7 @@ import {
 } from '../interfaces/hotel-provider.interface';
 import { HotelSearchDTO } from '../dto/hotel.dto';
 import { TBOHotelProvider } from '../providers/tbo-hotel.provider';
+import { ResAvenueHotelProvider } from '../providers/resavenue-hotel.provider';
 
 @Injectable()
 export class HotelSearchService {
@@ -22,12 +23,13 @@ export class HotelSearchService {
   constructor(
     private prisma: PrismaService,
     private tboProvider: TBOHotelProvider,
+    private resavenueProvider: ResAvenueHotelProvider,
   ) {
     this.providers = new Map([
       ['tbo', this.tboProvider],
-      // Add HOBSE and Revenue providers here when implemented
+      ['resavenue', this.resavenueProvider],
+      // Add HOBSE provider here when implemented
       // ['hobse', this.hobseProvider],
-      // ['revenue', this.revenueProvider],
     ]);
   }
 
@@ -40,7 +42,7 @@ export class HotelSearchService {
         checkOutDate,
         roomCount,
         guestCount,
-        providers = ['tbo'], // Default to TBO
+        providers = ['tbo', 'resavenue'], // Search both TBO and ResAvenue by default
       } = searchCriteria;
 
       this.logger.log('\n🔍 HOTEL SEARCH SERVICE PROCESSING');

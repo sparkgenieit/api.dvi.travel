@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma.service';
 import { HotelSearchService } from '../../hotels/services/hotel-search.service';
+import { TBOHotelProvider } from '../../hotels/providers/tbo-hotel.provider';
 import axios, { AxiosInstance } from 'axios';
 
 interface TboHotelSelection {
@@ -76,6 +77,7 @@ export class TboHotelBookingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly hotelSearchService: HotelSearchService,
+    private readonly tboProvider: TBOHotelProvider,
   ) {
     // Create axios client with explicit Authorization header (not auth object)
     const credentials = Buffer.from(`${this.TBO_USERNAME}:${this.TBO_PASSWORD}`).toString('base64');
@@ -486,5 +488,93 @@ export class TboHotelBookingService {
       `✅ [MOCK] Book successful: ${JSON.stringify(mockResponse)}`,
     );
     return mockResponse;
+  }
+
+  /**
+   * Cancel TBO hotel bookings for an itinerary
+   * Calls TBO API to cancel and updates database status
+   */
+  async cancelItineraryHotels(
+    itineraryPlanId: number,
+    reason: string = 'Itinerary cancelled by user',
+  ) {
+    try {
+      // Find all active TBO bookings for this itinerary
+      const bookings = await this.prisma.tbo_hotel_booking_confirmation.findMany({
+        where: {
+          itinerary_plan_ID: itineraryPlanId,
+          status: 1,
+          deleted: 0,
+        },
+      });
+
+      if (bookings.length === 0) {
+        this.logger.log(`No active TBO bookings found for itinerary ${itineraryPlanId}`);
+        return [];
+      }
+
+      this.logger.log(`Found ${bookings.length} TBO booking(s) to cancel`);
+
+      const results = [];
+
+      for (const booking of bookings) {
+        try {
+          // Call TBO provider to cancel the booking
+          const cancellationResult = await this.tboProvider.cancelBooking(
+            booking.tbo_booking_reference_number,
+            reason,
+          );
+
+          // Update booking status in database
+          await this.prisma.tbo_hotel_booking_confirmation.update({
+            where: {
+              tbo_hotel_booking_confirmation_ID: booking.tbo_hotel_booking_confirmation_ID,
+            },
+            data: {
+              status: 0, // Mark as cancelled
+              updatedon: new Date(),
+              api_response: {
+                ...booking.api_response,
+                cancellation: cancellationResult,
+                cancelledAt: new Date().toISOString(),
+                cancelReason: reason,
+              },
+            },
+          });
+
+          results.push({
+            bookingId: booking.tbo_hotel_booking_confirmation_ID,
+            tboBookingRef: booking.tbo_booking_reference_number,
+            status: 'cancelled',
+            cancellationRef: cancellationResult.cancellationRef,
+            refundAmount: cancellationResult.refundAmount,
+            charges: cancellationResult.charges,
+          });
+
+          this.logger.log(
+            `✅ Cancelled TBO booking ${booking.tbo_booking_reference_number}: ` +
+            `Refund: ${cancellationResult.refundAmount}, Charges: ${cancellationResult.charges}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to cancel TBO booking ${booking.tbo_booking_reference_number}: ${error.message}`,
+          );
+
+          results.push({
+            bookingId: booking.tbo_hotel_booking_confirmation_ID,
+            tboBookingRef: booking.tbo_booking_reference_number,
+            status: 'failed',
+            error: error.message,
+          });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      this.logger.error(`❌ Error cancelling itinerary hotels: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to cancel TBO hotels: ${error.message}`,
+      );
+    }
   }
 }

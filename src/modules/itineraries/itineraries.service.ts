@@ -22,6 +22,7 @@ import { ItineraryDetailsService } from "./itinerary-details.service";
 import { TimeConverter } from "./engines/helpers/time-converter";
 import { HotspotDetailRow } from "./engines/helpers/types";
 import { TboHotelBookingService } from "./services/tbo-hotel-booking.service";
+import { ResAvenueHotelBookingService } from "./services/resavenue-hotel-booking.service";
 import { ItineraryHotelDetailsTboService } from "./itinerary-hotel-details-tbo.service";
 
 @Injectable()
@@ -39,6 +40,7 @@ export class ItinerariesService {
     private readonly routeValidation: RouteValidationService,
     private readonly itineraryDetails: ItineraryDetailsService,
     private readonly tboHotelBooking: TboHotelBookingService,
+    private readonly resavenueHotelBooking: ResAvenueHotelBookingService,
     private readonly hotelDetailsTboService: ItineraryHotelDetailsTboService,
   ) {}
 
@@ -1319,7 +1321,7 @@ export class ItinerariesService {
   }
 
   /**
-   * After transaction completes, handle TBO hotel bookings if selected
+   * After transaction completes, handle hotel bookings for all providers
    * This is done outside transaction to avoid locking issues with external API calls
    */
   async processConfirmationWithTboBookings(
@@ -1329,18 +1331,28 @@ export class ItinerariesService {
   ) {
     const userId = 1; // TODO: Get from authenticated user
 
-    // If no TBO hotels selected, return base result
-    if (!dto.tbo_hotels || dto.tbo_hotels.length === 0) {
-      console.log('[TBO Booking] No hotels to process');
+    // If no hotels selected, return base result
+    if (!dto.hotel_bookings || dto.hotel_bookings.length === 0) {
+      console.log('[Hotel Booking] No hotels to process');
       return baseResult;
     }
 
-    console.log('[TBO Booking] Processing', dto.tbo_hotels.length, 'hotel(s)');
-    console.log('[TBO Booking] Hotels:', JSON.stringify(dto.tbo_hotels, null, 2));
+    console.log('[Hotel Booking] Processing', dto.hotel_bookings.length, 'hotel(s)');
+    console.log('[Hotel Booking] Hotels:', JSON.stringify(dto.hotel_bookings, null, 2));
+
+    // Group hotels by provider
+    const tboHotels = dto.hotel_bookings.filter(h => h.provider === 'tbo');
+    const resavenueHotels = dto.hotel_bookings.filter(h => h.provider === 'ResAvenue');
+
+    console.log('[Hotel Booking] TBO:', tboHotels.length, 'ResAvenue:', resavenueHotels.length);
+
+    const allBookingResults: any[] = [];
 
     try {
-      // Map DTO to service format
-      const selections = dto.tbo_hotels.map((hotel) => ({
+      // Process TBO hotels if any
+      if (tboHotels.length > 0) {
+        console.log('[TBO Booking] Processing', tboHotels.length, 'hotel(s)');
+        const selections = tboHotels.map((hotel) => ({
         routeId: hotel.routeId,
         selection: {
           hotelCode: hotel.hotelCode,
@@ -1371,23 +1383,60 @@ export class ItinerariesService {
         },
       }));
 
-      // Call TBO booking service
-      const bookingResults = await this.tboHotelBooking.confirmItineraryHotels(
-        baseResult.confirmed_itinerary_plan_ID,
-        baseResult.itinerary_plan_ID,
-        selections,
-        endUserIp || dto.endUserIp || '192.168.1.1',
-        userId,
-      );
+        // Call TBO booking service
+        const tboBookingResults = await this.tboHotelBooking.confirmItineraryHotels(
+          baseResult.confirmed_itinerary_plan_ID,
+          baseResult.itinerary_plan_ID,
+          selections,
+          endUserIp || dto.endUserIp || '192.168.1.1',
+          userId,
+        );
+        allBookingResults.push(...tboBookingResults);
+      }
 
-      // Add booking results to response
+      // Process ResAvenue hotels if any
+      if (resavenueHotels.length > 0) {
+        console.log('[ResAvenue Booking] Processing', resavenueHotels.length, 'hotel(s)');
+        const resavenueSelections = resavenueHotels.map((hotel) => ({
+          routeId: hotel.routeId,
+          selection: {
+            hotelCode: hotel.hotelCode,
+            bookingCode: hotel.bookingCode,
+            roomType: hotel.roomType,
+            checkInDate: hotel.checkInDate,
+            checkOutDate: hotel.checkOutDate,
+            numberOfRooms: hotel.numberOfRooms,
+            guestNationality: hotel.guestNationality,
+            netAmount: hotel.netAmount,
+            guests: hotel.passengers.map((p) => ({
+              firstName: p.firstName,
+              lastName: p.lastName,
+              email: p.email,
+              phone: p.phoneNo,
+            })),
+          },
+          invCode: 1, // TODO: Get from hotel selection
+          rateCode: 1, // TODO: Get from hotel selection
+        }));
+
+        // Call ResAvenue booking service
+        const resavenueBookingResults = await this.resavenueHotelBooking.confirmItineraryHotels(
+          baseResult.confirmed_itinerary_plan_ID,
+          baseResult.itinerary_plan_ID,
+          resavenueSelections,
+          userId,
+        );
+        allBookingResults.push(...resavenueBookingResults);
+      }
+
+      // Add all booking results to response
       return {
         ...baseResult,
-        bookingResults,
+        bookingResults: allBookingResults,
       };
     } catch (error) {
-      console.error('Error processing TBO bookings:', error);
-      // Return base result even if TBO booking fails
+      console.error('Error processing hotel bookings:', error);
+      // Return base result even if booking fails
       // The quotation is already confirmed
       return {
         ...baseResult,
@@ -2103,6 +2152,32 @@ export class ItinerariesService {
       });
 
       if (hotels.length > 0) {
+        // Cancel TBO bookings via API BEFORE updating database
+        try {
+          const tboCancellationResults = await this.tboHotelBooking.cancelItineraryHotels(
+            itineraryPlanId,
+            'Itinerary cancelled by user',
+          );
+
+          console.log(`[TBO Cancellation] Results:`, tboCancellationResults);
+        } catch (error) {
+          console.error(`[TBO Cancellation] Failed but continuing with DB updates:`, error.message);
+          // Continue with database updates even if TBO cancellation fails
+        }
+
+        // Cancel ResAvenue bookings via API
+        try {
+          const resavenueCancellationResults = await this.resavenueHotelBooking.cancelItineraryHotels(
+            itineraryPlanId,
+            'Itinerary cancelled by user',
+          );
+
+          console.log(`[ResAvenue Cancellation] Results:`, resavenueCancellationResults);
+        } catch (error) {
+          console.error(`[ResAvenue Cancellation] Failed but continuing with DB updates:`, error.message);
+          // Continue with database updates even if ResAvenue cancellation fails
+        }
+
         // Mark hotels as cancelled
         await tx.dvi_itinerary_plan_hotel_details.updateMany({
           where: { 

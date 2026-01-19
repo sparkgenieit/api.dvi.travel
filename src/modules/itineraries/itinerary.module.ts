@@ -9,6 +9,7 @@ import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service'
 import { ItineraryHotelDetailsTboService } from './itinerary-hotel-details-tbo.service';
 import { ItineraryExportService } from './itinerary-export.service';
 import { TboHotelBookingService } from './services/tbo-hotel-booking.service';
+import { ResAvenueHotelBookingService } from './services/resavenue-hotel-booking.service';
 import { HotelEngineService } from './engines/hotel-engine.service';
 import { HotelPricingService } from './hotels/hotel-pricing.service';
 
@@ -38,6 +39,7 @@ import { HotelsModule } from '../hotels/hotels.module';
     ItineraryHotelDetailsTboService,
     ItineraryExportService,
     TboHotelBookingService,
+    ResAvenueHotelBookingService,
 
     // existing engines you already had
     HotelEngineService,
