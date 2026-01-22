@@ -3,6 +3,7 @@
 
 import { Module } from '@nestjs/common';
 import { ItinerariesController } from './itineraries.controller';
+import ResAvenueTestController from './resavenue-test.controller';
 import { ItinerariesService } from './itineraries.service';
 import { ItineraryDetailsService } from './itinerary-details.service';
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
@@ -10,6 +11,8 @@ import { ItineraryHotelDetailsTboService } from './itinerary-hotel-details-tbo.s
 import { ItineraryExportService } from './itinerary-export.service';
 import { TboHotelBookingService } from './services/tbo-hotel-booking.service';
 import { ResAvenueHotelBookingService } from './services/resavenue-hotel-booking.service';
+import { HobseHotelBookingService } from './services/hobse-hotel-booking.service';
+import { HotelVoucherService } from './hotel-voucher.service';
 import { HotelEngineService } from './engines/hotel-engine.service';
 import { HotelPricingService } from './hotels/hotel-pricing.service';
 
@@ -30,7 +33,7 @@ import { HotelsModule } from '../hotels/hotels.module';
 
 @Module({
   imports: [HotelsModule],
-  controllers: [ItinerariesController],
+  controllers: [ItinerariesController, ResAvenueTestController],
   providers: [
     // core services
     ItinerariesService,
@@ -40,6 +43,8 @@ import { HotelsModule } from '../hotels/hotels.module';
     ItineraryExportService,
     TboHotelBookingService,
     ResAvenueHotelBookingService,
+    HobseHotelBookingService,
+    HotelVoucherService,
 
     // existing engines you already had
     HotelEngineService,

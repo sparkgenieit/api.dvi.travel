@@ -1132,6 +1132,7 @@ model dvi_cities {
   status    Int       @default(0)
   deleted   Int       @default(0)
   tbo_city_code String? @db.VarChar(10)
+  hobse_city_code String? @db.VarChar(50)
 
   @@index([state_id], map: "idx_city_agent_id")
   @@index([createdon], map: "idx_city_createdon")
@@ -5703,4 +5704,34 @@ model resavenue_hotel_booking_confirmation {
   @@index([createdon], map: "idx_resavenue_booking_createdon")
   @@index([status], map: "idx_resavenue_booking_status")
   @@index([deleted], map: "idx_resavenue_booking_deleted")
+}
+
+/// HOBSE Hotel Booking Confirmations
+/// Stores confirmation data from HOBSE API when hotels are booked
+model hobse_hotel_booking_confirmation {
+  hobse_hotel_booking_confirmation_ID Int       @id @default(autoincrement())
+  plan_id                             Int       @default(0)
+  route_id                            Int       @default(0)
+  hotel_code                          String    @db.VarChar(50)
+  booking_id                          String    @db.VarChar(100)
+  check_in_date                       DateTime? @db.Date
+  check_out_date                      DateTime? @db.Date
+  room_count                          Int       @default(0)
+  guest_count                         Int       @default(0)
+  total_amount                        Float     @default(0) @db.Float
+  currency                            String    @default("INR") @db.VarChar(10)
+  booking_status                      String    @default("pending") @db.VarChar(50)
+  api_response                        Json?
+  cancellation_response               Json?
+  created_at                          DateTime  @default(now()) @db.DateTime(0)
+  updated_at                          DateTime? @db.DateTime(0)
+
+  @@index([plan_id], map: "idx_hobse_booking_plan_id")
+  @@index([route_id], map: "idx_hobse_booking_route_id")
+  @@index([hotel_code], map: "idx_hobse_booking_hotel_code")
+  @@index([booking_id], map: "idx_hobse_booking_id")
+  @@index([check_in_date], map: "idx_hobse_booking_check_in_date")
+  @@index([check_out_date], map: "idx_hobse_booking_check_out_date")
+  @@index([booking_status], map: "idx_hobse_booking_status")
+  @@index([created_at], map: "idx_hobse_booking_created_at")
 }

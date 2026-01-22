@@ -520,12 +520,14 @@ export class TBOHotelProvider implements IHotelProvider {
       // Step 1: Authenticate and get TokenId
       const tokenId = await this.authenticate();
 
-      // Step 2: Build SendChangeRequest with RequestType=4 (from Postman collection)
+      // Step 2: Build SendChangeRequest with RequestType=4 (TBO Official Format)
       const request = {
-        BookingRefId: confirmationRef,
-        RequestType: 4, // 4 = Cancellation
-        TokenId: tokenId,
+        BookingMode: 5,
+        RequestType: 4, // 4 = HotelCancel
         Remarks: reason,
+        BookingId: parseInt(confirmationRef), // Must be Integer from Book Response
+        EndUserIp: process.env.TBO_END_USER_IP || '192.168.1.1',
+        TokenId: tokenId,
       };
 
       this.logger.debug(`📤 Cancellation request: ${JSON.stringify(request)}`);
@@ -543,20 +545,20 @@ export class TBOHotelProvider implements IHotelProvider {
           }
         );
 
-      const cancelStatus = response.data?.Status;
-      if (!cancelStatus || cancelStatus.Code !== 200) {
+      const result = response.data?.HotelChangeRequestResult;
+      if (!result || result.ResponseStatus !== 1) {
         throw new Error(
-          `Cancellation failed: ${cancelStatus?.Description || 'Unknown error'}`
+          `Cancellation failed: ${result?.Error?.ErrorMessage || 'Unknown error'}`
         );
       }
 
-      this.logger.log(`✅ Booking cancelled successfully`);
+      this.logger.log(`✅ Booking cancelled successfully - ChangeRequestId: ${result.ChangeRequestId}`);
 
       return {
-        cancellationRef: response.data?.CancellationId || confirmationRef,
-        refundAmount: parseFloat(response.data?.RefundAmount) || 0,
-        charges: parseFloat(response.data?.CancellationCharges) || 0,
-        refundDays: response.data?.RefundDays || 5,
+        cancellationRef: result.ChangeRequestId?.toString() || confirmationRef,
+        refundAmount: 0, // TBO doesn't return refund in this response
+        charges: 0,
+        refundDays: 0,
       };
     } catch (error) {
       this.logger.error(

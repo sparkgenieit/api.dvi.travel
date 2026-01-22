@@ -383,6 +383,7 @@ export class TboHotelBookingService {
     }>,
     endUserIp: string,
     userId: number,
+    groupType: number = 1, // Hotel group type (not used here - draft records already saved)
   ) {
     const results = [];
 

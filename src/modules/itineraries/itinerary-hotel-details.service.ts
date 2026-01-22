@@ -25,6 +25,12 @@ export interface ItineraryHotelRowDto {
   // TBO Booking Code - for API interactions
   searchReference?: string;
   bookingCode?: string;
+  // Provider source (tbo, resavenue, hobse)
+  provider?: string;
+  // Voucher cancellation status
+  voucherCancelled?: boolean;
+  itineraryPlanHotelDetailsId?: number;
+  date?: string;
 }
 
 export interface ItineraryHotelDetailsResponseDto {
@@ -388,11 +394,37 @@ async getHotelRoomDetailsByQuoteId(
       .sort((a, b) => a.groupType - b.groupType);
 
     // 5) Per-row hotel list (with group_type & per-row cost)
+    // Also check voucher cancellation status
+    const hotelDetailsIds = hotelRowsDeduped.map(h => (h as any).itinerary_plan_hotel_details_ID).filter(id => id);
+    
+    // Fetch voucher cancellation statuses
+    const voucherStatuses = hotelDetailsIds.length > 0
+      ? await this.prisma.dvi_confirmed_itinerary_plan_hotel_voucher_details.findMany({
+          where: {
+            itinerary_plan_id: planId,
+            itinerary_plan_hotel_details_ID: { in: hotelDetailsIds },
+            deleted: 0,
+          },
+          select: {
+            itinerary_plan_hotel_details_ID: true,
+            hotel_voucher_cancellation_status: true,
+          },
+        })
+      : [];
+    
+    const voucherStatusMap = new Map(
+      voucherStatuses.map(v => [
+        v.itinerary_plan_hotel_details_ID,
+        v.hotel_voucher_cancellation_status === 1,
+      ])
+    );
+
     const hotels: ItineraryHotelRowDto[] = hotelRowsDeduped.map((h, idx) => {
       const master = hotelMap.get(Number((h as any).hotel_id)) || null;
       const dateLabel = h.itinerary_route_date
         ? h.itinerary_route_date.toISOString().slice(0, 10)
         : '';
+      const hotelDetailsId = (h as any).itinerary_plan_hotel_details_ID;
 
       return {
         groupType: Number((h as any).group_type ?? 0) || 0,
@@ -406,6 +438,9 @@ async getHotelRoomDetailsByQuoteId(
         mealPlan: '',
         totalHotelCost: Number((h as any).total_hotel_cost ?? 0),
         totalHotelTaxAmount: Number((h as any).total_hotel_tax_amount ?? 0),
+        voucherCancelled: voucherStatusMap.get(hotelDetailsId) || false,
+        itineraryPlanHotelDetailsId: hotelDetailsId,
+        date: dateLabel,
       };
     });
 

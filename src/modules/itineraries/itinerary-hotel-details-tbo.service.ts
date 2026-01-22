@@ -100,7 +100,7 @@ export class ItineraryHotelDetailsTboService {
     const packages = this.generatePricePackages(hotelsByRoute, routes);
 
     // Step 5: Build response
-    const response = this.buildHotelDetailsResponse(
+    const response = await this.buildHotelDetailsResponse(
       quoteId,
       planId,
       packages,
@@ -259,7 +259,7 @@ export class ItineraryHotelDetailsTboService {
       checkOutDate: checkOutDate.toISOString().split('T')[0],
       roomCount: 1,
       guestCount: 2,
-      providers: ['tbo'],
+      providers: ['tbo', 'resavenue'], // Include both TBO and ResAvenue providers
     };
 
     this.logger.log(`   🏨 Searching hotels with cityCode: ${cityCode}`);
@@ -395,14 +395,14 @@ export class ItineraryHotelDetailsTboService {
   /**
    * Build the response DTO
    */
-  private buildHotelDetailsResponse(
+  private async buildHotelDetailsResponse(
     quoteId: string,
     planId: number,
     packages: Array<{ groupType: number; label: string; hotels: Array<HotelSearchResult & { routeId: number }> }>,
     hotelsByRoute: Map<number, HotelSearchResult[]>,
     routes: any[],
     noOfNights: number,
-  ): ItineraryHotelDetailsResponseDto {
+  ): Promise<ItineraryHotelDetailsResponseDto> {
     // Build hotel tabs (one per package with total cost)
     const hotelTabs: ItineraryHotelTabDto[] = packages.map((pkg) => {
       const totalAmount = pkg.hotels.reduce((sum, h) => sum + h.price, 0);
@@ -412,6 +412,48 @@ export class ItineraryHotelDetailsTboService {
         totalAmount,
       };
     });
+
+    // Fetch all hotel details from database to get IDs and voucher status
+    const hotelDetailsInDb = await this.prisma.dvi_itinerary_plan_hotel_details.findMany({
+      where: { itinerary_plan_id: planId, deleted: 0 },
+      select: {
+        itinerary_plan_hotel_details_ID: true,
+        itinerary_route_id: true,
+        hotel_id: true,
+        group_type: true,
+      },
+    });
+
+    // Fetch voucher cancellation statuses
+    const hotelDetailsIds = hotelDetailsInDb.map(h => h.itinerary_plan_hotel_details_ID);
+    const voucherStatuses = hotelDetailsIds.length > 0
+      ? await this.prisma.dvi_confirmed_itinerary_plan_hotel_voucher_details.findMany({
+          where: {
+            itinerary_plan_id: planId,
+            itinerary_plan_hotel_details_ID: { in: hotelDetailsIds },
+            deleted: 0,
+          },
+          select: {
+            itinerary_plan_hotel_details_ID: true,
+            hotel_voucher_cancellation_status: true,
+          },
+        })
+      : [];
+
+    // Create maps for quick lookup
+    const detailsMap = new Map(
+      hotelDetailsInDb.map(d => [
+        `${d.itinerary_route_id}-${d.hotel_id}-${d.group_type}`,
+        d.itinerary_plan_hotel_details_ID
+      ])
+    );
+    
+    const voucherStatusMap = new Map(
+      voucherStatuses.map(v => [
+        v.itinerary_plan_hotel_details_ID,
+        v.hotel_voucher_cancellation_status === 1
+      ])
+    );
 
     // Build hotel rows (detail rows for each package)
     const hotelRows: ItineraryHotelRowDto[] = [];
@@ -438,13 +480,22 @@ export class ItineraryHotelDetailsTboService {
         
         // Use actual hotel name from TBO API response
         const displayHotelName = hotel.hotelName;
+        
+        const hotelId = parseInt(hotel.hotelCode) || 0;
+        const routeId = (route as any).itinerary_route_ID;
+        const dateLabel = new Date((route as any).itinerary_route_date).toISOString().split('T')[0];
+        
+        // Lookup hotel details ID and voucher status
+        const lookupKey = `${routeId}-${hotelId}-${pkg.groupType}`;
+        const hotelDetailsId = detailsMap.get(lookupKey);
+        const voucherCancelled = hotelDetailsId ? (voucherStatusMap.get(hotelDetailsId) || false) : false;
 
         hotelRows.push({
           groupType: pkg.groupType,
-          itineraryRouteId: (route as any).itinerary_route_ID,
-          day: `Day ${routeIndex + 1} | ${new Date((route as any).itinerary_route_date).toISOString().split('T')[0]}`,
+          itineraryRouteId: routeId,
+          day: `Day ${routeIndex + 1} | ${dateLabel}`,
           destination: destination,
-          hotelId: parseInt(hotel.hotelCode) || 0,
+          hotelId: hotelId,
           hotelName: displayHotelName,
           category: hotel.rating ? parseInt(String(hotel.rating)) : 0, // Category/star rating
           roomType: hotel.roomType || '', // Room type from TBO response
@@ -454,6 +505,10 @@ export class ItineraryHotelDetailsTboService {
           // TBO booking code for PreBook/Book API calls
           searchReference: hotel.searchReference,
           bookingCode: hotel.searchReference, // Use searchReference as booking code
+          provider: hotel.provider || 'tbo', // Provider source from API
+          voucherCancelled: voucherCancelled,
+          itineraryPlanHotelDetailsId: hotelDetailsId || 0,
+          date: dateLabel,
         });
       }
     }

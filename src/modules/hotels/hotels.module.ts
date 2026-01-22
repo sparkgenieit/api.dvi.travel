@@ -16,6 +16,7 @@ import { HotelMasterSyncController } from './controllers/hotel-master-sync.contr
 import { HotelsService } from './hotels.service';
 import { TBOHotelProvider } from './providers/tbo-hotel.provider';
 import { ResAvenueHotelProvider } from './providers/resavenue-hotel.provider';
+import { HobseHotelProvider } from './providers/hobse-hotel.provider';
 import { HotelSearchService } from './services/hotel-search.service';
 import { HotelConfirmService } from './services/hotel-confirm.service';
 import { TboHotelMasterSyncService } from './services/tbo-hotel-master-sync.service';
@@ -36,7 +37,7 @@ import { TboApiSyncService } from './services/tbo-api-sync.service';
     HotelConfirmController,
     HotelMasterSyncController,
   ],
-  providers: [HotelsService, TBOHotelProvider, ResAvenueHotelProvider, HotelSearchService, HotelConfirmService, TboHotelMasterSyncService, TboSoapSyncService, TboApiSyncService],
-  exports: [HotelsService, HotelSearchService, HotelConfirmService, TBOHotelProvider, ResAvenueHotelProvider, TboSoapSyncService, TboApiSyncService],
+  providers: [HotelsService, TBOHotelProvider, ResAvenueHotelProvider, HobseHotelProvider, HotelSearchService, HotelConfirmService, TboHotelMasterSyncService, TboSoapSyncService, TboApiSyncService],
+  exports: [HotelsService, HotelSearchService, HotelConfirmService, TBOHotelProvider, ResAvenueHotelProvider, HobseHotelProvider, TboSoapSyncService, TboApiSyncService],
 })
 export class HotelsModule {}

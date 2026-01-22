@@ -213,10 +213,28 @@ export class ResAvenueHotelProvider implements IHotelProvider {
     this.logger.log(`\n   🏨 RESAVENUE PROVIDER: Starting hotel search for city: ${criteria.cityCode}`);
 
     try {
-      // Step 1: Query database for ResAvenue hotels in this city
+      // Step 1: Resolve city name from city code (supports both TBO codes and city names)
+      let cityName = criteria.cityCode;
+      
+      // Check if cityCode is numeric (TBO format) - if so, look up the city name
+      if (/^\d+$/.test(criteria.cityCode)) {
+        const city = await this.prisma.dvi_cities.findFirst({
+          where: { tbo_city_code: criteria.cityCode },
+        });
+        
+        if (city) {
+          cityName = city.name;
+          this.logger.log(`   🗺️  Resolved TBO code ${criteria.cityCode} → ${cityName}`);
+        } else {
+          this.logger.warn(`   ⚠️  Could not resolve TBO city code: ${criteria.cityCode}`);
+          return [];
+        }
+      }
+
+      // Step 2: Query database for ResAvenue hotels in this city
       const hotels = await this.prisma.dvi_hotel.findMany({
         where: {
-          hotel_city: criteria.cityCode,
+          hotel_city: cityName,
           resavenue_hotel_code: { not: null },
           deleted: false,
           status: 1,
@@ -224,13 +242,13 @@ export class ResAvenueHotelProvider implements IHotelProvider {
       });
 
       if (hotels.length === 0) {
-        this.logger.log(`   📭 No ResAvenue hotels found in city: ${criteria.cityCode}`);
+        this.logger.log(`   📭 No ResAvenue hotels found in city: ${cityName}`);
         return [];
       }
 
-      this.logger.log(`   📋 Found ${hotels.length} ResAvenue hotel(s) in ${criteria.cityCode}`);
+      this.logger.log(`   📋 Found ${hotels.length} ResAvenue hotel(s) in ${cityName}`);
 
-      // Step 2: For each hotel, fetch live data from ResAvenue
+      // Step 3: For each hotel, fetch live data from ResAvenue
       const hotelSearchPromises = hotels.map((hotel) =>
         this.searchHotel(hotel, criteria)
       );

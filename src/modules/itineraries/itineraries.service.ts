@@ -23,6 +23,7 @@ import { TimeConverter } from "./engines/helpers/time-converter";
 import { HotspotDetailRow } from "./engines/helpers/types";
 import { TboHotelBookingService } from "./services/tbo-hotel-booking.service";
 import { ResAvenueHotelBookingService } from "./services/resavenue-hotel-booking.service";
+import { HobseHotelBookingService } from "./services/hobse-hotel-booking.service";
 import { ItineraryHotelDetailsTboService } from "./itinerary-hotel-details-tbo.service";
 
 @Injectable()
@@ -41,6 +42,7 @@ export class ItinerariesService {
     private readonly itineraryDetails: ItineraryDetailsService,
     private readonly tboHotelBooking: TboHotelBookingService,
     private readonly resavenueHotelBooking: ResAvenueHotelBookingService,
+    private readonly hobseHotelBooking: HobseHotelBookingService,
     private readonly hotelDetailsTboService: ItineraryHotelDetailsTboService,
   ) {}
 
@@ -1088,6 +1090,58 @@ export class ItinerariesService {
     const arrivalDateTime = parseDateTime(dto.arrival_date_time);
     const departureDateTime = parseDateTime(dto.departure_date_time);
 
+    // 2.5 Save draft hotel records with group_type BEFORE transaction
+    if (dto.hotel_bookings && dto.hotel_bookings.length > 0) {
+      const groupType = Number(dto.hotel_group_type) || 1;
+      console.log(`[Confirm Quotation] Saving ${dto.hotel_bookings.length} draft hotel records with group_type=${groupType}`);
+      
+      for (const booking of dto.hotel_bookings) {
+        const hotelId = parseInt(booking.hotelCode);
+        
+        // Check if draft hotel record already exists
+        const existing = await this.prisma.dvi_itinerary_plan_hotel_details.findFirst({
+          where: {
+            itinerary_plan_id: dto.itinerary_plan_ID,
+            itinerary_route_id: booking.routeId,
+            hotel_id: hotelId,
+            deleted: 0,
+          },
+        });
+
+        if (existing) {
+          // Update with correct group_type
+          await this.prisma.dvi_itinerary_plan_hotel_details.update({
+            where: {
+              itinerary_plan_hotel_details_ID: existing.itinerary_plan_hotel_details_ID,
+            },
+            data: {
+              group_type: groupType,
+              total_hotel_cost: booking.netAmount || 0,
+              updatedon: new Date(),
+            },
+          });
+          console.log(`✅ Updated draft hotel ${hotelId} for route ${booking.routeId} with group_type=${groupType}`);
+        } else {
+          // Create new draft hotel record
+          await this.prisma.dvi_itinerary_plan_hotel_details.create({
+            data: {
+              itinerary_plan_id: dto.itinerary_plan_ID,
+              itinerary_route_id: booking.routeId,
+              hotel_id: hotelId,
+              group_type: groupType,
+              total_hotel_cost: booking.netAmount || 0,
+              hotel_required: 1,
+              createdby: userId,
+              createdon: new Date(),
+              status: 1,
+              deleted: 0,
+            },
+          });
+          console.log(`✅ Created draft hotel ${hotelId} for route ${booking.routeId} with group_type=${groupType}`);
+        }
+      }
+    }
+
     // 3. Start Transaction
     return await this.prisma.$transaction(async (tx) => {
       // A. Deduct from wallet
@@ -1343,8 +1397,9 @@ export class ItinerariesService {
     // Group hotels by provider
     const tboHotels = dto.hotel_bookings.filter(h => h.provider === 'tbo');
     const resavenueHotels = dto.hotel_bookings.filter(h => h.provider === 'ResAvenue');
+    const hobseHotels = dto.hotel_bookings.filter(h => h.provider === 'HOBSE');
 
-    console.log('[Hotel Booking] TBO:', tboHotels.length, 'ResAvenue:', resavenueHotels.length);
+    console.log('[Hotel Booking] TBO:', tboHotels.length, 'ResAvenue:', resavenueHotels.length, 'HOBSE:', hobseHotels.length);
 
     const allBookingResults: any[] = [];
 
@@ -1383,13 +1438,14 @@ export class ItinerariesService {
         },
       }));
 
-        // Call TBO booking service
+        // Call TBO booking service with group_type
         const tboBookingResults = await this.tboHotelBooking.confirmItineraryHotels(
           baseResult.confirmed_itinerary_plan_ID,
           baseResult.itinerary_plan_ID,
           selections,
           endUserIp || dto.endUserIp || '192.168.1.1',
           userId,
+          Number(dto.hotel_group_type) || 1, // Pass the group_type
         );
         allBookingResults.push(...tboBookingResults);
       }
@@ -1427,6 +1483,23 @@ export class ItinerariesService {
           userId,
         );
         allBookingResults.push(...resavenueBookingResults);
+      }
+
+      // Process HOBSE hotels if any
+      if (hobseHotels.length > 0) {
+        console.log('[HOBSE Booking] Processing', hobseHotels.length, 'hotel(s)');
+        
+        // Call HOBSE booking service
+        const hobseBookingResults = await this.hobseHotelBooking.confirmItineraryHotels(
+          baseResult.itinerary_plan_ID,
+          hobseHotels,
+          {
+            name: dto.contactName || 'Guest',
+            email: dto.contactEmail || '',
+            phone: dto.contactPhone || '',
+          }
+        );
+        allBookingResults.push(...hobseBookingResults);
       }
 
       // Add all booking results to response
@@ -1839,7 +1912,7 @@ export class ItinerariesService {
     for (const pc of permitCharges) {
       await tx.dvi_confirmed_itinerary_plan_route_permit_charge.create({
         data: {
-          cnf_itinerary_route_permit_charge_ID: pc.route_permit_charge_ID,
+          // cnf_itinerary_route_permit_charge_ID is auto-increment, don't set it manually
           route_permit_charge_ID: pc.route_permit_charge_ID,
           itinerary_plan_ID: draftPlanId,
           itinerary_route_ID: pc.itinerary_route_ID,
@@ -2176,6 +2249,15 @@ export class ItinerariesService {
         } catch (error) {
           console.error(`[ResAvenue Cancellation] Failed but continuing with DB updates:`, error.message);
           // Continue with database updates even if ResAvenue cancellation fails
+        }
+
+        // Cancel HOBSE bookings via API
+        try {
+          await this.hobseHotelBooking.cancelItineraryHotels(itineraryPlanId);
+          console.log(`[HOBSE Cancellation] Successfully processed`);
+        } catch (error) {
+          console.error(`[HOBSE Cancellation] Failed but continuing with DB updates:`, error.message);
+          // Continue with database updates even if HOBSE cancellation fails
         }
 
         // Mark hotels as cancelled

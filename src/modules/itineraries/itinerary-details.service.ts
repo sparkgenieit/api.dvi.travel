@@ -378,34 +378,67 @@ export class ItineraryDetailsService {
     });
 
     // ------------------------- HOTELS FOR TIMELINE ----------------------
-    const timelineHotelWhere: any = { itinerary_plan_id: planId, deleted: 0 };
-    if (groupType !== undefined) {
-      timelineHotelWhere.group_type = groupType;
+    let timelineHotelRows: any[] = [];
+    
+    if (confirmedPlan) {
+      // If confirmed, fetch from confirmed hotels table
+      const confirmedHotelWhere: any = { itinerary_plan_id: planId, deleted: 0 };
+      
+      timelineHotelRows = await this.prisma.dvi_confirmed_itinerary_plan_hotel_details.findMany({
+        where: confirmedHotelWhere,
+        select: {
+          hotel_id: true,
+          itinerary_route_id: true,
+          group_type: true,
+        }
+      });
+      
+      console.log(`[Timeline Hotels] Fetched ${timelineHotelRows.length} hotels from CONFIRMED table`);
     } else {
-      timelineHotelWhere.group_type = 1; // Default to first recommendation
+      // If draft, fetch from draft hotels table
+      const timelineHotelWhere: any = { itinerary_plan_id: planId, deleted: 0 };
+      if (groupType !== undefined) {
+        timelineHotelWhere.group_type = groupType;
+      } else {
+        timelineHotelWhere.group_type = 1; // Default to first recommendation
+      }
+
+      timelineHotelRows = await this.prisma.dvi_itinerary_plan_hotel_details.findMany({
+        where: timelineHotelWhere,
+        select: {
+          hotel_id: true,
+          itinerary_route_id: true,
+          group_type: true,
+        }
+      });
+      
+      console.log(`[Timeline Hotels] Fetched ${timelineHotelRows.length} hotels from DRAFT table with group_type=${timelineHotelWhere.group_type}`);
     }
 
-    const timelineHotelRows = await this.prisma.dvi_itinerary_plan_hotel_details.findMany({
-      where: timelineHotelWhere,
-    });
-
-    const hotelIds = Array.from(
-      new Set(timelineHotelRows.map((h) => h.hotel_id).filter((id) => id > 0)),
+    // Build route -> hotel map
+    // For TBO/ResAvenue hotels, we'll get names from the live search API later
+    const routeHotelIdMap = new Map(
+      timelineHotelRows.map((h) => [h.itinerary_route_id, h.hotel_id]),
     );
-    const hotelMasters = hotelIds.length
+    
+    // Try to get hotel names from dvi_hotel master (for local hotels)
+    const hotelIds = Array.from(new Set(timelineHotelRows.map(h => h.hotel_id)));
+    const hotelMasters = hotelIds.length > 0
       ? await this.prisma.dvi_hotel.findMany({
           where: { hotel_id: { in: hotelIds } },
           select: { hotel_id: true, hotel_name: true, hotel_address: true },
         })
       : [];
-
-    const hotelMasterMap = new Map(hotelMasters.map((h) => [h.hotel_id, h]));
-    const routeHotelMap = new Map(
-      timelineHotelRows.map((h) => [
-        h.itinerary_route_id,
-        hotelMasterMap.get(h.hotel_id),
-      ]),
-    );
+    
+    const hotelMasterMap = new Map(hotelMasters.map(h => [h.hotel_id, h]));
+    
+    // Build final map with hotel info
+    // If hotel not in master, we'll fetch from TBO/ResAvenue search results
+    const routeHotelMap = new Map();
+    for (const [routeId, hotelId] of routeHotelIdMap.entries()) {
+      const masterInfo = hotelMasterMap.get(hotelId);
+      routeHotelMap.set(routeId, masterInfo || { hotel_id: hotelId, hotel_name: null, hotel_address: null });
+    }
 
     const days: any[] = [];
 

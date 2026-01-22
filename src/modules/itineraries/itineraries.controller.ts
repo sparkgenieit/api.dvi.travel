@@ -53,6 +53,7 @@ import {
 import { ItineraryHotelDetailsService } from './itinerary-hotel-details.service';
 import { ItineraryHotelDetailsTboService } from './itinerary-hotel-details-tbo.service';
 import { ItineraryExportService } from './itinerary-export.service';
+import { HotelVoucherService, AddCancellationPolicyDto, CreateVoucherDto } from './hotel-voucher.service';
 import { Public } from '../../auth/public.decorator';
 import { Response, Request } from 'express';
 import { RouteSuggestionsService } from './route-suggestions.service';
@@ -79,6 +80,7 @@ export class ItinerariesController {
     private readonly exportService: ItineraryExportService,
     private readonly routeSuggestionsService: RouteSuggestionsService,
     private readonly routeSuggestionsV2Service: RouteSuggestionsV2Service,
+    private readonly hotelVoucherService: HotelVoucherService,
   ) {}
 
   @Post()
@@ -805,8 +807,8 @@ export class ItinerariesController {
   async confirmQuotation(@Body() dto: ConfirmQuotationDto, @Req() req: Request) {
     const baseResult = await this.svc.confirmQuotation(dto);
     
-    // If TBO hotels are selected, process bookings outside the transaction
-    if (dto.tbo_hotels && dto.tbo_hotels.length > 0) {
+    // If hotel bookings are selected, process bookings outside the transaction
+    if (dto.hotel_bookings && dto.hotel_bookings.length > 0) {
       const clientIp = (req.ip || req.headers['x-forwarded-for'] || '192.168.1.1') as string;
       return await this.svc.processConfirmationWithTboBookings(
         baseResult,
@@ -902,6 +904,67 @@ export class ItinerariesController {
   @ApiOperation({ summary: 'Get pluck card data for a confirmed itinerary' })
   async getPluckCardData(@Param('id', ParseIntPipe) id: number) {
     return this.svc.getPluckCardData(id);
+  }
+
+  // Hotel Voucher Endpoints
+  @Get(':id/hotel-vouchers/:hotelId/cancellation-policies')
+  @ApiOperation({ summary: 'Get cancellation policies for a specific hotel' })
+  async getHotelCancellationPolicies(
+    @Param('id', ParseIntPipe) itineraryPlanId: number,
+    @Param('hotelId', ParseIntPipe) hotelId: number,
+  ) {
+    return this.hotelVoucherService.getHotelCancellationPolicies(itineraryPlanId, hotelId);
+  }
+
+  @Post(':id/hotel-vouchers/cancellation-policies')
+  @ApiOperation({ summary: 'Add a cancellation policy for a hotel' })
+  async addCancellationPolicy(
+    @Param('id', ParseIntPipe) itineraryPlanId: number,
+    @Body() dto: AddCancellationPolicyDto,
+    @Req() req: any,
+  ) {
+    const userId = Number(req.user?.userId ?? 1);
+    return this.hotelVoucherService.addCancellationPolicy(
+      { ...dto, itineraryPlanId },
+      userId,
+    );
+  }
+
+  @Delete(':id/hotel-vouchers/cancellation-policies/:policyId')
+  @ApiOperation({ summary: 'Delete a cancellation policy' })
+  async deleteCancellationPolicy(
+    @Param('policyId', ParseIntPipe) policyId: number,
+  ) {
+    return this.hotelVoucherService.deleteCancellationPolicy(policyId);
+  }
+
+  @Get(':id/hotel-vouchers/:hotelId')
+  @ApiOperation({ summary: 'Get existing voucher for a hotel' })
+  async getHotelVoucher(
+    @Param('id', ParseIntPipe) itineraryPlanId: number,
+    @Param('hotelId', ParseIntPipe) hotelId: number,
+  ) {
+    return this.hotelVoucherService.getHotelVoucher(itineraryPlanId, hotelId);
+  }
+
+  @Post(':id/hotel-vouchers')
+  @ApiOperation({ summary: 'Create hotel vouchers' })
+  async createHotelVouchers(
+    @Param('id', ParseIntPipe) itineraryPlanId: number,
+    @Body() dto: CreateVoucherDto,
+    @Req() req: any,
+  ) {
+    const userId = Number(req.user?.userId ?? 1);
+    return this.hotelVoucherService.createHotelVouchers(
+      { ...dto, itineraryPlanId },
+      userId,
+    );
+  }
+
+  @Get(':id/hotel-vouchers/default-terms')
+  @ApiOperation({ summary: 'Get default voucher terms from global settings' })
+  async getDefaultVoucherTerms() {
+    return { terms: await this.hotelVoucherService.getDefaultVoucherTerms() };
   }
 
   @Get('confirmed/:confirmedId/pluck-card-data')
