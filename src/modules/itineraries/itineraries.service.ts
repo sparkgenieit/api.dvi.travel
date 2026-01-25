@@ -1003,6 +1003,7 @@ export class ItinerariesService {
     return {
       quotation_no: plan.itinerary_quote_ID || '',
       agent_name: agent.agent_name,
+      agent_id: plan.agent_id,
       wallet_balance: formattedBalance,
       balance_sufficient: walletBalance > 0,
     };
