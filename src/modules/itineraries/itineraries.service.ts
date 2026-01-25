@@ -1494,9 +1494,9 @@ export class ItinerariesService {
           baseResult.itinerary_plan_ID,
           hobseHotels,
           {
-            name: dto.contactName || 'Guest',
-            email: dto.contactEmail || '',
-            phone: dto.contactPhone || '',
+            name: (dto as any).contactName || 'Guest',
+            email: (dto as any).contactEmail || '',
+            phone: (dto as any).contactPhone || '',
           }
         );
         allBookingResults.push(...hobseBookingResults);

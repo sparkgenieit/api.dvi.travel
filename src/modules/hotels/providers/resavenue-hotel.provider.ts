@@ -67,6 +67,9 @@ export class ResAvenueHotelProvider implements IHotelProvider {
   constructor(private readonly prisma: PrismaService) {
     this.logger.log('🏨 ResAvenue Hotel Provider initialized');
     this.logger.log(`Using endpoint: ${this.BASE_URL}`);
+    this.logger.log(`🔐 Credentials - Username: ${this.USERNAME}`);
+    this.logger.log(`🔐 Credentials - Password: ${this.PASSWORD}`);
+    this.logger.log(`🔐 Credentials - ID_Context: ${this.ID_CONTEXT}`);
   }
 
   private fileLog(message: string) {
@@ -84,6 +87,35 @@ export class ResAvenueHotelProvider implements IHotelProvider {
   }
 
   /**
+   * Get standard POS credentials object for OTA API requests
+   * Used consistently across all OTA_HotelResNotifRQ and other OTA requests
+   */
+  private getPOSCredentials() {
+    return {
+      Username: this.USERNAME,
+      Password: this.PASSWORD,
+      ID_Context: this.ID_CONTEXT,
+    };
+  }
+
+  /**
+   * Get nested POS credentials object for OTA_HotelResNotifRQ (Booking Push/Pull/Cancel)
+   * Special format required by ResAvenue for reservation operations
+   */
+  private getBookingPOSCredentials() {
+    return {
+      SourceID: {
+        ID: this.USERNAME,
+      },
+      RequestorID: {
+        User: this.USERNAME,
+        Password: this.PASSWORD,
+        ID_Context: this.ID_CONTEXT,
+      },
+    };
+  }
+
+  /**
    * Get property details (master data: room types, rate plans)
    */
   private async getPropertyDetails(hotelCode: string): Promise<any> {
@@ -92,11 +124,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         `${this.BASE_URL}/PropertyDetails`,
         {
           OTA_HotelDetailsRQ: {
-            POS: {
-              Username: this.USERNAME,
-              Password: this.PASSWORD,
-              ID_Context: this.ID_CONTEXT,
-            },
+            POS: this.getPOSCredentials(),
             TimeStamp: '20261015T15:22:50',
             EchoToken: `details-${Date.now()}`,
             HotelCode: hotelCode,
@@ -132,11 +160,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         `${this.BASE_URL}/PropertyDetails`,
         {
           OTA_HotelInventoryRQ: {
-            POS: {
-              Username: this.USERNAME,
-              Password: this.PASSWORD,
-              ID_Context: this.ID_CONTEXT,
-            },
+            POS: this.getPOSCredentials(),
             TimeStamp: '20261015T15:22:50',
             EchoToken: `inv-${Date.now()}`,
             HotelCode: hotelCode,
@@ -175,11 +199,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         `${this.BASE_URL}/PropertyDetails`,
         {
           OTA_HotelRateRQ: {
-            POS: {
-              Username: this.USERNAME,
-              Password: this.PASSWORD,
-              ID_Context: this.ID_CONTEXT,
-            },
+            POS: this.getPOSCredentials(),
             HotelCode: hotelCode,
             Start: startDate,
             End: endDate,
@@ -443,6 +463,11 @@ export class ResAvenueHotelProvider implements IHotelProvider {
           Version: '1.0',
           EchoToken: `booking-${Date.now()}`,
           TimeStamp: timestamp,
+          POS: {
+            Username: this.USERNAME,
+            Password: this.PASSWORD,
+            ID_Context: this.ID_CONTEXT,
+          },
           HotelReservations: {
             HotelReservation: [
               {
@@ -544,9 +569,20 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         },
       };
 
+      // Add authentication credentials (as per ResAvenue OTA API documentation)
+      bookingRequest.OTA_HotelResNotifRQ.POS = this.getBookingPOSCredentials() as any;
+
+      this.logger.log(`🔐 Authentication being sent:`);
+      this.logger.log(`   - Username: ${this.USERNAME}`);
+      this.logger.log(`   - Password: ${this.PASSWORD}`);
+      this.logger.log(`   - ID_Context: ${this.ID_CONTEXT}`);
+      
       this.logger.debug(`📤 Booking request: ${JSON.stringify(bookingRequest, null, 2)}`);
 
-      // Send booking push to ResAvenue
+      // Send booking push to ResAvenue with authentication
+      const authString = Buffer.from(`${this.USERNAME}:${this.PASSWORD}`).toString('base64');
+      this.logger.log(`🔐 Basic Auth Header: Basic ${authString}`);
+      
       const response = await this.http.post(
         `${this.BASE_URL}/PropertyDetails`,
         bookingRequest,
@@ -554,6 +590,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
+            Authorization: `Basic ${authString}`,
           },
           timeout: 30000,
         }
@@ -611,6 +648,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
           Version: '1.0',
           EchoToken: `cancel-${Date.now()}`,
           TimeStamp: timestamp,
+          POS: this.getBookingPOSCredentials(),
           HotelReservations: {
             HotelReservation: [
               {
@@ -683,6 +721,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
           TimeStamp: timestamp,
           Target: 'Production',
           Version: '1.0',
+          POS: this.getBookingPOSCredentials(),
           PropertyId: confirmationRef, // Booking reference
           FromDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 30 days
           ToDate: new Date().toISOString().split('T')[0], // Today

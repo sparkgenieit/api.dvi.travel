@@ -76,6 +76,8 @@ export interface HotelConfirmationDTO {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  invCode?: number;
+  rateCode?: number;
 }
 
 export interface GuestDetails {

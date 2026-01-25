@@ -26,7 +26,7 @@ export class HotelConfirmService {
     private resavenueProvider: ResAvenueHotelProvider,
   ) {
     this.prisma = prismaService;
-    this.providers = new Map([
+    this.providers = new Map<string, any>([
       ['tbo', this.tboProvider],
       ['resavenue', this.resavenueProvider],
       // Add HOBSE provider here when implemented

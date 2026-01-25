@@ -521,11 +521,13 @@ export class TBOHotelProvider implements IHotelProvider {
       const tokenId = await this.authenticate();
 
       // Step 2: Build SendChangeRequest with RequestType=4 (TBO Official Format)
+      // IMPORTANT: confirmationRef contains the bookingId from the database tbo_booking_id field
+      // This is the numeric ID from TBO Book response, NOT the reference number
       const request = {
         BookingMode: 5,
         RequestType: 4, // 4 = HotelCancel
         Remarks: reason,
-        BookingId: parseInt(confirmationRef), // Must be Integer from Book Response
+        BookingId: parseInt(confirmationRef), // Must be Integer ID from Book Response
         EndUserIp: process.env.TBO_END_USER_IP || '192.168.1.1',
         TokenId: tokenId,
       };
@@ -545,8 +547,11 @@ export class TBOHotelProvider implements IHotelProvider {
           }
         );
 
+      this.logger.debug(`📥 TBO Cancel Response: ${JSON.stringify(response.data)}`);
+
       const result = response.data?.HotelChangeRequestResult;
       if (!result || result.ResponseStatus !== 1) {
+        this.logger.error(`❌ TBO Cancel Error Details: ${JSON.stringify(result)}`);
         throw new Error(
           `Cancellation failed: ${result?.Error?.ErrorMessage || 'Unknown error'}`
         );
@@ -561,6 +566,11 @@ export class TBOHotelProvider implements IHotelProvider {
         refundDays: 0,
       };
     } catch (error) {
+      // Log detailed error response from TBO
+      if (error.response) {
+        this.logger.error(`❌ TBO API Error Response Status: ${error.response.status}`);
+        this.logger.error(`❌ TBO API Error Response Body: ${JSON.stringify(error.response.data)}`);
+      }
       this.logger.error(
         `❌ Cancel Booking Error: ${error.message}`,
         error.stack

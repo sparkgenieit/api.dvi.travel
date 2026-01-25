@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { TboHotelBookingService } from './services/tbo-hotel-booking.service';
 import { ResAvenueHotelBookingService } from './services/resavenue-hotel-booking.service';
@@ -15,6 +15,7 @@ export interface AddCancellationPolicyDto {
 export interface CreateVoucherDto {
   itineraryPlanId: number;
   vouchers: Array<{
+    routeId: number;
     hotelId: number;
     hotelDetailsIds: number[];
     routeDates: string[];
@@ -188,14 +189,22 @@ export class HotelVoucherService {
     };
 
     const createdVouchers = [];
+    const routeIdsToCancel = new Set<number>();
 
     for (const voucher of dto.vouchers) {
+      // Validation: if status is 'cancelled' but routeId is missing/invalid, throw error
+      if (voucher.status === 'cancelled' && (!voucher.routeId || typeof voucher.routeId !== 'number')) {
+        throw new BadRequestException(
+          `Voucher with status 'cancelled' must have a valid routeId. Received: ${voucher.routeId}`,
+        );
+      }
+
       // Create voucher for each route date and hotel details ID
       for (let i = 0; i < voucher.routeDates.length; i++) {
         const routeDate = voucher.routeDates[i];
         const hotelDetailsId = voucher.hotelDetailsIds[i];
 
-        this.logger.debug(`Processing voucher ${i}: routeDate=${routeDate}, hotelDetailsId=${hotelDetailsId}`);
+        this.logger.debug(`Processing voucher ${i}: routeId=${voucher.routeId}, routeDate=${routeDate}, hotelDetailsId=${hotelDetailsId}`);
 
         // Parse date - handle various formats
         let parsedDate: Date;
@@ -239,52 +248,67 @@ export class HotelVoucherService {
         createdVouchers.push(created);
       }
 
-      // If status is 'cancelled', trigger API cancellation for all providers
+      // Collect route IDs that need cancellation
       if (voucher.status === 'cancelled') {
-        this.logger.log(`🚫 Voucher status is 'cancelled', triggering API cancellations for itinerary ${dto.itineraryPlanId}`);
-        
-        // Cancel TBO bookings
-        try {
-          const tboCancellationResults = await this.tboHotelBooking.cancelItineraryHotels(
-            dto.itineraryPlanId,
-            'Hotel cancelled via voucher',
-          );
-          this.logger.log(`✅ TBO cancellation completed: ${JSON.stringify(tboCancellationResults)}`);
-        } catch (error) {
-          this.logger.error(`❌ TBO cancellation failed: ${error.message}`);
-        }
+        routeIdsToCancel.add(voucher.routeId);
+      }
+    }
 
-        // Cancel ResAvenue bookings
-        try {
-          const resavenueCancellationResults = await this.resavenueHotelBooking.cancelItineraryHotels(
-            dto.itineraryPlanId,
-            'Hotel cancelled via voucher',
-          );
-          this.logger.log(`✅ ResAvenue cancellation completed: ${JSON.stringify(resavenueCancellationResults)}`);
-        } catch (error) {
-          this.logger.error(`❌ ResAvenue cancellation failed: ${error.message}`);
-        }
+    // After all vouchers are created, cancel only the selected routes
+    if (routeIdsToCancel.size > 0) {
+      const routeIdsArray = Array.from(routeIdsToCancel);
+      this.logger.log(
+        `🚫 Cancelling selected route(s): ${routeIdsArray.join(',')} for itinerary ${dto.itineraryPlanId}`,
+      );
 
-        // Cancel HOBSE bookings
-        try {
-          await this.hobseHotelBooking.cancelItineraryHotels(dto.itineraryPlanId);
-          this.logger.log(`✅ HOBSE cancellation completed`);
-        } catch (error) {
-          this.logger.error(`❌ HOBSE cancellation failed: ${error.message}`);
-        }
+      const reason = 'Hotel cancelled via voucher';
 
-        // Update voucher cancellation status in database
-        for (const voucherRecord of createdVouchers) {
-          await this.prisma.dvi_confirmed_itinerary_plan_hotel_voucher_details.update({
-            where: {
-              cnf_itinerary_plan_hotel_voucher_details_ID: voucherRecord.cnf_itinerary_plan_hotel_voucher_details_ID,
-            },
-            data: {
-              hotel_voucher_cancellation_status: 1,
-              updatedon: new Date(),
-            },
-          });
-        }
+      // Cancel TBO bookings for selected routes
+      try {
+        const tboCancellationResults = await this.tboHotelBooking.cancelItineraryHotelsByRoutes(
+          dto.itineraryPlanId,
+          routeIdsArray,
+          reason,
+        );
+        this.logger.log(`✅ TBO route cancellation completed: ${JSON.stringify(tboCancellationResults)}`);
+      } catch (error) {
+        this.logger.error(`❌ TBO route cancellation failed: ${error.message}`);
+      }
+
+      // Cancel ResAvenue bookings for selected routes
+      try {
+        const resavenueCancellationResults = await this.resavenueHotelBooking.cancelItineraryHotelsByRoutes(
+          dto.itineraryPlanId,
+          routeIdsArray,
+          reason,
+        );
+        this.logger.log(`✅ ResAvenue route cancellation completed: ${JSON.stringify(resavenueCancellationResults)}`);
+      } catch (error) {
+        this.logger.error(`❌ ResAvenue route cancellation failed: ${error.message}`);
+      }
+
+      // Cancel HOBSE bookings for selected routes
+      try {
+        await this.hobseHotelBooking.cancelItineraryHotelsByRoutes(
+          dto.itineraryPlanId,
+          routeIdsArray,
+        );
+        this.logger.log(`✅ HOBSE route cancellation completed`);
+      } catch (error) {
+        this.logger.error(`❌ HOBSE route cancellation failed: ${error.message}`);
+      }
+
+      // Update voucher cancellation status in database
+      for (const voucherRecord of createdVouchers) {
+        await this.prisma.dvi_confirmed_itinerary_plan_hotel_voucher_details.update({
+          where: {
+            cnf_itinerary_plan_hotel_voucher_details_ID: voucherRecord.cnf_itinerary_plan_hotel_voucher_details_ID,
+          },
+          data: {
+            hotel_voucher_cancellation_status: 1,
+            updatedon: new Date(),
+          },
+        });
       }
     }
 

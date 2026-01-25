@@ -51,7 +51,25 @@ export class ResAvenueHotelBookingService {
         roomCount: selection.numberOfRooms,
         invCode,
         rateCode,
-        guests: selection.guests,
+        guests: selection.guests.map(g => ({
+          ...g,
+          email: g.email || '',
+          phone: g.phone || '',
+        })),
+        // Build rooms array required by provider
+        rooms: [
+          {
+            roomCode: `${invCode}-${rateCode}`,
+            quantity: selection.numberOfRooms,
+            guestCount: selection.guests.length,
+          },
+        ],
+        // Required fields for DTO
+        itineraryPlanId: 0, // Will be set by service
+        searchReference: selection.bookingCode || '',
+        contactName: selection.guests[0]?.firstName + ' ' + selection.guests[0]?.lastName || '',
+        contactEmail: selection.guests[0]?.email || '',
+        contactPhone: selection.guests[0]?.phone || '',
       });
 
       this.logger.log(`✅ ResAvenue booking confirmed: ${bookingResult.confirmationReference}`);
@@ -218,8 +236,8 @@ export class ResAvenueHotelBookingService {
               status: 0, // Mark as cancelled
               updatedon: new Date(),
               api_response: {
-                ...booking.api_response,
-                cancellation: cancellationResult,
+                ...(booking.api_response as Record<string, any>),
+                cancellation: cancellationResult as Record<string, any>,
                 cancelledAt: new Date().toISOString(),
                 cancelReason: reason,
               },
@@ -258,6 +276,106 @@ export class ResAvenueHotelBookingService {
       this.logger.error(`❌ Error cancelling ResAvenue itinerary hotels: ${error.message}`);
       throw new BadRequestException(
         `Failed to cancel ResAvenue hotels: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Cancel ResAvenue hotel bookings for specific routes only
+   */
+  async cancelItineraryHotelsByRoutes(
+    itineraryPlanId: number,
+    routeIds: number[],
+    reason: string = 'Hotel cancelled by user',
+  ) {
+    try {
+      if (!routeIds || routeIds.length === 0) {
+        this.logger.log(`No route IDs provided for cancellation`);
+        return [];
+      }
+
+      // Find ResAvenue bookings for specified routes
+      const bookings = await this.prisma.resavenue_hotel_booking_confirmation.findMany({
+        where: {
+          itinerary_plan_ID: itineraryPlanId,
+          itinerary_route_ID: { in: routeIds },
+          status: 1,
+          deleted: 0,
+        },
+      });
+
+      if (bookings.length === 0) {
+        this.logger.log(
+          `No active ResAvenue bookings found for itinerary ${itineraryPlanId} and routes [${routeIds.join(',')}]`,
+        );
+        return [];
+      }
+
+      this.logger.log(
+        `Found ${bookings.length} ResAvenue booking(s) to cancel for routes [${routeIds.join(',')}]`,
+      );
+
+      const results = [];
+
+      for (const booking of bookings) {
+        try {
+          // Call ResAvenue provider to cancel the booking
+          const cancellationResult = await this.resavenueProvider.cancelBooking(
+            booking.resavenue_booking_reference,
+            reason,
+          );
+
+          // Update booking status in database
+          await this.prisma.resavenue_hotel_booking_confirmation.update({
+            where: {
+              resavenue_hotel_booking_confirmation_ID: booking.resavenue_hotel_booking_confirmation_ID,
+            },
+            data: {
+              status: 0, // Mark as cancelled
+              updatedon: new Date(),
+              api_response: {
+                ...(booking.api_response as Record<string, any>),
+                cancellation: cancellationResult as Record<string, any>,
+                cancelledAt: new Date().toISOString(),
+                cancelReason: reason,
+              },
+            },
+          });
+
+          results.push({
+            bookingId: booking.resavenue_hotel_booking_confirmation_ID,
+            routeId: booking.itinerary_route_ID,
+            resavenueBookingRef: booking.resavenue_booking_reference,
+            status: 'cancelled',
+            cancellationRef: cancellationResult.cancellationRef,
+            refundAmount: cancellationResult.refundAmount,
+            charges: cancellationResult.charges,
+          });
+
+          this.logger.log(
+            `✅ Cancelled ResAvenue booking ${booking.resavenue_booking_reference} (Route ${booking.itinerary_route_ID}): ` +
+            `Refund: ${cancellationResult.refundAmount}, Charges: ${cancellationResult.charges}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to cancel ResAvenue booking ${booking.resavenue_booking_reference} (Route ${booking.itinerary_route_ID}): ${error.message}`,
+          );
+
+          results.push({
+            bookingId: booking.resavenue_hotel_booking_confirmation_ID,
+            routeId: booking.itinerary_route_ID,
+            resavenueBookingRef: booking.resavenue_booking_reference,
+            status: 'failed',
+            error: error.message,
+          });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      this.logger.error(`❌ Error cancelling ResAvenue hotel routes: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to cancel ResAvenue hotel routes: ${error.message}`,
       );
     }
   }

@@ -27,7 +27,7 @@ export class HotelSearchService {
     private resavenueProvider: ResAvenueHotelProvider,
     private hobseProvider: HobseHotelProvider,
   ) {
-    this.providers = new Map([
+    this.providers = new Map<string, any>([
       ['tbo', this.tboProvider],
       ['resavenue', this.resavenueProvider],
       ['hobse', this.hobseProvider],

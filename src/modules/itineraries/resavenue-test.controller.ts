@@ -58,6 +58,12 @@ export class ResAvenueTestController {
         hotelCode: bookingData.hotelCode,
         checkInDate: bookingData.checkInDate,
         checkOutDate: bookingData.checkOutDate,
+        itineraryPlanId: 0,
+        searchReference: '',
+        roomCount: bookingData.numberOfRooms,
+        contactName: bookingData.guests[0]?.firstName || 'Guest',
+        contactEmail: bookingData.guests[0]?.email || '',
+        contactPhone: bookingData.guests[0]?.phone || '',
         rooms: [
           {
             roomCode: `${bookingData.invCode}-${bookingData.rateCode}`,

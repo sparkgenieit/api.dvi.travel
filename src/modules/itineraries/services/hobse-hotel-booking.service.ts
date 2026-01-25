@@ -31,8 +31,8 @@ export class HobseHotelBookingService {
         this.logger.log(`\n   📋 Processing HOBSE hotel: ${hotel.hotelCode}`);
 
         // Get route details
-        const route = await this.prisma.dvi_itinerary_plan_routes.findUnique({
-          where: { plan_route_id: hotel.routeId },
+        const route = await (this.prisma as any).dvi_itinerary_plan_details.findUnique({
+          where: { itinerary_plan_detail_id: hotel.routeId },
           include: {
             dvi_itinerary_plan_route_dates: true,
           },
@@ -52,12 +52,12 @@ export class HobseHotelBookingService {
         // Book hotel via HOBSE API
         const bookingResult = await this.bookHotel({
           hotelCode: hotel.hotelCode,
-          roomCode: hotel.roomCode,
-          occupancyCode: hotel.occupancyCode,
-          ratePlanCode: hotel.ratePlanCode,
+          roomCode: (hotel as any).roomCode || '',
+          occupancyCode: (hotel as any).occupancyCode || '',
+          ratePlanCode: (hotel as any).ratePlanCode || '',
           checkInDate: checkIn.toISOString().split('T')[0],
           checkOutDate: checkOut.toISOString().split('T')[0],
-          roomCount: hotel.roomCount || 1,
+          roomCount: (hotel as any).roomCount || 1,
           guests: hotel.passengers,
           contactName: contactDetails.name,
           contactEmail: contactDetails.email,
@@ -134,7 +134,7 @@ export class HobseHotelBookingService {
           booking_id: bookingResult.confirmationReference,
           check_in_date: new Date(bookingResult.checkIn),
           check_out_date: new Date(bookingResult.checkOut),
-          room_count: hotelSelection.roomCount || 1,
+          room_count: (hotelSelection as any).roomCount || 1,
           guest_count: hotelSelection.passengers?.length || 1,
           total_amount: bookingResult.totalPrice,
           currency: 'INR',
@@ -193,7 +193,7 @@ export class HobseHotelBookingService {
             },
             data: {
               booking_status: 'cancelled',
-              cancellation_response: cancellationResult,
+              cancellation_response: cancellationResult as Record<string, any>,
               updated_at: new Date(),
             },
           });
@@ -208,6 +208,76 @@ export class HobseHotelBookingService {
       this.logger.log(`   ✅ HOBSE cancellation process complete`);
     } catch (error) {
       this.logger.error(`   ❌ HOBSE cancellation service error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel HOBSE hotel bookings for specific routes only
+   */
+  async cancelItineraryHotelsByRoutes(planId: number, routeIds: number[]): Promise<void> {
+    this.logger.log(`\n❌ HOBSE ROUTE-BASED CANCELLATION SERVICE:`);
+    this.logger.log(`   Plan ID: ${planId}`);
+    this.logger.log(`   Route IDs: ${routeIds.join(',')}`);
+
+    try {
+      if (!routeIds || routeIds.length === 0) {
+        this.logger.log(`   ℹ️  No route IDs provided for cancellation`);
+        return;
+      }
+
+      // Get all confirmed HOBSE bookings for this plan and specific routes
+      const bookings = await this.prisma.hobse_hotel_booking_confirmation.findMany({
+        where: {
+          plan_id: planId,
+          route_id: { in: routeIds },
+          booking_status: 'confirmed',
+        },
+      });
+
+      if (bookings.length === 0) {
+        this.logger.log(
+          `   ℹ️  No confirmed HOBSE bookings found for plan ${planId} and routes [${routeIds.join(',')}]`,
+        );
+        return;
+      }
+
+      this.logger.log(`   📋 Found ${bookings.length} HOBSE bookings to cancel for selected routes`);
+
+      // Cancel each booking via HOBSE API
+      for (const booking of bookings) {
+        try {
+          this.logger.log(`   📞 Cancelling HOBSE booking: ${booking.booking_id} (Route ${booking.route_id})`);
+
+          const cancellationResult = await this.hobseProvider.cancelBooking(
+            booking.booking_id,
+            'Hotel cancelled via voucher',
+          );
+
+          // Update booking status
+          await this.prisma.hobse_hotel_booking_confirmation.update({
+            where: {
+              hobse_hotel_booking_confirmation_ID: booking.hobse_hotel_booking_confirmation_ID,
+            },
+            data: {
+              booking_status: 'cancelled',
+              cancellation_response: cancellationResult as Record<string, any>,
+              updated_at: new Date(),
+            },
+          });
+
+          this.logger.log(`   ✅ HOBSE booking cancelled: ${booking.booking_id} (Route ${booking.route_id})`);
+        } catch (error) {
+          this.logger.error(
+            `   ❌ Error cancelling HOBSE booking ${booking.booking_id} (Route ${booking.route_id}): ${error.message}`,
+          );
+          // Continue with other cancellations
+        }
+      }
+
+      this.logger.log(`   ✅ HOBSE route-based cancellation process complete`);
+    } catch (error) {
+      this.logger.error(`   ❌ HOBSE route-based cancellation service error: ${error.message}`);
       throw error;
     }
   }

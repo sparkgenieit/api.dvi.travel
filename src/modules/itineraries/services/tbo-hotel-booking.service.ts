@@ -521,8 +521,9 @@ export class TboHotelBookingService {
       for (const booking of bookings) {
         try {
           // Call TBO provider to cancel the booking
+          // IMPORTANT: Pass tbo_booking_id (the numeric ID from TBO) not the reference
           const cancellationResult = await this.tboProvider.cancelBooking(
-            booking.tbo_booking_reference_number,
+            booking.tbo_booking_id,
             reason,
           );
 
@@ -535,8 +536,8 @@ export class TboHotelBookingService {
               status: 0, // Mark as cancelled
               updatedon: new Date(),
               api_response: {
-                ...booking.api_response,
-                cancellation: cancellationResult,
+                ...(booking.api_response as Record<string, any>),
+                cancellation: cancellationResult as Record<string, any>,
                 cancelledAt: new Date().toISOString(),
                 cancelReason: reason,
               },
@@ -575,6 +576,107 @@ export class TboHotelBookingService {
       this.logger.error(`❌ Error cancelling itinerary hotels: ${error.message}`);
       throw new BadRequestException(
         `Failed to cancel TBO hotels: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Cancel TBO hotel bookings for specific routes only
+   */
+  async cancelItineraryHotelsByRoutes(
+    itineraryPlanId: number,
+    routeIds: number[],
+    reason: string = 'Itinerary cancelled by user',
+  ) {
+    try {
+      if (!routeIds || routeIds.length === 0) {
+        this.logger.log(`No route IDs provided for cancellation`);
+        return [];
+      }
+
+      // Find TBO bookings for specified routes
+      const bookings = await this.prisma.tbo_hotel_booking_confirmation.findMany({
+        where: {
+          itinerary_plan_ID: itineraryPlanId,
+          itinerary_route_ID: { in: routeIds },
+          status: 1,
+          deleted: 0,
+        },
+      });
+
+      if (bookings.length === 0) {
+        this.logger.log(
+          `No active TBO bookings found for itinerary ${itineraryPlanId} and routes [${routeIds.join(',')}]`,
+        );
+        return [];
+      }
+
+      this.logger.log(
+        `Found ${bookings.length} TBO booking(s) to cancel for routes [${routeIds.join(',')}]`,
+      );
+
+      const results = [];
+
+      for (const booking of bookings) {
+        try {
+          // Call TBO provider to cancel the booking
+          // IMPORTANT: Pass tbo_booking_id (the numeric ID from TBO) not the reference
+          const cancellationResult = await this.tboProvider.cancelBooking(
+            booking.tbo_booking_id,
+            reason,
+          );
+
+          // Update booking status in database
+          await this.prisma.tbo_hotel_booking_confirmation.update({
+            where: {
+              tbo_hotel_booking_confirmation_ID: booking.tbo_hotel_booking_confirmation_ID,
+            },
+            data: {
+              status: 0, // Mark as cancelled
+              updatedon: new Date(),
+              api_response: {
+                ...(booking.api_response as Record<string, any>),
+                cancellation: cancellationResult as Record<string, any>,
+                cancelledAt: new Date().toISOString(),
+                cancelReason: reason,
+              },
+            },
+          });
+
+          results.push({
+            bookingId: booking.tbo_hotel_booking_confirmation_ID,
+            routeId: booking.itinerary_route_ID,
+            tboBookingRef: booking.tbo_booking_reference_number,
+            status: 'cancelled',
+            cancellationRef: cancellationResult.cancellationRef,
+            refundAmount: cancellationResult.refundAmount,
+            charges: cancellationResult.charges,
+          });
+
+          this.logger.log(
+            `✅ Cancelled TBO booking ${booking.tbo_booking_reference_number} (Route ${booking.itinerary_route_ID}): ` +
+            `Refund: ${cancellationResult.refundAmount}, Charges: ${cancellationResult.charges}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to cancel TBO booking ${booking.tbo_booking_reference_number} (Route ${booking.itinerary_route_ID}): ${error.message}`,
+          );
+
+          results.push({
+            bookingId: booking.tbo_hotel_booking_confirmation_ID,
+            routeId: booking.itinerary_route_ID,
+            tboBookingRef: booking.tbo_booking_reference_number,
+            status: 'failed',
+            error: error.message,
+          });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      this.logger.error(`❌ Error cancelling TBO hotel routes: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to cancel TBO hotel routes: ${error.message}`,
       );
     }
   }
