@@ -576,13 +576,14 @@ export class ItineraryHotelDetailsTboService {
         // Use actual hotel name from TBO API response
         const displayHotelName = hotel.hotelName;
         
-        const hotelId = parseInt(hotel.hotelCode) || 0;
+        // Handle both TBO (numeric) and HOBSE (UUID string) hotel codes
+        const hotelId = isNaN(parseInt(hotel.hotelCode)) ? 0 : parseInt(hotel.hotelCode);
         const routeId = (route as any).itinerary_route_ID;
         const dateLabel = new Date((route as any).itinerary_route_date).toISOString().split('T')[0];
         
-        // Lookup hotel details ID and voucher status
-        const lookupKey = `${routeId}-${hotelId}-${pkg.groupType}`;
-        const hotelDetailsId = detailsMap.get(lookupKey);
+        // Lookup hotel details ID and voucher status (only for TBO numeric IDs)
+        const lookupKey = hotelId > 0 ? `${routeId}-${hotelId}-${pkg.groupType}` : '';
+        const hotelDetailsId = lookupKey ? detailsMap.get(lookupKey) : undefined;
         const voucherCancelled = hotelDetailsId ? (voucherStatusMap.get(hotelDetailsId) || false) : false;
 
         hotelRows.push({
@@ -598,12 +599,17 @@ export class ItineraryHotelDetailsTboService {
           totalHotelCost: Math.round(hotel.price),
           totalHotelTaxAmount: 0,
           searchReference: hotel.searchReference,
-          bookingCode: hotel.searchReference,
+          bookingCode: hotel.hotelCode, // Use actual hotelCode (works for both TBO and HOBSE - can be numeric or UUID string)
           provider: hotel.provider || 'tbo',
           voucherCancelled: voucherCancelled,
           itineraryPlanHotelDetailsId: hotelDetailsId || 0,
           date: dateLabel,
         });
+
+        // Log HOBSE hotel codes for debugging
+        if (hotel.provider === 'HOBSE') {
+          this.logger.debug(`✅ HOBSE Hotel Response: hotelCode="${hotel.hotelCode}", provider="${hotel.provider}"`);
+        }
       }
     }
 

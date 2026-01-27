@@ -133,13 +133,40 @@ export class HobseHotelProvider implements IHotelProvider {
    * Pick cheapest room option from GetAvailableRoomTariff response
    */
   private pickCheapestRoomOption(roomOptions: any[] = []) {
+    if (!roomOptions || roomOptions.length === 0) {
+      this.logger.warn(`⚠️  HOBSE: roomOptions array is empty`);
+      return null;
+    }
+
     let best: any = null;
     let bestPrice = Number.POSITIVE_INFINITY;
 
     for (const opt of roomOptions) {
+      // Handle ratesData array
       const rates = Array.isArray(opt?.ratesData) ? opt.ratesData : [];
+      
+      if (rates.length === 0) {
+        this.logger.debug(`⚠️  HOBSE: Room option has no ratesData: ${opt?.roomCode}`);
+        // Try to use direct price fields if ratesData is not available
+        const directPrice = Number(opt?.totalCost || opt?.roomCost || opt?.price || 0);
+        if (directPrice > 0 && directPrice < bestPrice) {
+          bestPrice = directPrice;
+          best = {
+            roomCode: opt.roomCode,
+            roomName: opt.roomName,
+            occupancyTypeCode: opt.occupancyTypeCode,
+            occupancyTypeName: opt.occupancyTypeName,
+            ratePlanCode: opt.ratePlanCode,
+            ratePlanName: opt.ratePlanName,
+            tariff: String(opt?.roomCost || opt?.price || 0),
+            tax: String(opt?.tax || 0),
+          };
+        }
+        continue;
+      }
+
       for (const r of rates) {
-        const price = Number(r?.totalCostWithTax || r?.roomCost || r?.totalCost || 0);
+        const price = Number(r?.totalCostWithTax || r?.roomCost || r?.totalCost || r?.cost || 0);
         if (price > 0 && price < bestPrice) {
           bestPrice = price;
           best = {
@@ -149,11 +176,17 @@ export class HobseHotelProvider implements IHotelProvider {
             occupancyTypeName: opt.occupancyTypeName,
             ratePlanCode: opt.ratePlanCode,
             ratePlanName: opt.ratePlanName,
-            tariff: String(r?.roomCost || 0),
-            tax: String(r?.taxes || 0),
+            tariff: String(r?.roomCost || r?.basePrice || 0),
+            tax: String(r?.taxes || r?.tax || 0),
           };
         }
       }
+    }
+
+    if (best) {
+      this.logger.log(`✅ HOBSE: Selected room ${best.roomCode} at ₹${bestPrice}`);
+    } else {
+      this.logger.warn(`⚠️  HOBSE: No suitable room found in ${roomOptions.length} options`);
     }
 
     return best;
@@ -413,12 +446,27 @@ export class HobseHotelProvider implements IHotelProvider {
 
     const data = tariffResp?.hobse?.response?.data;
     const hotelRow = Array.isArray(data) ? data[0] : null;
+    
+    this.logger.debug(`📦 HOBSE GetAvailableRoomTariff response data type: ${Array.isArray(data) ? 'array' : typeof data}`);
+    if (Array.isArray(data)) {
+      this.logger.debug(`   Available hotels in response: ${data.length}`);
+    }
+    
+    if (!hotelRow) {
+      this.logger.error(`❌ No hotel row in HOBSE response. Full data: ${JSON.stringify(data).substring(0, 500)}`);
+      throw new Error('No hotel data returned from HOBSE GetAvailableRoomTariff');
+    }
+    
     if (!hotelRow?.roomOptions?.length) {
+      this.logger.error(`❌ No roomOptions in hotel row. Available keys: ${Object.keys(hotelRow).join(', ')}`);
+      this.logger.error(`   hotelRow data: ${JSON.stringify(hotelRow).substring(0, 500)}`);
       throw new Error('No roomOptions returned from HOBSE GetAvailableRoomTariff');
     }
 
+    this.logger.debug(`📋 Found ${hotelRow.roomOptions.length} room options, selecting cheapest...`);
     const best = this.pickCheapestRoomOption(hotelRow.roomOptions);
     if (!best) {
+      this.logger.error(`❌ Unable to pick best room. Room options: ${JSON.stringify(hotelRow.roomOptions).substring(0, 500)}`);
       throw new Error('Unable to select cheapest room option from HOBSE response');
     }
 
