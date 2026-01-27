@@ -4,6 +4,16 @@ const API_BASE_URL = 'http://127.0.0.1:4006/api/v1';
 
 async function testHobseBookingOnly() {
   const planId = 12;
+  
+  // Use dates that are further in the future
+  const today = new Date();
+  const checkInDate = new Date(today);
+  checkInDate.setDate(checkInDate.getDate() + 30);
+  const checkInStr = checkInDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  
+  const checkOutDate = new Date(checkInDate);
+  checkOutDate.setDate(checkOutDate.getDate() + 1);
+  const checkOutStr = checkOutDate.toISOString().split('T')[0];
 
   console.log('\n🧪 TESTING HOBSE BOOKING ONLY\n');
   console.log('════════════════════════════════════════════\n');
@@ -38,8 +48,8 @@ async function testHobseBookingOnly() {
         hotelCode: '40fec763d4c6e09e',
         bookingCode: '{"provider":"HOBSE","hotelId":"40fec763d4c6e09e","cityId":"19"}',
         roomType: 'Suite',
-        checkInDate: '2026-04-25',
-        checkOutDate: '2026-04-26',
+        checkInDate: checkInStr,
+        checkOutDate: checkOutStr,
         numberOfRooms: 1,
         guestNationality: 'IN',
         netAmount: 3000,
@@ -67,6 +77,8 @@ async function testHobseBookingOnly() {
 
   try {
     console.log('📤 SENDING HOBSE BOOKING REQUEST...\n');
+    console.log(`   Check-in: ${checkInStr}`);
+    console.log(`   Check-out: ${checkOutStr}\n`);
 
     const response = await axios.post(
       `${API_BASE_URL}/itineraries/confirm-quotation`,
