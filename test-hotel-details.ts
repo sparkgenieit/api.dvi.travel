@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = 'http://127.0.0.1:4006/api/v1';
 
 async function testHotelDetails() {
-  const quoteId = 'DVI2026011';
+  const quoteId = 'DVI20260110';
 
   console.log('\n🧪 TESTING HOTEL DETAILS ENDPOINT\n');
   console.log('════════════════════════════════════════════\n');

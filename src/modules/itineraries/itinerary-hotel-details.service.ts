@@ -411,7 +411,7 @@ async getHotelRoomDetailsByQuoteId(
           },
         })
       : [];
-    
+
     const voucherStatusMap = new Map(
       voucherStatuses.map(v => [
         v.itinerary_plan_hotel_details_ID,

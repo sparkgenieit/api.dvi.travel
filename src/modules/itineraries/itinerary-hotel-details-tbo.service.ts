@@ -3,6 +3,7 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { HotelSearchService } from '../hotels/services/hotel-search.service';
+import { HobseHotelProvider } from '../hotels/providers/hobse-hotel.provider';
 import { HotelSearchResult } from '../hotels/interfaces/hotel-provider.interface';
 import {
   ItineraryHotelTabDto,
@@ -30,6 +31,7 @@ export class ItineraryHotelDetailsTboService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly hotelSearchService: HotelSearchService,
+    private readonly hobseProvider: HobseHotelProvider,
   ) {}
 
   /**
@@ -80,13 +82,26 @@ export class ItineraryHotelDetailsTboService {
     // Step 3: Fetch hotels from TBO for each route (except last route if it's departure day)
     const hotelsByRoute = await this.fetchHotelsForRoutes(routes, noOfNights);
     
+    // Step 3.5: Fetch HOBSE hotels and merge with TBO hotels
+    // First, create a city code map for HOBSE (maps destination to TBO city code)
+    const cityCodeMap = await this.batchMapDestinationsToCityCodes(routes);
+    const hobseHotelsByRoute = await this.fetchHobseHotelsForRoutes(routes, noOfNights, cityCodeMap);
+    
+    // Merge HOBSE hotels into the TBO hotel map
+    hobseHotelsByRoute.forEach((hobseHotels, routeId) => {
+      const existingHotels = hotelsByRoute.get(routeId) || [];
+      hotelsByRoute.set(routeId, [...existingHotels, ...hobseHotels]);
+    });
+    
     // Debug: Check if any hotels were found
     const hotelEntries = Array.from(hotelsByRoute.entries());
-    this.logger.log(`\n📊 HOTEL FETCH RESULTS:`);
+    this.logger.log(`\n📊 HOTEL FETCH RESULTS (TBO + HOBSE):`);
     hotelEntries.forEach(([routeId, hotels]) => {
-      this.logger.log(`   Route ${routeId}: ${hotels.length} hotels`);
+      const tboCount = hotels.filter(h => h.provider === 'tbo').length;
+      const hobseCount = hotels.filter(h => h.provider === 'hobse').length;
+      this.logger.log(`   Route ${routeId}: ${hotels.length} hotels (TBO: ${tboCount}, HOBSE: ${hobseCount})`);
       if (hotels.length > 0) {
-        this.logger.log(`      - ${hotels.map(h => h.hotelName).join(', ')}`);
+        this.logger.log(`      - ${hotels.map(h => `${h.hotelName} (${h.provider})`).join(', ')}`);
       }
     });
     
@@ -259,14 +274,94 @@ export class ItineraryHotelDetailsTboService {
       checkOutDate: checkOutDate.toISOString().split('T')[0],
       roomCount: 1,
       guestCount: 2,
-      providers: ['tbo', 'resavenue'], // Include both TBO and ResAvenue providers
+      providers: ['tbo', 'resavenue'], // Only TBO + ResAvenue - HOBSE will be merged separately
     };
 
     this.logger.log(`   🏨 Searching hotels with cityCode: ${cityCode}`);
     const hotels = await this.hotelSearchService.searchHotels(searchCriteria);
-    this.logger.log(`   ✅ Found ${hotels ? hotels.length : 0} hotels for route ${routeId}`);
+    this.logger.log(`   ✅ Found ${hotels ? hotels.length : 0} hotels for route ${routeId} (TBO only at this stage)`);
+    
+    if (hotels && hotels.length > 0) {
+      this.logger.log(`   📋 TBO Hotels for route ${routeId}:`);
+      hotels.forEach((h, idx) => {
+        this.logger.log(`      ${idx + 1}. ${h.hotelName} (${h.provider}) - ₹${h.price}`);
+      });
+    } else {
+      this.logger.log(`   ⚠️  WARNING: TBO search returned ZERO hotels for route ${routeId}!`);
+    }
     
     hotelsByRoute.set(routeId, hotels || []);
+  }
+
+  /**
+   * Fetch HOBSE hotels for each route
+   * Maps destinations to HOBSE city codes and calls HOBSE provider
+   */
+  private async fetchHobseHotelsForRoutes(
+    routes: any[],
+    noOfNights: number,
+    cityCodeMap: Record<string, string>,
+  ): Promise<Map<number, HotelSearchResult[]>> {
+    const hotelsByRoute = new Map<number, HotelSearchResult[]>();
+    const totalRoutes = routes.length;
+
+    this.logger.log(`\n🏨 HOBSE HOTEL FETCH: Attempting to fetch HOBSE hotels for ${routes.length} routes`);
+
+    try {
+      for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+        const route = routes[routeIndex];
+        const routeId = (route as any).itinerary_route_ID;
+        
+        // Skip hotel generation for the last route (departure day) if routeIndex >= noOfNights
+        const isLastRoute = routeIndex === totalRoutes - 1;
+        if (isLastRoute && routeIndex >= noOfNights) {
+          this.logger.log(`   ⏭️  Skipping HOBSE route ${routeIndex + 1} (last route - departure day)`);
+          continue;
+        }
+        
+        const destination = (route as any).next_visiting_location;
+        // Get the city code from the map instead of using the destination name
+        const cityCode = cityCodeMap[destination];
+        
+        if (!cityCode) {
+          this.logger.warn(`   ⚠️  No city code mapping for destination "${destination}" - skipping HOBSE search`);
+          hotelsByRoute.set(routeId, []);
+          continue;
+        }
+        
+        const routeDate = new Date((route as any).itinerary_route_date);
+        const checkOutDate = new Date(routeDate);
+        checkOutDate.setDate(checkOutDate.getDate() + 1);
+
+        try {
+          // Pass city code (number) instead of destination name (string)
+          const hobseHotels = await this.hobseProvider.search({
+            cityCode: cityCode,
+            checkInDate: routeDate.toISOString().split('T')[0],
+            checkOutDate: checkOutDate.toISOString().split('T')[0],
+            roomCount: 1,
+            guestCount: 2,
+          });
+
+          if (hobseHotels && hobseHotels.length > 0) {
+            this.logger.log(`   ✅ HOBSE Route ${routeId}: Found ${hobseHotels.length} hotels in ${destination}`);
+            hotelsByRoute.set(routeId, hobseHotels);
+          } else {
+            this.logger.log(`   ℹ️  HOBSE Route ${routeId}: No hotels found in ${destination}`);
+            hotelsByRoute.set(routeId, []);
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`   ⚠️  HOBSE Route ${routeId} search failed: ${errorMsg}`);
+          hotelsByRoute.set(routeId, []);
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`❌ HOBSE HOTEL FETCH FAILED: ${errorMsg}`);
+    }
+
+    return hotelsByRoute;
   }
 
   /**
@@ -497,15 +592,14 @@ export class ItineraryHotelDetailsTboService {
           destination: destination,
           hotelId: hotelId,
           hotelName: displayHotelName,
-          category: hotel.rating ? parseInt(String(hotel.rating)) : 0, // Category/star rating
-          roomType: hotel.roomType || '', // Room type from TBO response
-          mealPlan: hotel.mealPlan || '-', // Meal plan from TBO response if available
+          category: hotel.rating ? parseInt(String(hotel.rating)) : 0,
+          roomType: hotel.roomType || '',
+          mealPlan: hotel.mealPlan || '-',
           totalHotelCost: Math.round(hotel.price),
-          totalHotelTaxAmount: 0, // TBO API doesn't provide tax breakdown
-          // TBO booking code for PreBook/Book API calls
+          totalHotelTaxAmount: 0,
           searchReference: hotel.searchReference,
-          bookingCode: hotel.searchReference, // Use searchReference as booking code
-          provider: hotel.provider || 'tbo', // Provider source from API
+          bookingCode: hotel.searchReference,
+          provider: hotel.provider || 'tbo',
           voucherCancelled: voucherCancelled,
           itineraryPlanHotelDetailsId: hotelDetailsId || 0,
           date: dateLabel,

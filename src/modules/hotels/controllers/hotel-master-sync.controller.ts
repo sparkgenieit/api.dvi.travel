@@ -1,18 +1,21 @@
 import { Controller, Post, Get, Param, Logger } from '@nestjs/common';
 import { TboSoapSyncService } from '../services/tbo-soap-sync.service';
+import { HobseHotelMasterSyncService } from '../services/hobse-hotel-master-sync.service';
 
 /**
  * Hotel Master Sync Controller
- * 
+ *
  * Endpoints to sync TBO city and hotel master data from SOAP v7 APIs
- * - Syncs cities with TBO codes
- * - Syncs hotel master data (name, rating, address, etc) for each city
+ * + HOBSE master sync into dvi_hotel
  */
 @Controller('hotels/sync')
 export class HotelMasterSyncController {
   private logger = new Logger(HotelMasterSyncController.name);
 
-  constructor(private readonly tboSoapService: TboSoapSyncService) {}
+  constructor(
+    private readonly tboSoapService: TboSoapSyncService,
+    private readonly hobseHotelMasterSyncService: HobseHotelMasterSyncService,
+  ) {}
 
   /**
    * Sync all cities and hotels from TBO
@@ -78,5 +81,30 @@ export class HotelMasterSyncController {
       hotelCount: count,
       message: `Total hotels in master database: ${count}`,
     };
+  }
+
+  // -------------------- HOBSE --------------------
+
+  /**
+   * Sync all hotels from HOBSE into dvi_hotel
+   * POST /api/v1/hotels/sync/hobse/all
+   */
+  @Post('hobse/all')
+  async syncHobseAllHotels() {
+    try {
+      this.logger.log('🔄 Starting HOBSE hotel sync into dvi_hotel...');
+      const result = await this.hobseHotelMasterSyncService.syncAllHotelsToDviHotel();
+      return {
+        success: true,
+        message: 'HOBSE hotels synced into dvi_hotel successfully',
+        ...result,
+      };
+    } catch (error) {
+      this.logger.error(`❌ HOBSE sync failed: ${error.message}`);
+      return {
+        success: false,
+        message: `HOBSE sync failed: ${error.message}`,
+      };
+    }
   }
 }

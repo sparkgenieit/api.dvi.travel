@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import { PrismaService } from '../../../prisma.service';
 import {
@@ -13,60 +18,61 @@ import {
   CancellationResult,
 } from '../interfaces/hotel-provider.interface';
 
-interface HobseRequest {
+interface HobseEnvelope<T = any> {
   hobse: {
     version: string;
     datetime: string;
-    clientToken: string;
-    accessToken: string;
-    productToken: string;
-    request: {
-      method: string;
-      data: any;
-    };
-  };
-}
-
-interface HobseResponse {
-  hobse: {
-    version: string;
-    datetime: string;
-    response: {
+    clientToken?: string;
+    accessToken?: string;
+    productToken?: string;
+    response?: {
       status: {
-        success: string;
+        success: 'true' | 'false';
         code: string;
         message: string;
       };
-      totalRecords: number;
-      data: any[];
+      totalRecords?: number;
+      data?: T;
+      errors?: Array<{
+        code?: string;
+        message?: string;
+        param?: any;
+      }>;
     };
-    request: any;
+    request?: any;
   };
 }
 
 @Injectable()
 export class HobseHotelProvider implements IHotelProvider {
-  private readonly BASE_URL = process.env.HOBSE_BASE_URL || 'https://api.hobse.com';
+  private readonly logger = new Logger(HobseHotelProvider.name);
+  private http: AxiosInstance = axios;
+
+  // e.g. https://api.hobse.com/v1/qa
+  private readonly BASE_URL =
+    process.env.HOBSE_BASE_URL || 'https://api.hobse.com/v1/qa';
+
   private readonly CLIENT_TOKEN = process.env.HOBSE_CLIENT_TOKEN || '';
   private readonly ACCESS_TOKEN = process.env.HOBSE_ACCESS_TOKEN || '';
   private readonly PRODUCT_TOKEN = process.env.HOBSE_PRODUCT_TOKEN || '';
 
-  private logger = new Logger(HobseHotelProvider.name);
-  private http: AxiosInstance = axios;
+  private readonly PARTNER_TYPE = process.env.HOBSE_PARTNER_TYPE || 'TA';
+  private readonly PARTNER_ID = process.env.HOBSE_PARTNER_ID || '';
+  private readonly PARTNER_TYPE_ID = process.env.HOBSE_PARTNER_TYPE_ID || '';
+  private readonly PRICE_OWNER_TYPE = process.env.HOBSE_PRICE_OWNER_TYPE || '2';
+  private readonly TARIFF_MODE = process.env.HOBSE_TARIFF_MODE || 'B2B';
+  private readonly CHANNEL_NAME = process.env.HOBSE_CHANNEL_NAME || 'DVI';
 
-  constructor(private readonly prisma: PrismaService) {
-    this.logger.log('🏨 HOBSE Hotel Provider initialized');
-    this.logger.log(`Using endpoint: ${this.BASE_URL}`);
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   getName(): string {
     return 'HOBSE';
   }
 
-  /**
-   * Build HOBSE request wrapper
-   */
-  private buildRequest(method: string, data: any): HobseRequest {
+  private buildParams(method: string, data: any): HobseEnvelope {
+    // Ensure method has htl/ prefix for the request envelope
+    const methodWithPrefix = method.startsWith('htl/') ? method : `htl/${method}`;
+    
     return {
       hobse: {
         version: '1.0',
@@ -75,7 +81,7 @@ export class HobseHotelProvider implements IHotelProvider {
         accessToken: this.ACCESS_TOKEN,
         productToken: this.PRODUCT_TOKEN,
         request: {
-          method,
+          method: methodWithPrefix,
           data: {
             ...data,
             resultType: 'json',
@@ -86,350 +92,446 @@ export class HobseHotelProvider implements IHotelProvider {
   }
 
   /**
-   * Make HOBSE API call
+   * Send application/x-www-form-urlencoded with key "params"
    */
-  private async makeRequest(method: string, data: any): Promise<HobseResponse> {
+  private async postForm<T = any>(method: string, data: any): Promise<HobseEnvelope<T>> {
     try {
-      const request = this.buildRequest(method, data);
-      
-      this.logger.debug(`📤 HOBSE Request: ${method}`);
-      this.logger.debug(`   Data: ${JSON.stringify(data)}`);
+      const url = `${this.BASE_URL}/${method}`; // BASE_URL already includes /htl, just append method name
+      const paramsEnvelope = this.buildParams(method, data);
 
-      const response = await this.http.post<HobseResponse>(
-        this.BASE_URL,
-        request,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000,
-        }
-      );
+      const form = new URLSearchParams();
+      form.append('params', JSON.stringify(paramsEnvelope));
 
-      // Check response status
-      if (response.data?.hobse?.response?.status?.success !== 'true') {
-        const message = response.data?.hobse?.response?.status?.message || 'Unknown error';
-        throw new Error(`HOBSE API Error: ${message}`);
+      this.logger.debug(`📤 HOBSE POST ${url}`);
+      this.logger.debug(`📋 HOBSE Params: ${JSON.stringify(paramsEnvelope).substring(0, 200)}...`);
+
+      const resp = await this.http.post<HobseEnvelope<T>>(url, form.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: 45000,
+      });
+
+      const ok = resp?.data?.hobse?.response?.status?.success === 'true';
+      if (!ok) {
+        const errorMessage = resp?.data?.hobse?.response?.status?.message ||
+          resp?.data?.hobse?.response?.errors?.[0]?.message ||
+          JSON.stringify(resp?.data?.hobse?.response) ||
+          'Unknown HOBSE API error';
+        this.logger.warn(`⚠️  HOBSE Response: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
 
-      this.logger.debug(`📥 HOBSE Response: Success`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`❌ HOBSE API Error: ${error.message}`);
-      throw new InternalServerErrorException(`HOBSE API failed: ${error.message}`);
+      return resp.data;
+    } catch (e: any) {
+      this.logger.error(`❌ HOBSE API failed: ${e?.message}`);
+      throw new InternalServerErrorException(`HOBSE API failed: ${e?.message}`);
     }
   }
 
   /**
-   * Search hotels
+   * Pick cheapest room option from GetAvailableRoomTariff response
    */
-  async search(
-    criteria: HotelSearchCriteria,
-    preferences?: HotelPreferences,
-  ): Promise<HotelSearchResult[]> {
-    try {
-      this.logger.log(`\n   📡 HOBSE PROVIDER: Starting hotel search for city: ${criteria.cityCode}`);
+  private pickCheapestRoomOption(roomOptions: any[] = []) {
+    let best: any = null;
+    let bestPrice = Number.POSITIVE_INFINITY;
 
-      // Step 1: Get HOBSE city mapping
-      const hobseCity = await this.prisma.dvi_cities.findFirst({
-        where: { hobse_city_code: criteria.cityCode },
-      });
-
-      if (!hobseCity?.hobse_city_code) {
-        this.logger.warn(`   ⚠️  City ${criteria.cityCode} not mapped to HOBSE`);
-        return [];
-      }
-
-      this.logger.log(`   🗺️  City Mapping: HOBSE ${hobseCity.hobse_city_code} → ${hobseCity.name}`);
-
-      // Step 2: Get hotel list for city
-      const hotelListResponse = await this.makeRequest('htl/GetHotelList', {});
-      const hotels = hotelListResponse.hobse.response.data || [];
-
-      // Filter hotels by city
-      const cityHotels = hotels.filter(
-        (h: any) => h.cityName?.toLowerCase() === hobseCity.name.toLowerCase()
-      );
-
-      if (cityHotels.length === 0) {
-        this.logger.warn(`   📭 No HOBSE hotels found for city: ${hobseCity.name}`);
-        return [];
-      }
-
-      this.logger.log(`   ✅ Found ${cityHotels.length} HOBSE hotels in ${hobseCity.name}`);
-
-      // Step 3: Get available room tariffs for each hotel
-      const searchResults: HotelSearchResult[] = [];
-
-      for (const hotel of cityHotels) {
-        try {
-          const roomResult = await this.searchHotelRooms(
-            hotel.hotelId,
-            hotel.hotelName,
-            criteria
-          );
-          if (roomResult) {
-            searchResults.push(roomResult);
-          }
-        } catch (error) {
-          this.logger.error(`   ❌ Error searching hotel ${hotel.hotelId}: ${error.message}`);
+    for (const opt of roomOptions) {
+      const rates = Array.isArray(opt?.ratesData) ? opt.ratesData : [];
+      for (const r of rates) {
+        const price = Number(r?.totalCostWithTax || r?.roomCost || r?.totalCost || 0);
+        if (price > 0 && price < bestPrice) {
+          bestPrice = price;
+          best = {
+            roomCode: opt.roomCode,
+            roomName: opt.roomName,
+            occupancyTypeCode: opt.occupancyTypeCode,
+            occupancyTypeName: opt.occupancyTypeName,
+            ratePlanCode: opt.ratePlanCode,
+            ratePlanName: opt.ratePlanName,
+            tariff: String(r?.roomCost || 0),
+            tax: String(r?.taxes || 0),
+          };
         }
       }
+    }
 
-      this.logger.log(`   ✅ Returning ${searchResults.length} HOBSE hotels with availability`);
-      return searchResults;
-    } catch (error) {
-      this.logger.error(`   ❌ HOBSE search error: ${error.message}`);
+    return best;
+  }
+
+  /**
+   * SEARCH
+   * criteria.cityCode here is your itinerary flow code (usually TBO city code).
+   * We map it to dvi_cities.hobse_city_code + city name (for filtering GetHotelList by cityName).
+   */
+  async search(criteria: HotelSearchCriteria, _preferences?: HotelPreferences): Promise<HotelSearchResult[]> {
+    try {
+      this.logger.log(`\n   📡 HOBSE SEARCH: cityCode=${criteria.cityCode}, ${criteria.checkInDate}→${criteria.checkOutDate}`);
+
+      // Convert cityCode to string for database lookup (Prisma expects string)
+      const cityCodeAsString = String(criteria.cityCode);
+
+      // Build where conditions with proper string values
+      const orConditions: any[] = [
+        { tbo_city_code: cityCodeAsString },
+        { hobse_city_code: cityCodeAsString },
+        { name: cityCodeAsString }, // Also support lookup by city name directly
+      ];
+
+      const cityRow = await this.prisma.dvi_cities.findFirst({
+        where: {
+          OR: orConditions,
+        },
+        select: { name: true, hobse_city_code: true },
+      });
+
+      if (!cityRow?.hobse_city_code || !cityRow?.name) {
+        this.logger.warn(`   ⚠️  No HOBSE mapping for cityCode: ${criteria.cityCode}`);
+        return [];
+      }
+
+      // Get full hotel list (empty parameters - API returns all hotels)
+      const listResp = await this.postForm('GetHotelList', {});
+      const allHotels: any[] = Array.isArray(listResp?.hobse?.response?.data) ? listResp.hobse.response.data : [];
+
+      // Filter by city name
+      const cityNameLower = cityRow.name.toLowerCase();
+      const cityHotels = allHotels.filter((h) => (h?.cityName || '').toLowerCase() === cityNameLower);
+
+      if (cityHotels.length === 0) {
+        this.logger.warn(`   📭 No HOBSE hotels found for city: ${cityRow.name}`);
+        return [];
+      }
+
+      const results: HotelSearchResult[] = [];
+
+      // limited concurrency
+      const concurrency = 5;
+      for (let i = 0; i < cityHotels.length; i += concurrency) {
+        const slice = cityHotels.slice(i, i + concurrency);
+
+        const chunk = await Promise.all(
+          slice.map((h) =>
+            this.getHotelTariffAsSearchResult({
+              hobseCityId: cityRow.hobse_city_code!,
+              hotelId: h.hotelId,
+              hotelName: h.hotelName,
+              starCategory: h.starCategory,
+              address: h.address,
+              criteria,
+            }).catch((e) => {
+              this.logger.error(`   ❌ Tariff failed for hotel ${h?.hotelId}: ${e?.message || e}`);
+              return null;
+            }),
+          ),
+        );
+
+        chunk.filter(Boolean).forEach((x) => results.push(x as HotelSearchResult));
+      }
+
+      this.logger.log(`   ✅ HOBSE: returning ${results.length}/${cityHotels.length} hotels with tariffs`);
+      return results;
+    } catch (error: any) {
+      this.logger.error(`   ❌ HOBSE search error: ${error?.message || error}`);
       return [];
     }
   }
 
-  /**
-   * Search available rooms for a specific hotel
-   */
-  private async searchHotelRooms(
-    hotelId: string,
-    hotelName: string,
-    criteria: HotelSearchCriteria
-  ): Promise<HotelSearchResult | null> {
-    try {
-      // Get available room tariff
-      const tariffResponse = await this.makeRequest('htl/GetAvailableRoomTariff', {
+  private async getHotelTariffAsSearchResult(args: {
+    hobseCityId: string;
+    hotelId: string;
+    hotelName: string;
+    starCategory?: string;
+    address?: string;
+    criteria: HotelSearchCriteria;
+  }): Promise<HotelSearchResult | null> {
+    const { hobseCityId, hotelId, hotelName, starCategory, address, criteria } = args;
+
+    const sessionId = `DVI-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const adultCount = String(Math.max(1, criteria.guestCount || 2));
+    const roomData = [{ adultCount, childCount: '0', infantCount: '0' }];
+
+    const req = {
+      sessionId,
+      fromDate: criteria.checkInDate,
+      toDate: criteria.checkOutDate,
+      cityId: String(hobseCityId),
+      priceOwnerType: String(this.PRICE_OWNER_TYPE),
+      partnerId: String(this.PARTNER_ID),
+      partnerTypeId: String(this.PARTNER_TYPE_ID),
+      tariffMode: String(this.TARIFF_MODE),
+      roomData,
+      hotelFilter: [{ hotelId }],
+    };
+
+    const tariffResp = await this.postForm('GetAvailableRoomTariff', req);
+    const payload = tariffResp?.hobse?.response?.data;
+
+    const list = Array.isArray(payload) ? payload : [];
+    if (!Array.isArray(payload) || list.length === 0) return null;
+
+    const hotelTariff = list[0];
+    const roomOptions: any[] = Array.isArray(hotelTariff?.roomOptions) ? hotelTariff.roomOptions : [];
+    if (roomOptions.length === 0) return null;
+
+    let minPrice = Number.POSITIVE_INFINITY;
+    let bestOption: any = null;
+
+    const roomTypes: RoomType[] = [];
+
+    for (const opt of roomOptions) {
+      const ratesData = Array.isArray(opt?.ratesData) ? opt.ratesData : [];
+      const firstRate = ratesData[0] || {};
+
+      const priceStr = firstRate?.roomCost ?? firstRate?.totalCostWithTax ?? firstRate?.totalCost ?? '0';
+      const price = parseFloat(String(priceStr)) || 0;
+
+      if (price > 0 && price < minPrice) {
+        minPrice = price;
+        bestOption = opt;
+      }
+
+      roomTypes.push({
+        roomCode: opt.roomCode || '',
+        roomName: opt.roomName || opt.roomDesc || 'Room',
+        bedType: opt.occupancyTypeName || 'Standard',
+        capacity: Number(firstRate?.totalPax || criteria.guestCount || 2),
+        price,
+        cancellationPolicy: '',
+      });
+    }
+
+    if (!bestOption || !isFinite(minPrice) || minPrice <= 0) return null;
+
+    const roomTypeName = bestOption?.roomName || bestOption?.roomDesc || '';
+    const mealPlan = bestOption?.ratePlanName || bestOption?.ratePlanDesc || '-';
+
+    return {
+      provider: 'HOBSE',
+      hotelCode: hotelId,
+      hotelName: hotelName || 'HOBSE Hotel',
+      cityCode: criteria.cityCode,
+      address: address || '',
+      rating: parseInt(String(starCategory || hotelTariff?.starCategory || '0'), 10) || 0,
+      category: starCategory ? `${starCategory}-Star` : '',
+      facilities: [],
+      images: [],
+      price: minPrice,
+      currency: hotelTariff?.currencyCode || 'INR',
+      roomTypes,
+      roomType: roomTypeName,
+      mealPlan,
+      searchReference: JSON.stringify({
+        provider: 'HOBSE',
         hotelId,
+        cityId: hobseCityId,
         checkInDate: criteria.checkInDate,
         checkOutDate: criteria.checkOutDate,
-        noOfRooms: criteria.roomCount,
-        noOfGuests: criteria.guestCount,
-      });
+        priceOwnerType: this.PRICE_OWNER_TYPE,
+        partnerId: this.PARTNER_ID,
+        partnerTypeId: this.PARTNER_TYPE_ID,
+        tariffMode: this.TARIFF_MODE,
+        roomCode: bestOption?.roomCode,
+        occupancyTypeCode: bestOption?.occupancyTypeCode,
+        ratePlanCode: bestOption?.ratePlanCode,
+      }),
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    };
+  }
 
-      const roomData = tariffResponse.hobse.response.data;
-      if (!roomData || roomData.length === 0) {
-        return null;
-      }
+  // Not needed for hotel listing endpoint right now
+  async getConfirmation(_confirmationRef: string): Promise<HotelConfirmationDetails> {
+    throw new InternalServerErrorException('HOBSE confirmation not implemented');
+  }
 
-      // Get hotel info for details
-      const hotelInfo = await this.makeRequest('htl/GetHotelInfo', { hotelId });
-      const hotelDetails = hotelInfo.hobse.response.data[0]?.hotelInfo?.[0];
+  async confirmBooking(_bookingDetails: HotelConfirmationDTO): Promise<HotelConfirmationResult> {
+    throw new InternalServerErrorException(
+      'HOBSE booking must be called via HobseHotelBookingService.confirmItineraryHotels()',
+    );
+  }
 
-      // Parse available rooms
-      const roomTypes: RoomType[] = [];
-      let minPrice = Infinity;
-
-      for (const room of roomData) {
-        const price = parseFloat(room.totalCost || room.tariff || '0');
-        if (price > 0 && price < minPrice) {
-          minPrice = price;
-        }
-
-        roomTypes.push({
-          roomCode: room.roomCode || room.occupancyCode,
-          roomName: room.roomName || 'Standard Room',
-          bedType: room.occupancyName || 'Standard',
-          capacity: room.maxPaxCount || 2,
-          price,
-          cancellationPolicy: room.cancellationPolicy || 'As per hotel policy',
-        });
-      }
-
-      if (roomTypes.length === 0) {
-        return null;
-      }
-
-      return {
-        provider: 'HOBSE',
-        hotelCode: hotelId,
-        hotelName: hotelName,
-        cityCode: criteria.cityCode,
-        address: hotelDetails?.address || '',
-        rating: parseInt(hotelDetails?.starCategory || '0'),
-        category: `${hotelDetails?.starCategory || '0'}-Star`,
-        facilities: this.extractFacilities(hotelDetails),
-        images: this.extractImages(hotelInfo.hobse.response.data[0]?.images),
-        price: minPrice === Infinity ? 0 : minPrice,
-        currency: 'INR',
-        roomTypes,
-        searchReference: `HOBSE-${hotelId}-${Date.now()}`,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-      };
-    } catch (error) {
-      this.logger.error(`   ❌ Error getting room tariff for ${hotelId}: ${error.message}`);
-      return null;
-    }
+  async cancelBooking(_confirmationRef: string, _reason: string): Promise<CancellationResult> {
+    throw new InternalServerErrorException('HOBSE cancel not implemented');
   }
 
   /**
-   * Extract facilities from hotel details
+   * MAIN BOOKING METHOD - Used by HobseHotelBookingService
+   * Flow:
+   * 1) GetAvailableRoomTariff
+   * 2) CalculateReservationCost
+   * 3) CreateBooking
    */
-  private extractFacilities(hotelDetails: any): string[] {
-    const facilities: string[] = [];
-    
-    try {
-      const attributes = hotelDetails?.hotelAttributes || {};
-      
-      // Extract from different attribute categories
-      ['hotelFeatures', 'roomAmenities', 'businessServices', 'recreationServices'].forEach(category => {
-        if (attributes[category]) {
-          const items = Array.isArray(attributes[category]) ? attributes[category] : [];
-          items.forEach((item: any) => {
-            if (item.name) facilities.push(item.name);
-          });
-        }
-      });
-    } catch (error) {
-      this.logger.debug(`Could not extract facilities: ${error.message}`);
-    }
+  async createBookingFromItinerary(input: {
+    hotelId: string;
+    cityId: string; // hobse city id
+    checkInDate: string; // YYYY-MM-DD
+    checkOutDate: string; // YYYY-MM-DD
+    adultCount: number;
+    childCount: number;
+    infantCount: number;
 
-    return facilities.slice(0, 10); // Return top 10
-  }
+    guest: {
+      title: string;
+      firstName: string;
+      lastName: string;
+      mobileNumber: string;
+      email: string;
+      address?: string;
+      state?: string;
+      city?: string;
+      country?: string;
+      billToTaxNumber?: string;
+      billToCompanyName?: string;
+      billToAddress?: string;
+    };
 
-  /**
-   * Extract images from hotel data
-   */
-  private extractImages(images: any): string[] {
-    const imageUrls: string[] = [];
-    
-    try {
-      if (images?.hotelImages) {
-        images.hotelImages.forEach((img: any) => {
-          if (img.imagePath) imageUrls.push(img.imagePath);
-          if (img.hotelLogoPath) imageUrls.push(img.hotelLogoPath);
-        });
-      }
+    channelBookingId: string;
+    bookingDesc?: string;
+  }) {
+    // 1) GetAvailableRoomTariff
+    const sessionId = `DVI-${Date.now()}`;
 
-      if (images?.roomImages) {
-        images.roomImages.forEach((img: any) => {
-          if (img.imagePath) imageUrls.push(img.imagePath);
-        });
-      }
-    } catch (error) {
-      this.logger.debug(`Could not extract images: ${error.message}`);
-    }
-
-    return imageUrls.slice(0, 5); // Return top 5
-  }
-
-  /**
-   * Confirm hotel booking
-   */
-  async confirmBooking(
-    bookingDetails: HotelConfirmationDTO,
-  ): Promise<HotelConfirmationResult> {
-    try {
-      this.logger.log(`\n   📋 HOBSE: Confirming booking for hotel ${bookingDetails.hotelCode}`);
-
-      // Step 1: Calculate reservation cost
-      const costResponse = await this.makeRequest('htl/CalculateReservationCost', {
-        hotelId: bookingDetails.hotelCode,
-        roomCode: bookingDetails.rooms[0]?.roomCode,
-        checkInDate: bookingDetails.checkInDate,
-        checkOutDate: bookingDetails.checkOutDate,
-        noOfRooms: bookingDetails.roomCount,
-      });
-
-      // Step 2: Create booking
-      const bookingData = {
-        hotelId: bookingDetails.hotelCode,
-        roomCode: bookingDetails.rooms[0]?.roomCode,
-        checkInDate: bookingDetails.checkInDate,
-        checkOutDate: bookingDetails.checkOutDate,
-        noOfRooms: bookingDetails.roomCount,
-        guestDetails: bookingDetails.guests.map(g => ({
-          firstName: g.firstName,
-          lastName: g.lastName,
-          email: g.email,
-          phone: g.phone,
-        })),
-        contactPerson: {
-          name: bookingDetails.contactName,
-          email: bookingDetails.contactEmail,
-          phone: bookingDetails.contactPhone,
+    const tariffResp = await this.postForm<any>('GetAvailableRoomTariff', {
+      sessionId,
+      fromDate: input.checkInDate,
+      toDate: input.checkOutDate,
+      cityId: input.cityId,
+      priceOwnerType: this.PRICE_OWNER_TYPE,
+      partnerId: this.PARTNER_ID,
+      partnerTypeId: this.PARTNER_TYPE_ID,
+      tariffMode: this.TARIFF_MODE,
+      roomData: [
+        {
+          adultCount: String(input.adultCount),
+          childCount: String(input.childCount),
+          infantCount: String(input.infantCount),
         },
-      };
+      ],
+      hotelFilter: [{ hotelId: input.hotelId }],
+    });
 
-      const bookingResponse = await this.makeRequest('htl/CreateBooking', bookingData);
-      const bookingResult = bookingResponse.hobse.response.data[0];
+    const data = tariffResp?.hobse?.response?.data;
+    const hotelRow = Array.isArray(data) ? data[0] : null;
+    if (!hotelRow?.roomOptions?.length) {
+      throw new Error('No roomOptions returned from HOBSE GetAvailableRoomTariff');
+    }
 
-      this.logger.log(`   ✅ HOBSE booking confirmed: ${bookingResult.bookingId}`);
+    const best = this.pickCheapestRoomOption(hotelRow.roomOptions);
+    if (!best) {
+      throw new Error('Unable to select cheapest room option from HOBSE response');
+    }
 
-      return {
-        provider: 'HOBSE',
-        confirmationReference: bookingResult.bookingId,
-        hotelCode: bookingDetails.hotelCode,
-        hotelName: bookingResult.hotelName || '',
-        checkIn: bookingDetails.checkInDate,
-        checkOut: bookingDetails.checkOutDate,
-        roomCount: bookingDetails.roomCount,
-        totalPrice: parseFloat(bookingResult.totalAmount || '0'),
-        priceBreadown: {
-          roomCharges: parseFloat(bookingResult.roomCharges || '0'),
-          taxes: parseFloat(bookingResult.taxes || '0'),
-          discounts: 0,
+    // 2) CalculateReservationCost
+    const costResp = await this.postForm<any>('CalculateReservationCost', {
+      hotelId: input.hotelId,
+      priceOwnerType: this.PRICE_OWNER_TYPE,
+      partnerType: this.PARTNER_TYPE,
+      partnerId: this.PARTNER_ID,
+      partnerTypeId: this.PARTNER_TYPE_ID,
+      checkInDate: input.checkInDate,
+      checkOutDate: input.checkOutDate,
+      tariffMode: this.TARIFF_MODE,
+      roomData: [
+        {
+          roomCode: best.roomCode,
+          occupancyTypeCode: best.occupancyTypeCode,
+          ratePlanCode: best.ratePlanCode,
+          adultCount: String(input.adultCount),
+          childCount: String(input.childCount),
+          infantCount: String(input.infantCount),
         },
-        cancellationPolicy: 'As per hotel policy',
-        status: 'confirmed',
-        bookingDeadline: bookingDetails.checkInDate,
-      };
-    } catch (error) {
-      this.logger.error(`   ❌ HOBSE booking failed: ${error.message}`);
-      throw new InternalServerErrorException(`HOBSE booking failed: ${error.message}`);
+      ],
+    });
+
+    const costData = Array.isArray(costResp?.hobse?.response?.data)
+      ? costResp.hobse.response.data[0]
+      : null;
+
+    if (!costData) {
+      throw new Error('No cost data returned from HOBSE CalculateReservationCost');
     }
-  }
 
-  /**
-   * Cancel booking
-   */
-  async cancelBooking(confirmationRef: string, reason: string): Promise<CancellationResult> {
-    try {
-      this.logger.log(`\n   ❌ HOBSE: Cancelling booking ${confirmationRef}`);
+    const totalTariff = String(costData.totalTariff || '0.00');
+    const totalTax = String(costData.totalTax || '0.00');
+    const totalReservationCost = String(costData.totalReservationCost || '0.00');
 
-      const response = await this.makeRequest('htl/SetBookingStatus', {
-        bookingId: confirmationRef,
-        status: 'cancelled',
-        remarks: reason,
-      });
+    // 3) CreateBooking
+    const createResp = await this.postForm<any>('CreateBooking', {
+      bookingData: {
+        hotelId: input.hotelId,
+        channelBookingId: input.channelBookingId,
+        pmsBookingId: '',
+        priceOwnerType: this.PRICE_OWNER_TYPE,
+        bookingStatus: '0',
+        tariffMode: this.TARIFF_MODE,
+        checkInDate: input.checkInDate,
+        checkOutDate: input.checkOutDate,
+        bookingAmount: totalReservationCost,
+        netRate: totalTariff,
+        taxAmount: totalTax,
+        paidAmount: totalTariff,
+        isPayAtHotel: 'Yes',
+        amountToBeCollected: totalTariff,
+        paymentInstruction: 'Pay at Checkout',
+        bookingDesc: input.bookingDesc || '',
+      },
+      roomData: [
+        {
+          roomCode: best.roomCode,
+          occupancyTypeCode: best.occupancyTypeCode,
+          ratePlanCode: best.ratePlanCode,
+          adultCount: String(input.adultCount),
+          childCount: String(input.childCount),
+          infantCount: String(input.infantCount),
+          tariff: best.tariff,
+          tax: best.tax,
+        },
+      ],
+      guestData: {
+        title: input.guest.title,
+        firstName: input.guest.firstName,
+        lastName: input.guest.lastName,
+        mobileNumber: input.guest.mobileNumber,
+        email: input.guest.email,
+        address: input.guest.address || '',
+        state: input.guest.state || '',
+        city: input.guest.city || '',
+        country: input.guest.country || 'India',
+        billToTaxNumber: input.guest.billToTaxNumber || '',
+        billToCompanyName: input.guest.billToCompanyName || '',
+        billToAddress: input.guest.billToAddress || '',
+      },
+      bookingSourceData: {
+        partnerType: this.PARTNER_TYPE,
+        partnerId: this.PARTNER_ID,
+        partnerTypeId: this.PARTNER_TYPE_ID,
+        partnerCode: '',
+        partnerName: '',
+        partnerEmail: '',
+        partnerPhoneNumber: '',
+        partnerAddress: '',
+        partnerState: '',
+        partnerCity: '',
+        partnerCountry: '',
+        channelName: this.CHANNEL_NAME,
+      },
+    });
 
-      const result = response.hobse.response.data[0];
-
-      this.logger.log(`   ✅ HOBSE booking cancelled: ${confirmationRef}`);
-
-      return {
-        cancellationRef: confirmationRef,
-        refundAmount: parseFloat(result.refundAmount || '0'),
-        charges: parseFloat(result.cancellationCharges || '0'),
-        refundDays: result.refundDays || 7,
-      };
-    } catch (error) {
-      this.logger.error(`   ❌ HOBSE cancellation failed: ${error.message}`);
-      throw new InternalServerErrorException(`HOBSE cancellation failed: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get confirmation details
-   */
-  async getConfirmation(confirmationRef: string): Promise<HotelConfirmationDetails> {
-    try {
-      this.logger.log(`\n   📋 HOBSE: Getting booking details ${confirmationRef}`);
-
-      const response = await this.makeRequest('htl/GetBooking', {
-        bookingId: confirmationRef,
-      });
-
-      const booking = response.hobse.response.data[0];
-
-      return {
-        confirmationRef: confirmationRef,
-        hotelName: booking.hotelName,
-        checkIn: booking.checkInDate,
-        checkOut: booking.checkOutDate,
-        roomCount: booking.noOfRooms,
-        totalPrice: parseFloat(booking.totalAmount || '0'),
-        status: booking.status || 'confirmed',
-        cancellationPolicy: 'As per hotel policy',
-      };
-    } catch (error) {
-      this.logger.error(`   ❌ HOBSE get confirmation failed: ${error.message}`);
-      throw new InternalServerErrorException(`HOBSE get confirmation failed: ${error.message}`);
-    }
+    return {
+      provider: 'HOBSE',
+      hotelId: input.hotelId,
+      checkInDate: input.checkInDate,
+      checkOutDate: input.checkOutDate,
+      selectedRoom: best,
+      cost: {
+        totalTariff,
+        totalTax,
+        totalReservationCost,
+        cancelTerm: costData.cancelTerm || [],
+        bookingPolicy: costData.bookingPolicy || '',
+      },
+      apiResponse: createResp,
+    };
   }
 }
