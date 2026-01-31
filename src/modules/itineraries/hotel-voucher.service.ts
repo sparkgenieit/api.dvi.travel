@@ -289,13 +289,19 @@ export class HotelVoucherService {
 
       // Cancel HOBSE bookings for selected routes
       try {
-        await this.hobseHotelBooking.cancelItineraryHotelsByRoutes(
+        this.logger.log(`📤 HOBSE Cancellation Request: planId=${dto.itineraryPlanId}, routes=[${routeIdsArray.join(',')}]`);
+        this.logger.debug(`HOBSE API Call Details: { planId: ${dto.itineraryPlanId}, routeIds: [${routeIdsArray.join(',')}], reason: '${reason}' }`);
+        
+        const hobseCancellationResults = await this.hobseHotelBooking.cancelItineraryHotelsByRoutes(
           dto.itineraryPlanId,
           routeIdsArray,
         );
-        this.logger.log(`✅ HOBSE route cancellation completed`);
+        
+        this.logger.log(`📥 HOBSE Cancellation Response: ${JSON.stringify(hobseCancellationResults)}`);
+        this.logger.log(`✅ HOBSE route cancellation completed: ${hobseCancellationResults.successCount}/${hobseCancellationResults.totalBookings} successful`);
       } catch (error) {
         this.logger.error(`❌ HOBSE route cancellation failed: ${error.message}`);
+        this.logger.error(`HOBSE Error Details: ${JSON.stringify(error.response?.data || error)}`);
       }
 
       // Update voucher cancellation status in database

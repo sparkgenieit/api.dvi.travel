@@ -10,9 +10,12 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { LanguageService } from './language.service';
 import { CreateLanguageDto, UpdateLanguageDto } from './dto/language.dto';
 
+@ApiTags('languages')
+@ApiBearerAuth()
 @Controller('languages')
 export class LanguageController {
   constructor(private readonly languageService: LanguageService) {}

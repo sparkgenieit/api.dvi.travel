@@ -13,12 +13,15 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AgentService } from './agent.service';
 import { ListAgentQueryDto } from './dto/list-agent.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
+@ApiTags('agents')
+@ApiBearerAuth()
 @Controller('agents')
 export class AgentController {
   constructor(private readonly service: AgentService) {}

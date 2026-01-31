@@ -12,12 +12,15 @@ import {
   Put,
   Req,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HotelCategoryService } from './hotel-category.service';
 import { CreateHotelCategoryDto } from './dto/create-hotel-category.dto';
 import { UpdateHotelCategoryDto } from './dto/update-hotel-category.dto';
 import { CheckHotelCategoryCodeDto } from './dto/check-hotel-category-code.dto';
 import { CheckHotelCategoryTitleDto } from './dto/check-hotel-category-title.dto';
 
+@ApiTags('hotel-categories')
+@ApiBearerAuth()
 @Controller('hotel-categories')
 export class HotelCategoryController {
   constructor(private readonly hotelCategoryService: HotelCategoryService) {}

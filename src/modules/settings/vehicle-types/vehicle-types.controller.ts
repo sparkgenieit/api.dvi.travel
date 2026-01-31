@@ -10,6 +10,7 @@ import {
   Query,
   Req,
 } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { VehicleTypesService } from "./vehicle-types.service";
 import { CreateVehicleTypeDto } from "./dto/create-vehicle-type.dto";
 import { UpdateVehicleTypeDto } from "./dto/update-vehicle-type.dto";
@@ -19,6 +20,8 @@ function resolveUserId(req: any): number {
   return Number(req?.user?.user_id ?? req?.user?.id ?? req?.user?.ID ?? 0) || 0;
 }
 
+@ApiTags("vehicle-types")
+@ApiBearerAuth()
 @Controller("vehicle-types")
 export class VehicleTypesController {
   constructor(private readonly service: VehicleTypesService) {}

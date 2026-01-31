@@ -11,11 +11,14 @@ import {
   Put,
   Req,
 } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Request } from "express";
 import { InbuiltAmenitiesService } from "./inbuilt-amenities.service";
 import { CreateInbuiltAmenityDto } from "./dto/create-inbuilt-amenity.dto";
 import { UpdateInbuiltAmenityDto } from "./dto/update-inbuilt-amenity.dto";
 
+@ApiTags("inbuilt-amenities")
+@ApiBearerAuth()
 @Controller("inbuilt-amenities")
 export class InbuiltAmenitiesController {
   constructor(private readonly service: InbuiltAmenitiesService) {}

@@ -1097,16 +1097,28 @@ export class ItinerariesService {
       console.log(`[Confirm Quotation] Saving ${dto.hotel_bookings.length} draft hotel records with group_type=${groupType}`);
       
       for (const booking of dto.hotel_bookings) {
-        const hotelId = parseInt(booking.hotelCode);
+        // For HOBSE: use hotel_code field (16-char alphanumeric like "40fec763d4c6e09e")
+        // For TBO/ResAvenue: use hotel_id field (numeric like 6102544)
+        const isHobse = booking.provider === 'HOBSE';
+        const hotelId = isHobse ? 0 : parseInt(booking.hotelCode);
         
         // Check if draft hotel record already exists
+        const findWhere = isHobse
+          ? {
+              itinerary_plan_id: dto.itinerary_plan_ID,
+              itinerary_route_id: booking.routeId,
+              hotel_code: booking.hotelCode,
+              deleted: 0,
+            }
+          : {
+              itinerary_plan_id: dto.itinerary_plan_ID,
+              itinerary_route_id: booking.routeId,
+              hotel_id: hotelId,
+              deleted: 0,
+            };
+
         const existing = await this.prisma.dvi_itinerary_plan_hotel_details.findFirst({
-          where: {
-            itinerary_plan_id: dto.itinerary_plan_ID,
-            itinerary_route_id: booking.routeId,
-            hotel_id: hotelId,
-            deleted: 0,
-          },
+          where: findWhere as any,
         });
 
         if (existing) {
@@ -1121,24 +1133,34 @@ export class ItinerariesService {
               updatedon: new Date(),
             },
           });
-          console.log(`✅ Updated draft hotel ${hotelId} for route ${booking.routeId} with group_type=${groupType}`);
+          const hotelIdentifier = isHobse ? booking.hotelCode : hotelId;
+          console.log(`✅ Updated draft hotel ${hotelIdentifier} for route ${booking.routeId} with group_type=${groupType}`);
         } else {
           // Create new draft hotel record
+          const createData: any = {
+            itinerary_plan_id: dto.itinerary_plan_ID,
+            itinerary_route_id: booking.routeId,
+            group_type: groupType,
+            total_hotel_cost: booking.netAmount || 0,
+            hotel_required: 1,
+            createdby: userId,
+            createdon: new Date(),
+            status: 1,
+            deleted: 0,
+          };
+
+          if (isHobse) {
+            createData.hotel_id = 0;
+            createData.hotel_code = booking.hotelCode;
+          } else {
+            createData.hotel_id = hotelId;
+          }
+
           await this.prisma.dvi_itinerary_plan_hotel_details.create({
-            data: {
-              itinerary_plan_id: dto.itinerary_plan_ID,
-              itinerary_route_id: booking.routeId,
-              hotel_id: hotelId,
-              group_type: groupType,
-              total_hotel_cost: booking.netAmount || 0,
-              hotel_required: 1,
-              createdby: userId,
-              createdon: new Date(),
-              status: 1,
-              deleted: 0,
-            },
+            data: createData,
           });
-          console.log(`✅ Created draft hotel ${hotelId} for route ${booking.routeId} with group_type=${groupType}`);
+          const hotelIdentifier = isHobse ? booking.hotelCode : hotelId;
+          console.log(`✅ Created draft hotel ${hotelIdentifier} for route ${booking.routeId} with group_type=${groupType}`);
         }
       }
     }

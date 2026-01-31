@@ -130,6 +130,7 @@ export class HobseHotelBookingService {
 
   /**
    * Cancel HOBSE bookings for specific routes
+   * Pattern: Call API first → Update DB status only if success → Continue on error
    */
   async cancelItineraryHotelsByRoutes(
     planId: number,
@@ -141,54 +142,181 @@ export class HobseHotelBookingService {
       where: {
         plan_id: planId,
         route_id: { in: routeIds },
+        booking_status: { not: 'cancelled' }, // Only cancel non-cancelled bookings
       },
     });
 
     this.logger.log(`Found ${bookings.length} HOBSE bookings to cancel`);
 
+    const results = {
+      totalBookings: bookings.length,
+      successCount: 0,
+      failureCount: 0,
+      cancellations: [] as any[],
+    };
+
     for (const booking of bookings) {
       try {
-        // Call HOBSE cancellation API if available
-        // For now, just mark as cancelled in DB
+        this.logger.log(
+          `📤 Calling HOBSE API to cancel: ${booking.booking_id} (Confirmation ID: ${booking.hobse_hotel_booking_confirmation_ID})`
+        );
+        this.logger.debug(`HOBSE Booking Details - BookingID: ${booking.booking_id}, HotelCode: ${booking.hotel_code}, GuestName: ${booking.guest_name}`);
+
+        // Step 1: Call HOBSE API to cancel booking
+        const cancellationResult = await this.hobseProvider.cancelBooking(
+          booking.booking_id,
+          'Route cancelled by user'
+        );
+
+        this.logger.log(
+          `✅ HOBSE API Response: Booking ${booking.booking_id} cancelled successfully`
+        );
+        this.logger.debug(
+          `HOBSE API Response Details: ${JSON.stringify(cancellationResult)}`
+        );
+
+        // Step 2: Update database status ONLY if API call succeeded
         await (this.prisma as any).hobse_hotel_booking_confirmation.update({
-          where: { hobse_hotel_booking_confirmation_ID: booking.hobse_hotel_booking_confirmation_ID },
-          data: { booking_status: 'cancelled' },
+          where: {
+            hobse_hotel_booking_confirmation_ID:
+              booking.hobse_hotel_booking_confirmation_ID,
+          },
+          data: {
+            booking_status: 'cancelled',
+            cancellation_response: cancellationResult as any,
+            updated_at: new Date(),
+          },
         });
-        this.logger.log(`✅ Cancelled HOBSE booking ${booking.booking_id}`);
-      } catch (e: any) {
-        this.logger.error(`❌ HOBSE cancellation failed: ${e?.message}`);
+
+        this.logger.log(
+          `✅ Database updated: HOBSE booking ${booking.booking_id} status = 'cancelled'`
+        );
+
+        results.successCount++;
+        results.cancellations.push({
+          bookingId: booking.booking_id,
+          status: 'cancelled',
+          cancellationRef: cancellationResult.cancellationRef,
+        });
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `❌ HOBSE cancellation failed for booking ${booking.booking_id}: ${errorMsg}`
+        );
+        this.logger.error(
+          `HOBSE Error Details: bookingId=${booking.booking_id}, hotelCode=${booking.hotel_code}, guestName=${booking.guest_name}, error=${errorMsg}`
+        );
+
+        results.failureCount++;
+        results.cancellations.push({
+          bookingId: booking.booking_id,
+          status: 'failed',
+          error: errorMsg,
+        });
+
+        // Continue with next booking even if this one fails
       }
     }
 
-    return { success: true };
+    this.logger.log(
+      `🗑️ HOBSE Route Cancellation Summary: ${results.successCount}/${results.totalBookings} successful`
+    );
+
+    return results;
   }
 
   /**
    * Cancel all HOBSE bookings for an itinerary
+   * Pattern: Call API first → Update DB status only if success → Continue on error
    */
   async cancelItineraryHotels(planId: number): Promise<any> {
     this.logger.log(`🗑️ HOBSE FULL CANCELLATION: Plan ${planId}`);
 
     const bookings = await (this.prisma as any).hobse_hotel_booking_confirmation.findMany({
-      where: { plan_id: planId },
+      where: {
+        plan_id: planId,
+        booking_status: { not: 'cancelled' }, // Only cancel non-cancelled bookings
+      },
     });
 
     this.logger.log(`Found ${bookings.length} HOBSE bookings to cancel`);
 
+    const results = {
+      totalBookings: bookings.length,
+      successCount: 0,
+      failureCount: 0,
+      cancellations: [] as any[],
+    };
+
     for (const booking of bookings) {
       try {
-        // Call HOBSE cancellation API if available
-        // For now, just mark as cancelled in DB
+        this.logger.log(
+          `📤 Calling HOBSE API to cancel: ${booking.booking_id} (Confirmation ID: ${booking.hobse_hotel_booking_confirmation_ID})`
+        );
+        this.logger.debug(`HOBSE Booking Details - BookingID: ${booking.booking_id}, HotelCode: ${booking.hotel_code}, GuestName: ${booking.guest_name}`);
+
+        // Step 1: Call HOBSE API to cancel booking
+        const cancellationResult = await this.hobseProvider.cancelBooking(
+          booking.booking_id,
+          'Itinerary cancelled by user'
+        );
+
+        this.logger.log(
+          `✅ HOBSE API Response: Booking ${booking.booking_id} cancelled successfully`
+        );
+        this.logger.debug(
+          `HOBSE API Response Details: ${JSON.stringify(cancellationResult)}`
+        );
+
+        // Step 2: Update database status ONLY if API call succeeded
         await (this.prisma as any).hobse_hotel_booking_confirmation.update({
-          where: { hobse_hotel_booking_confirmation_ID: booking.hobse_hotel_booking_confirmation_ID },
-          data: { booking_status: 'cancelled' },
+          where: {
+            hobse_hotel_booking_confirmation_ID:
+              booking.hobse_hotel_booking_confirmation_ID,
+          },
+          data: {
+            booking_status: 'cancelled',
+            cancellation_response: cancellationResult as any,
+            updated_at: new Date(),
+          },
         });
-        this.logger.log(`✅ Cancelled HOBSE booking ${booking.booking_id}`);
-      } catch (e: any) {
-        this.logger.error(`❌ HOBSE cancellation failed: ${e?.message}`);
+
+        this.logger.log(
+          `✅ Database updated: HOBSE booking ${booking.booking_id} status = 'cancelled'`
+        );
+
+        results.successCount++;
+        results.cancellations.push({
+          bookingId: booking.booking_id,
+          status: 'cancelled',
+          cancellationRef: cancellationResult.cancellationRef,
+        });
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `❌ HOBSE cancellation failed for booking ${booking.booking_id}: ${errorMsg}`
+        );
+        this.logger.error(
+          `HOBSE Error Details: bookingId=${booking.booking_id}, hotelCode=${booking.hotel_code}, guestName=${booking.guest_name}, error=${errorMsg}`
+        );
+
+        results.failureCount++;
+        results.cancellations.push({
+          bookingId: booking.booking_id,
+          status: 'failed',
+          error: errorMsg,
+        });
+
+        // Continue with next booking even if this one fails
       }
     }
 
-    return { success: true };
+    this.logger.log(
+      `🗑️ HOBSE Full Cancellation Summary: ${results.successCount}/${results.totalBookings} successful`
+    );
+
+    return results;
   }
 }

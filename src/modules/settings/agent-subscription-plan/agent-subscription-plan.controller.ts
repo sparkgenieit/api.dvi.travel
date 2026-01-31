@@ -12,7 +12,7 @@ import {
   Put,
   Req,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AgentSubscriptionPlanService } from './agent-subscription-plan.service';
 import {
   AgentSubscriptionPlanPayloadDto,
@@ -21,6 +21,7 @@ import {
 } from './dto/agent-subscription-plan.dto';
 
 @ApiTags('agent-subscription-plans')
+@ApiBearerAuth()
 @Controller('agent-subscription-plans')
 export class AgentSubscriptionPlanController {
   constructor(

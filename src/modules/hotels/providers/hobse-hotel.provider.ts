@@ -409,8 +409,89 @@ export class HobseHotelProvider implements IHotelProvider {
     );
   }
 
-  async cancelBooking(_confirmationRef: string, _reason: string): Promise<CancellationResult> {
-    throw new InternalServerErrorException('HOBSE cancel not implemented');
+  async cancelBooking(
+    confirmationRef: string,
+    reason: string,
+  ): Promise<CancellationResult> {
+    try {
+      this.logger.log(
+        `❌ Cancelling HOBSE booking: ${confirmationRef}, Reason: ${reason}`
+      );
+
+      // HOBSE API call to SetBookingStatus with status='cancelled'
+      // confirmationRef contains the channelBookingId (e.g., "DVI-139-1769528592626")
+      const cancellationRequest = {
+        bookingId: confirmationRef,
+        status: 'cancelled',
+        remarks: reason || 'Customer Requested',
+      };
+
+      this.logger.debug(`📤 HOBSE Cancellation Request Payload: ${JSON.stringify(cancellationRequest)}`);
+      this.logger.log(`📡 HOBSE SetBookingStatus API Call - Booking: ${confirmationRef}`);
+
+      // Call HOBSE SetBookingStatus API
+      const response = await this.postForm<any>('SetBookingStatus', cancellationRequest);
+
+      this.logger.debug(`📥 HOBSE Cancel API Response: ${JSON.stringify(response)}`);
+
+      // Check response status
+      const responseStatus = response?.hobse?.response?.status;
+      if (
+        !responseStatus ||
+        responseStatus.success !== 'true' ||
+        responseStatus.code !== '200'
+      ) {
+        const errorMsg =
+          responseStatus?.message ||
+          response?.hobse?.response?.errors?.[0]?.message ||
+          'Unknown error';
+
+        this.logger.error(
+          `❌ HOBSE Cancel Error: ${errorMsg} (Code: ${responseStatus?.code})`
+        );
+        this.logger.error(`❌ HOBSE Cancel Failed Response: ${JSON.stringify(response)}`);
+
+        // Log full response for debugging
+        const timestamp = Date.now();
+        const dumpPath = `tmp/hobse_SetBookingStatus_response_${timestamp}.json`;
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const fullPath = path.join(process.cwd(), dumpPath);
+          const dir = path.dirname(fullPath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          fs.writeFileSync(fullPath, JSON.stringify(response, null, 2));
+          this.logger.debug(`📄 Response dumped to: ${dumpPath}`);
+        } catch (e) {
+          this.logger.debug(`⚠️  Could not dump response: ${(e as Error).message}`);
+        }
+
+        throw new Error(`Cancellation failed: ${errorMsg}`);
+      }
+
+      this.logger.log(
+        `✅ HOBSE Booking cancelled successfully: ${confirmationRef}`
+      );
+      this.logger.log(`✅ HOBSE Cancel API Response Status: ${responseStatus.code} - ${responseStatus.message}`);
+
+      return {
+        cancellationRef: confirmationRef,
+        refundAmount: 0, // HOBSE doesn't return refund details in cancellation
+        charges: 0,
+        refundDays: 0,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `❌ HOBSE Cancel Error: ${errorMsg}`,
+        error instanceof Error ? error.stack : ''
+      );
+      throw new InternalServerErrorException(
+        `HOBSE cancellation failed: ${errorMsg}`
+      );
+    }
   }
 
   /**
@@ -476,6 +557,18 @@ export class HobseHotelProvider implements IHotelProvider {
       hotelFilter: [{ hotelId: input.hotelId }],
     });
 
+    this.logger.log(`\n✅ HOBSE GetAvailableRoomTariff RESPONSE RECEIVED:`);
+    this.logger.log(`📥 Full tariff response: ${JSON.stringify(tariffResp, null, 2)}`);
+
+    // Save response to file for debugging
+    const debugFile = require('path').join(process.cwd(), 'tmp', `hobse_tariff_response_${Date.now()}.json`);
+    try {
+      require('fs').writeFileSync(debugFile, JSON.stringify(tariffResp, null, 2));
+      this.logger.log(`✅ Tariff response saved to ${debugFile}`);
+    } catch (e) {
+      this.logger.log(`⚠️  Could not save tariff response: ${(e as Error).message}`);
+    }
+
     const data = tariffResp?.hobse?.response?.data;
     
     this.logger.log(`\n📦 HOBSE TARIFF RESPONSE:`);
@@ -520,52 +613,102 @@ export class HobseHotelProvider implements IHotelProvider {
       throw new Error('Unable to select cheapest room option from HOBSE response');
     }
 
-    // 2) CalculateReservationCost
+    // 2) CalculateReservationCost - REQUIRED by HOBSE API
     this.logger.log(`\n💰 CALLING HOBSE CALCULATE RESERVATION COST:`);
     this.logger.log(`   Room Code: ${best.roomCode}`);
     this.logger.log(`   Occupancy: ${best.occupancyTypeCode}`);
     this.logger.log(`   Rate Plan: ${best.ratePlanCode}`);
-    this.logger.log(`   Tariff: ${best.tariff}, Tax: ${best.tax}`);
+    this.logger.log(`   Selected Tariff: ₹${best.tariff}, Tax: ₹${best.tax}`);
 
-    const costResp = await this.postForm<any>('CalculateReservationCost', {
-      hotelId: input.hotelId,
-      priceOwnerType: this.PRICE_OWNER_TYPE,
-      partnerType: this.PARTNER_TYPE,
-      partnerId: this.PARTNER_ID,
-      partnerTypeId: this.PARTNER_TYPE_ID,
-      checkInDate: input.checkInDate,
-      checkOutDate: input.checkOutDate,
-      tariffMode: this.TARIFF_MODE,
-      roomData: [
-        {
-          roomCode: best.roomCode,
-          occupancyTypeCode: best.occupancyTypeCode,
-          ratePlanCode: best.ratePlanCode,
-          adultCount: String(input.adultCount),
-          childCount: String(input.childCount),
-          infantCount: String(input.infantCount),
-        },
-      ],
-    });
+    try {
+      const costResp = await this.postForm<any>('CalculateReservationCost', {
+        hotelId: input.hotelId,
+        priceOwnerType: this.PRICE_OWNER_TYPE,
+        partnerType: this.PARTNER_TYPE,
+        partnerId: this.PARTNER_ID,
+        partnerTypeId: this.PARTNER_TYPE_ID,
+        checkInDate: input.checkInDate,
+        checkOutDate: input.checkOutDate,
+        tariffMode: this.TARIFF_MODE,
+        roomData: [
+          {
+            roomCode: best.roomCode,
+            occupancyTypeCode: best.occupancyTypeCode,
+            ratePlanCode: best.ratePlanCode,
+            adultCount: String(input.adultCount),
+            childCount: String(input.childCount),
+            infantCount: String(input.infantCount),
+          },
+        ],
+      });
 
-    this.logger.log(`✅ HOBSE CALCULATE RESERVATION COST SUCCESSFUL`);
-    
-    const costData = Array.isArray(costResp?.hobse?.response?.data)
-      ? costResp.hobse.response.data[0]
-      : null;
+      this.logger.log(`✅ HOBSE CALCULATE RESERVATION COST SUCCESSFUL`);
+      
+      const costData = Array.isArray(costResp?.hobse?.response?.data)
+        ? costResp.hobse.response.data[0]
+        : null;
 
-    if (!costData) {
-      throw new Error('No cost data returned from HOBSE CalculateReservationCost');
+      if (!costData) {
+        this.logger.warn(`⚠️  No cost data from CalculateReservationCost, using GetAvailableRoomTariff rates`);
+        // Fallback to tariff rates from GetAvailableRoomTariff
+        const totalTariff = best.tariff;
+        const totalTax = best.tax;
+        const totalReservationCost = String(Number(totalTariff) + Number(totalTax));
+        
+        this.logger.log(`💰 USING FALLBACK RATES FROM GETAVAILABLEROOMTARIFF:`);
+        this.logger.log(`   Total: ₹${totalReservationCost}`);
+
+        return this.executeCreateBooking(input, best, totalTariff, totalTax, totalReservationCost, hotelRow, '');
+      }
+
+      this.logger.log(`💰 COST DATA RETURNED FROM HOBSE:`);
+      this.logger.log(JSON.stringify(costData, null, 2));
+
+      // Check if CalculateReservationCost returned 0.00 (meaning the room is not available for this partner)
+      const calcTotalReservationCost = Number(costData.totalReservationCost || 0);
+      
+      if (calcTotalReservationCost === 0) {
+        this.logger.warn(`⚠️  CalculateReservationCost returned 0.00 - room not available for this partner, using GetAvailableRoomTariff rates`);
+        const totalTariff = best.tariff;
+        const totalTax = best.tax;
+        const totalReservationCost = String(Number(totalTariff) + Number(totalTax));
+        
+        this.logger.log(`💰 USING FALLBACK RATES FROM GETAVAILABLEROOMTARIFF:`);
+        this.logger.log(`   Tariff: ₹${totalTariff}, Tax: ₹${totalTax}, Total: ₹${totalReservationCost}`);
+
+        return this.executeCreateBooking(input, best, totalTariff, totalTax, totalReservationCost, hotelRow, '');
+      }
+
+      const totalTariff = String(costData.totalTariff || best.tariff || '0.00');
+      const totalTax = String(costData.totalTax || best.tax || '0.00');
+      const totalReservationCost = String(costData.totalReservationCost || Number(totalTariff) + Number(totalTax));
+      const tariffReferenceCode = String(costData.tariffReferenceCode || '');
+
+      this.logger.log(`   totalTariff: ${totalTariff}, totalTax: ${totalTax}, totalReservationCost: ${totalReservationCost}`);
+      this.logger.log(`   tariffReferenceCode: ${tariffReferenceCode}`);
+
+      return this.executeCreateBooking(input, best, totalTariff, totalTax, totalReservationCost, hotelRow, tariffReferenceCode);
+    } catch (error) {
+      this.logger.warn(`⚠️  CalculateReservationCost failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.log(`📋 Falling back to GetAvailableRoomTariff rates...`);
+      
+      const totalTariff = best.tariff;
+      const totalTax = best.tax;
+      const totalReservationCost = String(Number(totalTariff) + Number(totalTax));
+      
+      return this.executeCreateBooking(input, best, totalTariff, totalTax, totalReservationCost, hotelRow, '');
     }
+  }
 
-    this.logger.log(`💰 COST DATA RETURNED FROM HOBSE:`);
-    this.logger.log(JSON.stringify(costData, null, 2));
-
-    const totalTariff = String(costData.totalTariff || '0.00');
-    const totalTax = String(costData.totalTax || '0.00');
-    const totalReservationCost = String(costData.totalReservationCost || '0.00');
-
-    this.logger.log(`   totalTariff: ${totalTariff}, totalTax: ${totalTax}, totalReservationCost: ${totalReservationCost}`);
+  private async executeCreateBooking(
+    input: any,
+    best: any,
+    totalTariff: string,
+    totalTax: string,
+    totalReservationCost: string,
+    hotelRow: any,
+    tariffReferenceCode: string,
+  ) {
 
     // 3) CreateBooking
     // Use calculated costs from HOBSE instead of room tariff/tax
@@ -582,6 +725,7 @@ export class HobseHotelProvider implements IHotelProvider {
         priceOwnerType: this.PRICE_OWNER_TYPE,
         bookingStatus: '0',
         tariffMode: this.TARIFF_MODE,
+        tariffReferenceCode: tariffReferenceCode || '',
         checkInDate: input.checkInDate,
         checkOutDate: input.checkOutDate,
         bookingAmount: totalReservationCost,
@@ -669,8 +813,8 @@ export class HobseHotelProvider implements IHotelProvider {
         totalTariff,
         totalTax,
         totalReservationCost,
-        cancelTerm: costData.cancelTerm || [],
-        bookingPolicy: costData.bookingPolicy || '',
+        cancelTerm: hotelRow.cancelTerm || [],
+        bookingPolicy: hotelRow.bookingPolicy || '',
       },
       apiResponse: createResp,
     };

@@ -11,6 +11,7 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RolePermissionService } from './role-permission.service';
 import {
   CreateRolePermissionDto,
@@ -18,6 +19,8 @@ import {
   UpdateRolePermissionStatusDto,
 } from './dto/role-permission.dto';
 
+@ApiTags('role-permissions')
+@ApiBearerAuth()
 @Controller('role-permissions')
 export class RolePermissionController {
   constructor(

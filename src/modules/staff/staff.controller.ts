@@ -12,9 +12,12 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { StaffService } from './staff.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
+@ApiTags('staff')
+@ApiBearerAuth()
 @Controller('staff')
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}

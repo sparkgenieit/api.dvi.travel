@@ -1460,6 +1460,7 @@ model dvi_confirmed_itinerary_plan_hotel_details {
   hotel_required                            Int       @default(0)
   hotel_category_id                         Int       @default(0)
   hotel_id                                  Int       @default(0)
+  hotel_code                                String?   @db.VarChar(50) // For HOBSE: 16-char alphanumeric code
   hotel_margin_percentage                   Float     @default(0) @db.Float
   hotel_margin_gst_type                     Int       @default(0)
   hotel_margin_gst_percentage               Float     @default(0) @db.Float
@@ -3766,6 +3767,7 @@ model dvi_itinerary_plan_hotel_details {
   hotel_required                         Int       @default(0)
   hotel_category_id                      Int       @default(0)
   hotel_id                               Int       @default(0)
+  hotel_code                             String?   @db.VarChar(50) // For HOBSE: 16-char alphanumeric code
   hotel_margin_percentage                Float     @default(0) @db.Float
   hotel_margin_gst_type                  Int       @default(0)
   hotel_margin_gst_percentage            Float     @default(0) @db.Float

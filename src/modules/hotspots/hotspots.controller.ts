@@ -13,6 +13,7 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HotspotsService } from './hotspots.service';
 import { HotspotListQueryDto } from './dto/hotspot-list.query.dto';
 import { HotspotListResponseDto } from './dto/hotspot-list.response.dto';
@@ -77,6 +78,8 @@ function csvTempStorage() {
   });
 }
 
+@ApiTags('hotspots')
+@ApiBearerAuth()
 @Controller('hotspots')
 export class HotspotsController {
   constructor(private readonly svc: HotspotsService) {}

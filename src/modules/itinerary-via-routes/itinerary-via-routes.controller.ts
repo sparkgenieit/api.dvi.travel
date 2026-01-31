@@ -1,10 +1,13 @@
 // add imports
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ItineraryViaRoutesService } from './itinerary-via-routes.service';
 import { CheckDistanceLimitDto } from './dto/check-distance-limit.dto';
 import { AddViaRouteDto } from './dto/add-via-route.dto';
 import { ShowViaRouteFormDto } from './dto/show-form.dto';
 
+@ApiTags('itinerary-via-routes')
+@ApiBearerAuth()
 @Controller('itinerary-via-routes')
 export class ItineraryViaRoutesController {
   constructor(

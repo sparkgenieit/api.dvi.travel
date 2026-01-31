@@ -11,6 +11,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   GuidesService,
   GuideListQueryDto,
@@ -19,6 +20,8 @@ import {
   GuideReviewSaveDto,
 } from './guideservice';
 
+@ApiTags('guides')
+@ApiBearerAuth()
 @Controller('guides')
 export class GuidesController {
   constructor(private readonly guides: GuidesService) {}

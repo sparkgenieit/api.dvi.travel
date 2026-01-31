@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   UploadedFiles,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -37,6 +38,8 @@ function randomName(original: string) {
   return `${Date.now()}-${id}${ext}`;
 }
 
+@ApiTags('activities')
+@ApiBearerAuth()
 @Controller('activities')
 export class ActivitiesController {
   constructor(private readonly service: ActivitiesService) {}

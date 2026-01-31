@@ -9,6 +9,7 @@ import {
   Put,
   Query,
 } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CitiesService } from "./cities.service";
 import { ListCitiesQueryDto } from "./dto/list-cities.query.dto";
 import { CreateCityDto } from "./dto/create-city.dto";
@@ -16,6 +17,8 @@ import { UpdateCityDto } from "./dto/update-city.dto";
 import { SuggestCitiesDto } from "./dto/suggest-cities.dto";
 import { CheckCityDuplicateDto } from "./dto/check-city.dto";
 
+@ApiTags("cities")
+@ApiBearerAuth()
 @Controller("cities")
 export class CitiesController {
   constructor(private readonly service: CitiesService) {}

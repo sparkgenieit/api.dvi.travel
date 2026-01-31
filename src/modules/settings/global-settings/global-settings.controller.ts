@@ -8,10 +8,13 @@ import {
   Query,
   ParseIntPipe,
 } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { GlobalSettingsService } from "./global-settings.service";
 import { UpdateGlobalSettingsDto } from "./dto/update-global-settings.dto";
 import { StateConfigUpdateDto } from "./dto/state-config.dto";
 
+@ApiTags("global-settings")
+@ApiBearerAuth()
 @Controller("global-settings")
 export class GlobalSettingsController {
   constructor(private readonly service: GlobalSettingsService) {}

@@ -4,6 +4,7 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ExportPricebookService } from './export-pricebook.service';
 import {
@@ -17,6 +18,8 @@ import {
   ParkingQueryDto,
 } from './dto/export-pricebook.dto';
 
+@ApiTags('export-pricebook')
+@ApiBearerAuth()
 @Controller('export-pricebook')
 export class ExportPricebookController {
   constructor(private readonly svc: ExportPricebookService) {}

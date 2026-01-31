@@ -9,10 +9,13 @@ import {
   Put,
   Req,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GstSettingsService } from './gst-settings.service';
 import { CreateGstSettingDto } from './dto/create-gst-setting.dto';
 import { UpdateGstSettingDto } from './dto/update-gst-setting.dto';
 
+@ApiTags('gst-settings')
+@ApiBearerAuth()
 @Controller('gst-settings')
 export class GstSettingsController {
   constructor(private readonly service: GstSettingsService) {}
