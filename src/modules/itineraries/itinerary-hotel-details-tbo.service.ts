@@ -386,37 +386,87 @@ export class ItineraryHotelDetailsTboService {
     ];
 
     // Debug: Log all available hotels
-    this.logger.log(`\n   📊 PRICE TIER GENERATION DEBUG:`);
+    this.logger.log(`\n   📊 PRICE TIER GENERATION DEBUG (PER-DESTINATION):`);
     this.logger.log(`   Total routes: ${routes.length}`);
     hotelsByRoute.forEach((hotels, routeId) => {
       const prices = hotels.map(h => h.price).join(', ');
       this.logger.log(`   Route ${routeId}: ${hotels.length} hotels (Prices: ${prices})`);
     });
 
-    // Collect ALL unique price points across all routes
-    const allPrices = new Set<number>();
-    hotelsByRoute.forEach(hotels => {
-      hotels.forEach(h => allPrices.add(h.price));
-    });
-    const uniquePrices = Array.from(allPrices).sort((a, b) => a - b);
-    this.logger.log(`   Unique price points available: ${uniquePrices.join(', ')}`);
+    // NEW LOGIC: Assign hotels to groups PER DESTINATION (per route)
+    // Rule: If 1 hotel -> put in all 4 groups
+    //       If 2+ hotels -> distribute in ascending price order across groups
+    
+    // First pass: Determine groupType for each hotel based on its destination
+    const hotelGroupAssignments = new Map<string, number>(); // key: "routeId-hotelCode" -> groupType
+    
+    for (const route of routes) {
+      const routeId = (route as any).itinerary_route_ID;
+      const availableHotels = hotelsByRoute.get(routeId) || [];
 
-    // For each price tier
+      if (availableHotels.length === 0) {
+        this.logger.warn(`      ⚠️  No hotels available for route ${routeId}`);
+        continue;
+      }
+
+      // Sort hotels by price (ascending) for this destination
+      const sortedHotels = [...availableHotels].sort((a, b) => a.price - b.price);
+
+      if (sortedHotels.length === 1) {
+        // Single hotel: assign to ALL 4 groups
+        const hotel = sortedHotels[0];
+        for (let groupType = 1; groupType <= 4; groupType++) {
+          const key = `${routeId}-${hotel.hotelCode || hotel.hotelName}`;
+          hotelGroupAssignments.set(`${key}:${groupType}`, groupType);
+        }
+        this.logger.debug(`   Route ${routeId}: 1 hotel - "${hotel.hotelName}" (₹${hotel.price}) assigned to ALL groups`);
+      } else {
+        // Multiple hotels: distribute across groups by price order
+        const numHotels = sortedHotels.length;
+        const groupsNeeded = Math.min(numHotels, 4);
+        
+        sortedHotels.forEach((hotel, index) => {
+          // Map hotels to groups in ascending price order
+          let groupType = 1;
+          if (numHotels <= 4) {
+            // Fewer hotels than groups: distribute evenly
+            groupType = Math.min(index + 1, 4);
+          } else {
+            // More hotels than groups: distribute proportionally
+            groupType = Math.floor((index / numHotels) * 4) + 1;
+            groupType = Math.min(groupType, 4);
+          }
+          
+          const key = `${routeId}-${hotel.hotelCode || hotel.hotelName}`;
+          hotelGroupAssignments.set(`${key}:${groupType}`, groupType);
+        });
+        
+        this.logger.debug(`   Route ${routeId}: ${numHotels} hotels - Distributed across groups by price order`);
+        sortedHotels.forEach((h, i) => {
+          const key = `${routeId}-${h.hotelCode || h.hotelName}`;
+          let groupType = 1;
+          if (numHotels <= 4) {
+            groupType = Math.min(i + 1, 4);
+          } else {
+            groupType = Math.floor((i / numHotels) * 4) + 1;
+            groupType = Math.min(groupType, 4);
+          }
+          this.logger.debug(`      "${h.hotelName}" (₹${h.price}) -> Group ${groupType}`);
+        });
+      }
+    }
+
+    // Second pass: Build packages from the assignments
     for (let tier = 0; tier < 4; tier++) {
+      const groupType = tier + 1;
       const tieredHotels: Array<HotelSearchResult & { routeId: number }> = [];
 
-      // Calculate quartile boundaries
-      const q1 = uniquePrices[Math.floor(uniquePrices.length * 0.25)];
-      const q2 = uniquePrices[Math.floor(uniquePrices.length * 0.50)];
-      const q3 = uniquePrices[Math.floor(uniquePrices.length * 0.75)];
-
-      // For each route, get ALL hotels that match this tier's price range
       for (const route of routes) {
         const routeId = (route as any).itinerary_route_ID;
         const availableHotels = hotelsByRoute.get(routeId) || [];
 
         if (availableHotels.length === 0) {
-          this.logger.warn(`      ⚠️  No hotels available for route ${routeId}`);
+          this.logger.debug(`   Tier ${groupType}, Route ${routeId}: No hotels available`);
           // CREATE PLACEHOLDER FOR NO HOTELS - price 0
           const placeholderHotel: any = {
             hotelCode: '0',
@@ -428,58 +478,32 @@ export class ItineraryHotelDetailsTboService {
             routeId: routeId
           };
           tieredHotels.push(placeholderHotel);
-          this.logger.debug(
-            `   Tier ${tier + 1}, Route ${routeId}: No hotels - Added placeholder with ₹0`
-          );
           continue;
         }
 
-        // ✅ Get ALL hotels that match this tier's price range
+        // Get hotels that belong to this tier for this route
         for (const hotel of availableHotels) {
-          let matchesTier = false;
-
-          if (uniquePrices.length === 1) {
-            // Only one price point - all tiers get same hotels
-            matchesTier = true;
-          } else if (uniquePrices.length === 2) {
-            // Two price points: Budget/Mid use lower, Premium/Luxury use higher
-            matchesTier = tier < 2 ? hotel.price <= uniquePrices[0] : hotel.price > uniquePrices[0];
-          } else {
-            // Multiple prices: use quartiles
-            switch (tier) {
-              case 0: // Budget
-                matchesTier = hotel.price <= q1;
-                break;
-              case 1: // Mid-Range
-                matchesTier = hotel.price > q1 && hotel.price <= q2;
-                break;
-              case 2: // Premium
-                matchesTier = hotel.price > q2 && hotel.price <= q3;
-                break;
-              case 3: // Luxury
-                matchesTier = hotel.price > q3;
-                break;
-            }
-          }
-
-          if (matchesTier) {
+          const key = `${routeId}-${hotel.hotelCode || hotel.hotelName}`;
+          const assignedGroupType = hotelGroupAssignments.get(`${key}:${groupType}`);
+          
+          if (assignedGroupType === groupType) {
             const hotelWithRoute = { ...hotel, routeId } as HotelSearchResult & { routeId: number };
             tieredHotels.push(hotelWithRoute);
           }
         }
       }
 
-      // Add package with ALL matching hotels (not just one per route)
+      // Add package with ALL matching hotels for this tier
       if (tieredHotels.length > 0) {
         const totalPrice = tieredHotels.reduce((sum, h) => sum + h.price, 0);
         packages.push({
-          groupType: tier + 1,
+          groupType: groupType,
           label: labels[tier],
           hotels: tieredHotels,
         });
-        this.logger.log(`   ✅ ${labels[tier]}: ${tieredHotels.length} hotels total, ₹${totalPrice} combined`);
+        this.logger.log(`   ✅ Group ${groupType} (${labels[tier]}): ${tieredHotels.length} hotels total, ₹${totalPrice} combined`);
       } else {
-        this.logger.log(`   ❌ ${labels[tier]}: No hotels found for any route (tier SKIPPED)`);
+        this.logger.log(`   ⚠️  Group ${groupType} (${labels[tier]}): No hotels found for any route`);
       }
     }
 
