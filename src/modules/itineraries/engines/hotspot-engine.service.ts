@@ -1,7 +1,7 @@
 // REPLACE-WHOLE-FILE
 // FILE: src/modules/itineraries/engines/hotspot-engine.service.ts
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../prisma.service";
 import { TimelineBuilder } from "./helpers/timeline.builder";
@@ -165,7 +165,7 @@ export class HotspotEngineService {
     });
 
     if (!currentRoute) {
-      throw new Error(`Route ${routeId} not found`);
+      throw new NotFoundException(`Route ${routeId} not found`);
     }
 
     // 2) Check if there's a next route that connects to this one

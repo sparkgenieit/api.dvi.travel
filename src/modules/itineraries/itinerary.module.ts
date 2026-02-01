@@ -29,6 +29,15 @@ import { ViaRoutesEngine } from './engines/via-routes.engine';
 import { RouteValidationService } from './validation/route-validation.service';
 import { RouteSuggestionsService } from './route-suggestions.service';
 import { RouteSuggestionsV2Service } from './route-suggestions-v2.service';
+
+// ✅ New sub-services for modular architecture
+import { ItineraryHotspotService } from './services/itinerary-hotspot.service';
+import { ItineraryActivityService } from './services/itinerary-activity.service';
+import { ItineraryHotelService } from './services/itinerary-hotel.service';
+import { ItineraryVehicleService } from './services/itinerary-vehicle.service';
+import { ItineraryConfirmationService } from './services/itinerary-confirmation.service';
+import { ItineraryQueryService } from './services/itinerary-query.service';
+
 import { HotelsModule } from '../hotels/hotels.module';
 
 @Module({
@@ -62,6 +71,14 @@ import { HotelsModule } from '../hotels/hotels.module';
     RouteValidationService,
     RouteSuggestionsService,
     RouteSuggestionsV2Service,
+
+    // ✅ New modular sub-services
+    ItineraryHotspotService,
+    ItineraryActivityService,
+    ItineraryHotelService,
+    ItineraryVehicleService,
+    ItineraryConfirmationService,
+    ItineraryQueryService,
   ],
 })
 export class ItinerariesModule {}
