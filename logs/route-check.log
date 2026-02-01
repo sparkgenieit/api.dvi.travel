@@ -1,0 +1,46 @@
+Fetching latest plan with routes...
+
+✅ Found Plan ID: 17
+Quote ID: DVI2026024
+Arrival: Madurai Airport
+Departure: Trivandrum, Domestic Airport
+
+📍 Routes in Database:
+====================================================================================================
+Route 1: ID=327
+  Source: Madurai Airport
+  Destination: Kanyakumari
+  Date: Sun May 03 2026 05:30:00 GMT+0530 (India Standard Time)
+  Days: 1
+
+Route 2: ID=328
+  Source: Kanyakumari
+  Destination: Rameswaram
+  Date: Mon May 04 2026 05:30:00 GMT+0530 (India Standard Time)
+  Days: 1
+
+Route 3: ID=329
+  Source: Rameswaram
+  Destination: Kanyakumari
+  Date: Tue May 05 2026 05:30:00 GMT+0530 (India Standard Time)
+  Days: 1
+
+Route 4: ID=330
+  Source: Kanyakumari
+  Destination: Trivandrum
+  Date: Wed May 06 2026 05:30:00 GMT+0530 (India Standard Time)
+  Days: 1
+
+Route 5: ID=331
+  Source: Trivandrum
+  Destination: Trivandrum, Domestic Airport
+  Date: Thu May 07 2026 05:30:00 GMT+0530 (India Standard Time)
+  Days: 1
+
+📌 Route Sequence (Chain):
+Madurai Airport→Kanyakumari | Kanyakumari→Rameswaram | Rameswaram→Kanyakumari | Kanyakumari→Trivandrum | Trivandrum→Trivandrum, Domestic Airport
+
+🔍 Validation:
+✅ All routes form a valid continuous chain
+
+====================================================================================================

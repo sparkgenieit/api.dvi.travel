@@ -1,0 +1,46 @@
+[RouteOptimization] ============================================
+[RouteOptimization] STARTING ROUTE OPTIMIZATION (PHP-EXACT MODE)
+[RouteOptimization] ============================================
+[RouteOptimization] Total routes: 5
+[RouteOptimization] Source locations: [Madurai Airport, Rameswaram, Kanyakumari, Kanyakumari, Trivandrum]
+[RouteOptimization] Next visiting: [Rameswaram, Kanyakumari, Kanyakumari, Trivandrum, Trivandrum, Domestic Airport]
+[RouteOptimization] PHP Anchors:
+[RouteOptimization]   start = Madurai Airport
+[RouteOptimization]   end = Trivandrum, Domestic Airport
+[RouteOptimization]   middleLocations = [Rameswaram, Kanyakumari, Kanyakumari, Trivandrum] (4 locations with duplicates)
+[RouteOptimization] ≤10 routes: Using EXHAUSTIVE PERMUTATION search
+[ExhaustivePermutation] Testing 24 permutations...
+[ExhaustivePermutation] [Rameswaram,Kanyakumari,Kanyakumari,Trivandrum]: 593.2 km (Madurai Airport → Rameswaram → Kanyakumari → Kanyakumari → Trivandrum → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Rameswaram,Kanyakumari,Trivandrum,Kanyakumari]: 766.1 km (Madurai Airport → Rameswaram → Kanyakumari → Trivandrum → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Rameswaram,Kanyakumari,Kanyakumari,Trivandrum]: 593.2 km (Madurai Airport → Rameswaram → Kanyakumari → Kanyakumari → Trivandrum → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Rameswaram,Kanyakumari,Trivandrum,Kanyakumari]: 766.1 km (Madurai Airport → Rameswaram → Kanyakumari → Trivandrum → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Rameswaram,Trivandrum,Kanyakumari,Kanyakumari]: 744.2 km (Madurai Airport → Rameswaram → Trivandrum → Kanyakumari → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Rameswaram,Trivandrum,Kanyakumari,Kanyakumari]: 744.2 km (Madurai Airport → Rameswaram → Trivandrum → Kanyakumari → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Rameswaram,Kanyakumari,Trivandrum]: 961.2 km (Madurai Airport → Kanyakumari → Rameswaram → Kanyakumari → Trivandrum → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Rameswaram,Trivandrum,Kanyakumari]: 1112.2 km (Madurai Airport → Kanyakumari → Rameswaram → Trivandrum → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Kanyakumari,Rameswaram,Trivandrum]: 939.3 km (Madurai Airport → Kanyakumari → Kanyakumari → Rameswaram → Trivandrum → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Kanyakumari,Trivandrum,Rameswaram]: 1089.9 km (Madurai Airport → Kanyakumari → Kanyakumari → Trivandrum → Rameswaram → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Trivandrum,Rameswaram,Kanyakumari]: 1112.2 km (Madurai Airport → Kanyakumari → Trivandrum → Rameswaram → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Trivandrum,Kanyakumari,Rameswaram]: 1111.8 km (Madurai Airport → Kanyakumari → Trivandrum → Kanyakumari → Rameswaram → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Rameswaram,Kanyakumari,Trivandrum]: 961.2 km (Madurai Airport → Kanyakumari → Rameswaram → Kanyakumari → Trivandrum → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Rameswaram,Trivandrum,Kanyakumari]: 1112.2 km (Madurai Airport → Kanyakumari → Rameswaram → Trivandrum → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Kanyakumari,Rameswaram,Trivandrum]: 939.3 km (Madurai Airport → Kanyakumari → Kanyakumari → Rameswaram → Trivandrum → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Kanyakumari,Trivandrum,Rameswaram]: 1089.9 km (Madurai Airport → Kanyakumari → Kanyakumari → Trivandrum → Rameswaram → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Trivandrum,Rameswaram,Kanyakumari]: 1112.2 km (Madurai Airport → Kanyakumari → Trivandrum → Rameswaram → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Kanyakumari,Trivandrum,Kanyakumari,Rameswaram]: 1111.8 km (Madurai Airport → Kanyakumari → Trivandrum → Kanyakumari → Rameswaram → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Trivandrum,Rameswaram,Kanyakumari,Kanyakumari]: 1090.3 km (Madurai Airport → Trivandrum → Rameswaram → Kanyakumari → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Trivandrum,Rameswaram,Kanyakumari,Kanyakumari]: 1090.3 km (Madurai Airport → Trivandrum → Rameswaram → Kanyakumari → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Trivandrum,Kanyakumari,Rameswaram,Kanyakumari]: 1112.2 km (Madurai Airport → Trivandrum → Kanyakumari → Rameswaram → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Trivandrum,Kanyakumari,Kanyakumari,Rameswaram]: 1089.9 km (Madurai Airport → Trivandrum → Kanyakumari → Kanyakumari → Rameswaram → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Trivandrum,Kanyakumari,Rameswaram,Kanyakumari]: 1112.2 km (Madurai Airport → Trivandrum → Kanyakumari → Rameswaram → Kanyakumari → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] [Trivandrum,Kanyakumari,Kanyakumari,Rameswaram]: 1089.9 km (Madurai Airport → Trivandrum → Kanyakumari → Kanyakumari → Rameswaram → Trivandrum, Domestic Airport)
+[ExhaustivePermutation] ✅ Best permutation: [Rameswaram,Kanyakumari,Kanyakumari,Trivandrum] = 593.2 km
+[ExhaustivePermutation] Best chain: Madurai Airport → Rameswaram → Kanyakumari → Kanyakumari → Trivandrum → Trivandrum, Domestic Airport
+[RouteOptimization] Best route locations: [Madurai Airport, Rameswaram, Kanyakumari, Kanyakumari, Trivandrum, Trivandrum, Domestic Airport]
+[RouteOptimization] Route[0]: Madurai Airport → Rameswaram
+[RouteOptimization] Route[1]: Rameswaram → Kanyakumari
+[RouteOptimization] Route[2]: Kanyakumari → Kanyakumari
+[RouteOptimization] Route[3]: Kanyakumari → Trivandrum
+[RouteOptimization] Route[4]: Trivandrum → Trivandrum, Domestic Airport
+[RouteOptimization] ✅ Route optimization completed
+[RouteOptimization] Final chain: Madurai Airport→Rameswaram | Rameswaram→Kanyakumari | Kanyakumari→Kanyakumari | Kanyakumari→Trivandrum | Trivandrum→Trivandrum, Domestic Airport

@@ -88,6 +88,13 @@ export class ItinerariesController {
     summary:
       'Create OR Update plan + routes + vehicles + travellers (NO hotspots yet). Use plan.itinerary_plan_id for update.',
   })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    description: 'Optional: "itineary_basic_info_with_optimized_route" to optimize route order before saving',
+    example: 'itineary_basic_info_with_optimized_route',
+    type: String,
+  })
   @ApiBody({
     type: CreateItineraryDto,
     examples: {
@@ -249,8 +256,14 @@ export class ItinerariesController {
       },
     },
   })
-  async createPlan(@Body() dto: CreateItineraryDto, @Req() req: Request) {
-    return this.svc.createPlan(dto, req);
+  async createPlan(
+    @Body() dto: CreateItineraryDto,
+    @Query('type') type?: string,
+    @Req() req?: Request,
+  ) {
+    // Check if route optimization is requested
+    const shouldOptimizeRoute = type === 'itineary_basic_info_with_optimized_route';
+    return this.svc.createPlan(dto, req, shouldOptimizeRoute);
   }
 
   @Get('details/:quoteId')

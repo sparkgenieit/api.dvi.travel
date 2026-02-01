@@ -46,7 +46,7 @@ export class ItinerariesService {
     private readonly hotelDetailsTboService: ItineraryHotelDetailsTboService,
   ) {}
 
-  async createPlan(dto: CreateItineraryDto, req: any) {
+  async createPlan(dto: CreateItineraryDto, req: any, shouldOptimizeRoute: boolean = false) {
     const u: any = (req as any).user ?? {};
     const userId = Number(u.userId ?? 1);
     const agentId = Number(u.agentId ?? 0);
@@ -59,6 +59,17 @@ export class ItinerariesService {
     // If user is a staff/travel expert, force their staffId
     if (staffId > 0) {
       dto.plan.staff_id = staffId;
+    }
+
+    // 🚀 ROUTE OPTIMIZATION: If requested, optimize route order before saving
+    if (shouldOptimizeRoute && dto.routes && dto.routes.length > 0) {
+      console.log('[ItinerariesService] 🔄 Route optimization REQUESTED');
+      console.log('[ItinerariesService] 📍 Original route order:', dto.routes.map((r: any) => `${r.location_name}→${r.next_visiting_location}`).join(' | '));
+      dto.routes = await this.optimizeRouteOrder(dto.routes);
+      console.log('[ItinerariesService] ✅ Routes optimized and reordered');
+      console.log('[ItinerariesService] 📍 New route order:', dto.routes.map((r: any) => `${r.location_name}→${r.next_visiting_location}`).join(' | '));
+    } else {
+      console.log('[ItinerariesService] ⚠️  Route optimization NOT triggered. shouldOptimizeRoute=', shouldOptimizeRoute, 'routeCount=', dto.routes?.length);
     }
 
     const perfStart = Date.now();
@@ -3911,4 +3922,398 @@ export class ItinerariesService {
       roomTypeName: selectedRoomType.roomTypeTitle,
     };
   }
+
+  /**
+   * 🚀 ROUTE OPTIMIZATION: Reorder routes using TSP algorithm
+   * - For ≤10 days: Exhaustive search (tests all permutations)
+   * - For >10 days: Nearest Neighbor + Simulated Annealing
+   * 
+   * This finds the optimal or near-optimal route that minimizes total travel distance/time
+   */
+  private async optimizeRouteOrder(routes: any[]): Promise<any[]> {
+    const fs = require('fs');
+    const logFile = 'd:\\wamp64\\www\\dvi_fullstack\\dvi_backend\\logs\\route-optimization.log';
+    const logs: string[] = [];
+
+    const log = (msg: string) => {
+      logs.push(msg);
+      console.log(msg);
+    };
+
+    if (!routes || routes.length <= 2) return routes;
+
+    log(`[RouteOptimization] ============================================`);
+    log(`[RouteOptimization] STARTING ROUTE OPTIMIZATION (PHP-EXACT MODE)`);
+    log(`[RouteOptimization] ============================================`);
+
+    // PHP LOGIC: Build source_location and next_visiting_location arrays
+    const source_location: string[] = routes.map(r => r.location_name);
+    const next_visiting_location: string[] = routes.map(r => r.next_visiting_location);
+
+    log(`[RouteOptimization] Total routes: ${routes.length}`);
+    log(`[RouteOptimization] Source locations: [${source_location.join(', ')}]`);
+    log(`[RouteOptimization] Next visiting: [${next_visiting_location.join(', ')}]`);
+
+    // PHP LOGIC: Anchor start and end
+    const start = source_location[0];
+    const end = next_visiting_location[next_visiting_location.length - 1];
+    const middleLocations = next_visiting_location.slice(0, -1); // Keep duplicates!
+
+    log(`[RouteOptimization] PHP Anchors:`);
+    log(`[RouteOptimization]   start = ${start}`);
+    log(`[RouteOptimization]   end = ${end}`);
+    log(`[RouteOptimization]   middleLocations = [${middleLocations.join(', ')}] (${middleLocations.length} locations with duplicates)`);
+
+    if (middleLocations.length === 0) {
+      log(`[RouteOptimization] ⚠️  No middle locations to optimize. Returning as-is.`);
+      fs.writeFileSync(logFile, logs.join('\n'), 'utf-8');
+      return routes;
+    }
+
+    // PHP LOGIC: Choose algorithm based on route count
+    let bestRouteLocations: string[] = [];
+
+    if (middleLocations.length <= 10) {
+      log(`[RouteOptimization] ≤10 routes: Using EXHAUSTIVE PERMUTATION search`);
+      bestRouteLocations = await this.optimizeWith_ExhaustivePermutation(
+        start,
+        end,
+        middleLocations,
+        log
+      );
+    } else {
+      log(`[RouteOptimization] >10 routes: Using NEAREST NEIGHBOR + SIMULATED ANNEALING`);
+      bestRouteLocations = await this.optimizeWith_NearestNeighborAndAnnealing(
+        start,
+        end,
+        middleLocations,
+        log
+      );
+    }
+
+    log(`[RouteOptimization] Best route locations: [${bestRouteLocations.join(', ')}]`);
+
+    // PHP LOGIC: Rebuild routes in-place from new bestRouteLocations
+    const optimizedRoutes: any[] = [];
+    for (let i = 0; i < routes.length; i++) {
+      const newRoute = { ...routes[i] }; // Preserve all other fields
+      newRoute.location_name = bestRouteLocations[i];
+      newRoute.next_visiting_location = bestRouteLocations[i + 1];
+      optimizedRoutes.push(newRoute);
+      
+      log(`[RouteOptimization] Route[${i}]: ${newRoute.location_name} → ${newRoute.next_visiting_location}`);
+    }
+
+    // Optionally: shift itinerary_route_date sequentially like PHP does
+    const startDate = new Date(routes[0].itinerary_route_date);
+    optimizedRoutes.forEach((route, index) => {
+      const newDate = new Date(startDate);
+      newDate.setDate(newDate.getDate() + index);
+      route.itinerary_route_date = newDate.toISOString().split('T')[0]; // Keep YYYY-MM-DD format
+      route.no_of_days = index + 1;
+    });
+
+    log(`[RouteOptimization] ✅ Route optimization completed`);
+    log(`[RouteOptimization] Final chain: ${optimizedRoutes.map(r => `${r.location_name}→${r.next_visiting_location}`).join(' | ')}`);
+
+    fs.writeFileSync(logFile, logs.join('\n'), 'utf-8');
+    return optimizedRoutes;
+  }
+
+  /**
+   * PHP-EXACT: ≤10 routes - EXHAUSTIVE PERMUTATION
+   * Tries all permutations of middleLocations and finds the one with minimum total distance
+   */
+  private async optimizeWith_ExhaustivePermutation(
+    start: string,
+    end: string,
+    middleLocations: string[],
+    log: (msg: string) => void
+  ): Promise<string[]> {
+    const perms = this.generatePermutations_PHP([...middleLocations]);
+    
+    let bestPerm: string[] = middleLocations; // Default to original order
+    let bestDistance = Infinity;
+    let bestChain = '';
+    
+    log(`[ExhaustivePermutation] Testing ${perms.length} permutations...`);
+    
+    for (const perm of perms) {
+      let current = start;
+      let totalDistance = 0;
+      const chain: string[] = [current];
+      
+      // Evaluate cost: start -> perm[0] -> perm[1] -> ... -> perm[n-1] -> end
+      for (const loc of perm) {
+        const distance = await this.getDistance_PHP(current, loc);
+        if (distance === Infinity) {
+          totalDistance = Infinity;
+          break; // Missing distance = invalid permutation
+        }
+        totalDistance += distance;
+        current = loc;
+        chain.push(current);
+      }
+      
+      // Add final segment: last middle location -> end
+      if (totalDistance !== Infinity) {
+        const finalDist = await this.getDistance_PHP(current, end);
+        if (finalDist === Infinity) {
+          totalDistance = Infinity;
+        } else {
+          totalDistance += finalDist;
+          chain.push(end);
+        }
+      }
+      
+      const chainStr = chain.join(' → ');
+      log(`[ExhaustivePermutation] [${perm.join(',')}]: ${totalDistance === Infinity ? 'INVALID (missing distance)' : totalDistance.toFixed(1) + ' km'} (${chainStr})`);
+      
+      if (totalDistance < bestDistance) {
+        bestDistance = totalDistance;
+        bestPerm = perm;
+        bestChain = chainStr;
+      }
+    }
+    
+    log(`[ExhaustivePermutation] ✅ Best permutation: [${bestPerm.join(',')}] = ${bestDistance.toFixed(1)} km`);
+    log(`[ExhaustivePermutation] Best chain: ${bestChain}`);
+    
+    // Return final route locations: [start, ...bestPerm, end]
+    return [start, ...bestPerm, end];
+  }
+
+  /**
+   * PHP-EXACT: >10 routes - NEAREST NEIGHBOR + SIMULATED ANNEALING
+   */
+  private async optimizeWith_NearestNeighborAndAnnealing(
+    start: string,
+    end: string,
+    middleLocations: string[],
+    log: (msg: string) => void
+  ): Promise<string[]> {
+    // Build remainingLocationsCounts (like PHP's array_count_values for duplicates)
+    const remainingLocationsCounts = this.buildLocationCounts_PHP(middleLocations);
+    log(`[NearestNeighbor] Location counts: ${JSON.stringify(remainingLocationsCounts)}`);
+    
+    // Greedy nearest neighbor
+    const greedyRoute = await this.nearestNeighbor_PHP(start, remainingLocationsCounts, log);
+    log(`[NearestNeighbor] Greedy route: [${greedyRoute.join(', ')}]`);
+    
+    // Build initial route: [start, ...greedy, end]
+    let initialRoute = [start, ...greedyRoute, end];
+    let initialDistance = await this.calculateChainDistance_PHP(initialRoute, log);
+    log(`[SimulatedAnnealing] Initial route distance: ${initialDistance.toFixed(1)} km`);
+    
+    // Simulated annealing
+    const finalRoute = await this.simulatedAnnealing_PHP(
+      initialRoute,
+      1000,      // initialTemp
+      0.003,     // coolingRate
+      log
+    );
+    
+    let finalDistance = await this.calculateChainDistance_PHP(finalRoute, log);
+    log(`[SimulatedAnnealing] Final route distance: ${finalDistance.toFixed(1)} km`);
+    
+    return finalRoute;
+  }
+
+  /**
+   * PHP-EXACT: Build location counts like array_count_values
+   */
+  private buildLocationCounts_PHP(locations: string[]): { [location: string]: number } {
+    const counts: { [location: string]: number } = {};
+    for (const loc of locations) {
+      counts[loc] = (counts[loc] || 0) + 1;
+    }
+    return counts;
+  }
+
+  /**
+   * PHP-EXACT: Nearest neighbor greedy algorithm
+   * Returns ordered list of middle locations (not including start/end)
+   */
+  private async nearestNeighbor_PHP(
+    start: string,
+    remainingLocationsCounts: { [location: string]: number },
+    log: (msg: string) => void
+  ): Promise<string[]> {
+    const route: string[] = [];
+    let current = start;
+    
+    // Total locations to visit
+    const totalLocations = Object.values(remainingLocationsCounts).reduce((a, b) => a + b, 0);
+    
+    log(`[NearestNeighbor] Total middle locations to visit: ${totalLocations}`);
+    
+    for (let step = 0; step < totalLocations; step++) {
+      let nearestLocation: string | null = null;
+      let minDistance = Infinity;
+      
+      // Find nearest unvisited location
+      for (const [location, count] of Object.entries(remainingLocationsCounts)) {
+        if (count > 0) {
+          const distance = await this.getDistance_PHP(current, location);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestLocation = location;
+          }
+        }
+      }
+      
+      if (nearestLocation === null) break;
+      
+      route.push(nearestLocation);
+      remainingLocationsCounts[nearestLocation]--;
+      current = nearestLocation;
+      
+      log(`[NearestNeighbor] Step ${step + 1}: Selected ${nearestLocation} (distance: ${minDistance.toFixed(1)} km)`);
+    }
+    
+    return route;
+  }
+
+  /**
+   * PHP-EXACT: Simulated annealing optimization
+   */
+  private async simulatedAnnealing_PHP(
+    initialRoute: string[],
+    initialTemp: number,
+    coolingRate: number,
+    log: (msg: string) => void
+  ): Promise<string[]> {
+    let currentRoute = [...initialRoute];
+    let currentDistance = await this.calculateChainDistance_PHP(currentRoute, log);
+    let bestRoute = [...currentRoute];
+    let bestDistance = currentDistance;
+    
+    let temperature = initialTemp;
+    const minTemp = 0.001;
+    let iteration = 0;
+    
+    log(`[SimulatedAnnealing] Starting with temp=${temperature.toFixed(2)}, coolingRate=${coolingRate}`);
+    
+    while (temperature > minTemp) {
+      iteration++;
+      
+      // Random swap of two middle indices (NOT first or last)
+      const middleStart = 1;
+      const middleEnd = currentRoute.length - 2; // Exclude end
+      
+      if (middleEnd <= middleStart) break; // Not enough locations to swap
+      
+      const i = middleStart + Math.floor(Math.random() * (middleEnd - middleStart + 1));
+      const j = middleStart + Math.floor(Math.random() * (middleEnd - middleStart + 1));
+      
+      if (i === j) {
+        temperature *= (1 - coolingRate);
+        continue;
+      }
+      
+      // Create neighbor solution
+      const newRoute = [...currentRoute];
+      [newRoute[i], newRoute[j]] = [newRoute[j], newRoute[i]];
+      
+      const newDistance = await this.calculateChainDistance_PHP(newRoute, log);
+      const delta = newDistance - currentDistance;
+      
+      // Acceptance rule: accept if better OR accept with probability based on temperature
+      if (delta < 0 || Math.random() < Math.exp(-delta / temperature)) {
+        currentRoute = newRoute;
+        currentDistance = newDistance;
+        
+        if (currentDistance < bestDistance) {
+          bestRoute = [...currentRoute];
+          bestDistance = currentDistance;
+          log(`[SimulatedAnnealing] Iteration ${iteration}: New best distance = ${bestDistance.toFixed(1)} km (temp=${temperature.toFixed(4)})`);
+        }
+      }
+      
+      temperature *= (1 - coolingRate);
+      
+      if (iteration % 100 === 0) {
+        log(`[SimulatedAnnealing] Iteration ${iteration}: current=${currentDistance.toFixed(1)} km, best=${bestDistance.toFixed(1)} km, temp=${temperature.toFixed(4)}`);
+      }
+    }
+    
+    log(`[SimulatedAnnealing] Completed ${iteration} iterations`);
+    return bestRoute;
+  }
+
+  /**
+   * PHP-EXACT: Calculate total distance for a route chain
+   */
+  private async calculateChainDistance_PHP(chain: string[], log?: (msg: string) => void): Promise<number> {
+    let totalDistance = 0;
+    for (let i = 0; i < chain.length - 1; i++) {
+      const distance = await this.getDistance_PHP(chain[i], chain[i + 1]);
+      if (distance === Infinity) return Infinity;
+      totalDistance += distance;
+    }
+    return totalDistance;
+  }
+
+  /**
+   * Calculate distance matrix between locations
+   * In a real scenario, this would call Google Maps or similar API
+   * For now, using a simplified distance calculation or mock data
+   */
+
+
+
+
+  /**
+   * PHP-EXACT: Get distance between two locations from database
+   * Returns Infinity if distance not found (matching PHP's PHP_INT_MAX behavior)
+   * NO reverse fallback, NO default 100, ONLY exact match
+   */
+  private async getDistance_PHP(sourceLocation: string, destinationLocation: string): Promise<number> {
+    if (sourceLocation === destinationLocation) return 0;
+    
+    try {
+      const record = await this.prisma.dvi_stored_locations.findFirst({
+        where: {
+          source_location: sourceLocation,
+          destination_location: destinationLocation,
+        },
+        select: {
+          distance: true,
+        },
+      });
+
+      if (record && record.distance) {
+        const dist = typeof record.distance === 'string' 
+          ? parseFloat(record.distance) 
+          : record.distance;
+        return isNaN(dist) ? Infinity : dist;
+      }
+      return Infinity; // Missing distance = Infinity (marks permutation as invalid)
+    } catch (error) {
+      return Infinity; // Error = Infinity (marks permutation as invalid)
+    }
+  }
+
+  /**
+   * PHP-EXACT: Generate all permutations of a location array (preserves duplicates)
+   * Used for exhaustive search on ≤10 routes
+   */
+  private generatePermutations_PHP(arr: string[]): string[][] {
+    if (arr.length <= 1) return [arr];
+    
+    const result: string[][] = [];
+    for (let i = 0; i < arr.length; i++) {
+      const current = arr[i];
+      const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+      const perms = this.generatePermutations_PHP(remaining);
+      
+      for (const perm of perms) {
+        result.push([current, ...perm]);
+      }
+    }
+    
+    return result;
+  }
+
+
 }
