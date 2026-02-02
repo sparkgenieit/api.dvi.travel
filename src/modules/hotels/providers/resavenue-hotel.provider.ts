@@ -87,35 +87,6 @@ export class ResAvenueHotelProvider implements IHotelProvider {
   }
 
   /**
-   * Get standard POS credentials object for OTA API requests
-   * Used consistently across all OTA_HotelResNotifRQ and other OTA requests
-   */
-  private getPOSCredentials() {
-    return {
-      Username: this.USERNAME,
-      Password: this.PASSWORD,
-      ID_Context: this.ID_CONTEXT,
-    };
-  }
-
-  /**
-   * Get nested POS credentials object for OTA_HotelResNotifRQ (Booking Push/Pull/Cancel)
-   * Special format required by ResAvenue for reservation operations
-   */
-  private getBookingPOSCredentials() {
-    return {
-      SourceID: {
-        ID: this.USERNAME,
-      },
-      RequestorID: {
-        User: this.USERNAME,
-        Password: this.PASSWORD,
-        ID_Context: this.ID_CONTEXT,
-      },
-    };
-  }
-
-  /**
    * Get property details (master data: room types, rate plans)
    */
   private async getPropertyDetails(hotelCode: string): Promise<any> {
@@ -124,7 +95,11 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         `${this.BASE_URL}/PropertyDetails`,
         {
           OTA_HotelDetailsRQ: {
-            POS: this.getPOSCredentials(),
+            POS: {
+              Username: this.USERNAME,
+              Password: this.PASSWORD,
+              ID_Context: this.ID_CONTEXT,
+            },
             TimeStamp: '20261015T15:22:50',
             EchoToken: `details-${Date.now()}`,
             HotelCode: hotelCode,
@@ -160,7 +135,11 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         `${this.BASE_URL}/PropertyDetails`,
         {
           OTA_HotelInventoryRQ: {
-            POS: this.getPOSCredentials(),
+            POS: {
+              Username: this.USERNAME,
+              Password: this.PASSWORD,
+              ID_Context: this.ID_CONTEXT,
+            },
             TimeStamp: '20261015T15:22:50',
             EchoToken: `inv-${Date.now()}`,
             HotelCode: hotelCode,
@@ -199,7 +178,11 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         `${this.BASE_URL}/PropertyDetails`,
         {
           OTA_HotelRateRQ: {
-            POS: this.getPOSCredentials(),
+            POS: {
+              Username: this.USERNAME,
+              Password: this.PASSWORD,
+              ID_Context: this.ID_CONTEXT,
+            },
             HotelCode: hotelCode,
             Start: startDate,
             End: endDate,
@@ -570,7 +553,13 @@ export class ResAvenueHotelProvider implements IHotelProvider {
       };
 
       // Add authentication credentials (as per ResAvenue OTA API documentation)
-      bookingRequest.OTA_HotelResNotifRQ.POS = this.getBookingPOSCredentials() as any;
+      bookingRequest.OTA_HotelResNotifRQ.POS = {
+        RequestorID: {
+          User: this.USERNAME,
+          Password: this.PASSWORD,
+          ID_Context: this.ID_CONTEXT,
+        },
+      };
 
       this.logger.log(`🔐 Authentication being sent:`);
       this.logger.log(`   - Username: ${this.USERNAME}`);
@@ -648,7 +637,13 @@ export class ResAvenueHotelProvider implements IHotelProvider {
           Version: '1.0',
           EchoToken: `cancel-${Date.now()}`,
           TimeStamp: timestamp,
-          POS: this.getBookingPOSCredentials(),
+          POS: {
+            RequestorID: {
+              User: this.USERNAME,
+              Password: this.PASSWORD,
+              ID_Context: this.ID_CONTEXT,
+            },
+          },
           HotelReservations: {
             HotelReservation: [
               {
@@ -721,7 +716,13 @@ export class ResAvenueHotelProvider implements IHotelProvider {
           TimeStamp: timestamp,
           Target: 'Production',
           Version: '1.0',
-          POS: this.getBookingPOSCredentials(),
+          POS: {
+            RequestorID: {
+              User: this.USERNAME,
+              Password: this.PASSWORD,
+              ID_Context: this.ID_CONTEXT,
+            },
+          },
           PropertyId: confirmationRef, // Booking reference
           FromDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 30 days
           ToDate: new Date().toISOString().split('T')[0], // Today

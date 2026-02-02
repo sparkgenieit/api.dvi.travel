@@ -1,4 +1,3 @@
-// REPLACE-WHOLE-FILE
 // FILE: src/modules/itineraries/engines/helpers/timeline.builder.ts
 //
 // PURPOSE:
@@ -121,8 +120,10 @@ export class TimelineBuilder {
     const timingRecords = timingMap.get(hotspotId)?.get(dayOfWeek) || [];
 
     if (!timingRecords || timingRecords.length === 0) {
-      // No timing records = not open on this day
-      return { canVisitNow: false, nextWindowStart: null };
+      // DVI behavior: no timing data => assume open 24 hours
+      // This allows manually-assigned hotspots or hotspots without timing restrictions to be scheduled
+      console.log(`[TIMELINE] No timing records for hotspot ${hotspotId} day ${dayOfWeek} -> assume OPEN 24 hours`);
+      return { canVisitNow: true, nextWindowStart: null };
     }
 
     let nextWindowStart: string | null = null;
@@ -182,9 +183,10 @@ export class TimelineBuilder {
   async buildTimelineForPlan(
     tx: Tx,
     planId: number,
+    existingHotspots?: any[],
   ): Promise<{ hotspotRows: HotspotDetailRow[]; parkingRows: ParkingChargeRow[] }> {
     const buildStart = Date.now();
-    console.log('[TIMELINE] buildTimelineForPlan started for planId:', planId);
+    console.log('[TIMELINE] buildTimelineForPlan started for planId:', planId, existingHotspots ? `with ${existingHotspots.length} pre-loaded hotspots` : '');
     
     let opStart = Date.now();
     const plan = (await (tx as any).dvi_itinerary_plan_details.findFirst({
@@ -321,16 +323,8 @@ export class TimelineBuilder {
         ? `${String((route.route_end_time as any).getUTCHours()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCMinutes()).padStart(2, '0')}:${String((route.route_end_time as any).getUTCSeconds()).padStart(2, '0')}`
         : '18:00:00';
       
-      // CRITICAL FIX: Day 1 must allow hotel check-in by 10 PM (22:00)
-      // To guarantee this with ~30 min hotel travel + buffer, cap activities to 21:00 (9 PM) on Day 1
-      // This ensures: Last activity ends ~21:00 → Hotel travel 21:00-21:30 → Check-in by ~21:30 (9:30 PM) ✅ BEFORE 10 PM
-      if (isFirstRoute) {
-        const routeEndSeconds = timeToSeconds(routeEndTime);
-        const cutoffSeconds = timeToSeconds('21:00:00'); // 9 PM
-        if (routeEndSeconds > cutoffSeconds) {
-          routeEndTime = '21:00:00'; // Cap to 9 PM for Day 1
-        }
-      }
+      // Use route's configured end time (no hardcoded cutoffs)
+      // Users can adjust end time as needed
       
       let currentTime = routeStartTime;
       let routeEndSeconds = timeToSeconds(routeEndTime);
@@ -453,15 +447,12 @@ export class TimelineBuilder {
         currentTime = addSeconds(currentTime, bufferSeconds);
       }
 
-      // 2) CALCULATE LATESTNONHOTELEND CUTOFF FOR NON-LAST ROUTES
-      // BUSINESS RULE: User must reach destination city by 22:00
-      // latestNonHotelEnd = 22:00 - (travel_time + buffer_time to hotel)
-      let latestNonHotelEndSeconds = routeEndSeconds; // Default: no cutoff
+      // 2) CALCULATE LATEST HOTSPOT END USING ROUTE'S CONFIGURED END TIME
+      // Use route_end_time (not hardcoded cutoffs) so users can adjust end time
+      let latestNonHotelEndSeconds = routeEndSeconds; // Default: route end time
       let latestNonHotelEndTime = routeEndTime; // Default string representation
       
       if (!isLastRoute) {
-        const hotelCutoffSeconds = timeToSeconds("22:00:00"); // 10 PM
-        
         // Get travel time and buffer for hotel travel (outstation type=2)
         const hotelTravelResult = await this.distanceHelper.fromSourceAndDestination(
           tx,
@@ -476,7 +467,8 @@ export class TimelineBuilder {
           timeToSeconds(hotelTravelResult.travelTime) + 
           timeToSeconds(hotelTravelResult.bufferTime);
         
-        latestNonHotelEndSeconds = hotelCutoffSeconds - travelPlusBufferSeconds;
+        // Latest hotspot end = route end time - travel to hotel
+        latestNonHotelEndSeconds = routeEndSeconds - travelPlusBufferSeconds;
         
         // Convert to time string for logging
         if (latestNonHotelEndSeconds > 0) {
@@ -665,7 +657,7 @@ export class TimelineBuilder {
           const hotspotDurationSeconds = timeToSeconds(hotspotDuration);
           let timeAfterSightseeing = addSeconds(timeAfterTravel, hotspotDurationSeconds);
 
-          // ✅ CHECK: Would this hotspot cause arrival after 10 PM?
+          // ✅ CHECK: Would this hotspot cause arrival after route end time?
           // Calculate travel time from THIS hotspot → destination
           const rawDestination = (route.next_visiting_location as string) || currentLocationName;
           const destinationCity = rawDestination.split('|')[0].trim();
@@ -683,12 +675,17 @@ export class TimelineBuilder {
             timeToSeconds(travelToDestResult.travelTime) +
             timeToSeconds(travelToDestResult.bufferTime);
           
-          const hotelCutoffSeconds = timeToSeconds("22:00:00");
+          // Use route's configured end time (not hardcoded)
           const sightseeingEndSeconds = timeToSeconds(timeAfterSightseeing);
           const projectedArrivalSeconds = sightseeingEndSeconds + travelToDestSeconds;
           
-          if (projectedArrivalSeconds > hotelCutoffSeconds) {
-            continue; // Skip this hotspot
+          // ✅ CONFLICT DETECTION: Instead of skipping, mark as conflict
+          let hasTimeConflict = false;
+          let conflictMessage = '';
+          if (projectedArrivalSeconds > routeEndSeconds) {
+            hasTimeConflict = true;
+            conflictMessage = `Sightseeing would end at ${secondsToTime(sightseeingEndSeconds)}, with arrival at destination projected at ${secondsToTime(projectedArrivalSeconds)}, exceeding route end time of ${secondsToTime(routeEndSeconds)}`;
+            console.log(`⚠️ CONFLICT DETECTED for hotspot ${sh.hotspot_ID}: ${conflictMessage}`);
           }
 
           // Get day of week for operating hours check
@@ -767,6 +764,8 @@ export class TimelineBuilder {
             totalInfants: plan.total_infants,
             nationality: plan.nationality,
             itineraryPreference: plan.itinerary_preference,
+            isConflict: hasTimeConflict,
+            conflictReason: conflictMessage,
           });
 
           hotspotRows.push(hotspotRow);
@@ -861,10 +860,10 @@ export class TimelineBuilder {
                   timeToSeconds(travelToDestResult.travelTime) +
                   timeToSeconds(travelToDestResult.bufferTime);
                 
-                const hotelCutoffSeconds = timeToSeconds("22:00:00");
+                // Use route's configured end time
                 const projectedArrivalSeconds = timeToSeconds(visitEndTime) + travelToDestSeconds;
                 
-                if (projectedArrivalSeconds <= hotelCutoffSeconds) {
+                if (projectedArrivalSeconds <= routeEndSeconds) {
                   // It fits! Insert it before first hotspot
                   const insertOrder = firstHotspotRow.hotspot_order - 0.5;
                   
@@ -983,11 +982,12 @@ export class TimelineBuilder {
         const deferredHotspots: Array<typeof selectedHotspots[0] & { deferredAtTime: string; opensAt: string }> = [];
         
         // ✅ CALCULATE INITIAL CUTOFF from starting location → destination
-        // This ensures we don't add hotspots that would make 10 PM deadline impossible
+        // Latest allowed arrival is the route's configured end time (route_end_time).
+        // Users can change end time, so we must NOT hardcode 22:00 etc.
         if (!isLastRoute) {
           const rawDestination = (route.next_visiting_location as string) || currentLocationName;
           const destinationCity = rawDestination.split('|')[0].trim();
-          const hotelCutoffSeconds = timeToSeconds("22:00:00"); // 10 PM deadline
+          const hotelCutoffSeconds = routeEndSeconds; // Use route's configured end time
           
           const initialTravelResult = await this.distanceHelper.fromSourceAndDestination(
             tx,
@@ -1091,26 +1091,22 @@ export class TimelineBuilder {
           sightseeingEndSeconds += 86400;
         }
         
-        // ✅ RULE 1: Enforce 22:00 destination arrival cutoff
-        // Skip hotspots that would prevent reaching destination by 22:00
+        // ✅ CONFLICT DETECTION: Instead of skipping, mark conflicts for preview
+        let hasTimeConflictSameDay = false;
+        let conflictMessageSameDay = '';
+        
+        // RULE 1: Check destination arrival cutoff
         if (latestAllowedHotspotEndSeconds > 0 && sightseeingEndSeconds > latestAllowedHotspotEndSeconds) {
-          continue; // Skip and try next hotspot
+          hasTimeConflictSameDay = true;
+          conflictMessageSameDay = `Sightseeing would end at ${secondsToTime(sightseeingEndSeconds)}, exceeding latest allowed time of ${secondsToTime(latestAllowedHotspotEndSeconds)} (to reach destination by route end time)`;
+          console.log(`⚠️ CONFLICT DETECTED (RULE 1) for hotspot ${sh.hotspot_ID}: ${conflictMessageSameDay}`);
         }
         
-        // PHP CHECK: If SIGHTSEEING would exceed route_end_time, STOP processing
-        // NOTE: The break (item_type=4) is allowed to exceed route_end_time
-        // SKIP THIS CHECK FOR DAY 1 - Day 1 has its own time management
-        // USER REQUIREMENT: Keep user busy with all hotspots - no time constraints on Day 1
+        // RULE 2: Check route_end_time
         if (!isFirstRoute && sightseeingEndSeconds > routeEndSeconds) {
-          continue; // PHP uses CONTINUE - skip this hotspot and try next ones
-        }
-        
-        // PHP CHECK: If SIGHTSEEING would exceed route_end_time, STOP processing
-        // NOTE: The break (item_type=4) is allowed to exceed route_end_time
-        // SKIP THIS CHECK FOR DAY 1 - Day 1 has its own time management
-        // USER REQUIREMENT: Keep user busy with all hotspots - no time constraints on Day 1
-        if (!isFirstRoute && sightseeingEndSeconds > routeEndSeconds) {
-          continue; // PHP uses CONTINUE - skip this hotspot and try next ones
+          hasTimeConflictSameDay = true;
+          conflictMessageSameDay = `Sightseeing would end at ${secondsToTime(sightseeingEndSeconds)}, exceeding route end time of ${secondsToTime(routeEndSeconds)}`;
+          console.log(`⚠️ CONFLICT DETECTED (ROUTE END) for hotspot ${sh.hotspot_ID}: ${conflictMessageSameDay}`);
         }
 
         // PHP CHECK: Validate operating hours
@@ -1136,7 +1132,8 @@ export class TimelineBuilder {
         // BALANCED APPROACH: Respect operating hours when available, but be flexible
         // - If hotspot can be visited now → schedule it
         // - If hotspot opens later today → defer and try next hotspot (fill gaps)
-        // - If hotspot is closed OR has no operating hours → skip it (unrealistic to schedule)
+        // - If hotspot is closed (all timing records are hotspot_closed=1) → skip it
+        // NOTE: Missing timing data is treated as "open 24 hours", so hotspots will be scheduled
         
         if (!operatingHoursCheck.canVisitNow) {
           if (operatingHoursCheck.nextWindowStart) {
@@ -1151,7 +1148,8 @@ export class TimelineBuilder {
             }
             continue; // Try next hotspot to fill the time
           } else {
-            // No operating hours available - skip this hotspot (closed or no data)
+            // Hotspot is explicitly closed (all timing records have hotspot_closed=1)
+            // Do not schedule this hotspot
             continue;
           }
         }
@@ -1200,6 +1198,8 @@ export class TimelineBuilder {
             totalInfants: plan.total_infants,
             nationality: plan.nationality,
             itineraryPreference: plan.itinerary_preference,
+            isConflict: hasTimeConflictSameDay,
+            conflictReason: conflictMessageSameDay,
           });
 
         hotspotRows.push(hotspotRow);
@@ -1215,11 +1215,11 @@ export class TimelineBuilder {
         // currentLocationName remains at the hotspot.
 
         // ✅ RECALCULATE CUTOFF: User is now at the hotspot, not starting location
-        // Travel time from HERE (last hotspot) → destination is what matters for 22:00 deadline
+        // Latest allowed arrival is the route's configured end time (route_end_time).
         if (!isLastRoute) {
           const rawDestination = (route.next_visiting_location as string) || currentLocationName;
           const destinationCity = rawDestination.split('|')[0].trim();
-          const hotelCutoffSeconds = timeToSeconds("22:00:00"); // 10 PM deadline
+          const hotelCutoffSeconds = routeEndSeconds; // Use route's configured end time
           
           // Get NEW travel time from CURRENT LOCATION (last hotspot) → destination
           const finalTravelResult = await this.distanceHelper.fromSourceAndDestination(
@@ -1312,13 +1312,14 @@ export class TimelineBuilder {
         // ✅ RULE 3: Fix "06:58 AM" time bug using proper UTC date conversion
         // Never mix local timezone Date objects with UTC TIME fields
         let adjustedHotelRow = { ...toHotelRow };
-        const hotelCutoffSeconds = timeToSeconds("22:00:00");
+        // Latest allowed arrival is the route's configured end time (route_end_time).
+        const hotelCutoffSeconds = routeEndSeconds;
         const hotelEndSeconds = timeToSeconds(tAfterHotel);
         
-        // Enforce 22:00 hard cap
+        // Enforce route end time cutoff
         if (hotelEndSeconds > hotelCutoffSeconds) {
           // Use TimeConverter.toDate() for consistent UTC handling
-          adjustedHotelRow.hotspot_end_time = TimeConverter.toDate("22:00:00");
+          adjustedHotelRow.hotspot_end_time = TimeConverter.toDate(secondsToTime(hotelCutoffSeconds));
         } else {
           adjustedHotelRow.hotspot_end_time = TimeConverter.toDate(tAfterHotel);
         }
@@ -1951,7 +1952,38 @@ export class TimelineBuilder {
       // PHP PARITY: Do NOT re-sort after concatenation
       // The order from concatenation (source + destination + via) is the final order
 
-      return uniqueHotspots.map((h: any, index: number) => ({
+      // ✅ FIX: Include already-assigned hotspots from database
+      // If a hotspot is already in dvi_itinerary_route_hotspot_details, include it even if it doesn't match location logic
+      const assignedHotspots = (await (tx as any).dvi_itinerary_route_hotspot_details.findMany({
+        where: {
+          itinerary_plan_ID: planId,
+          itinerary_route_ID: routeId,
+          deleted: 0,
+          status: 1,
+          item_type: 4, // Only attractions (item_type 4)
+        },
+        select: {
+          hotspot_ID: true,
+        },
+      })) || [];
+
+      console.log('[TIMELINE] assignedHotspots from DB count:', assignedHotspots.length, 'IDs:', assignedHotspots.map((h: any) => h.hotspot_ID).join(','));
+
+      // Merge assigned hotspots with location-based hotspots (avoid duplicates)
+      const finalHotspots = [...uniqueHotspots];
+      for (const assignedHotspot of assignedHotspots) {
+        const assignedId = Number(assignedHotspot.hotspot_ID ?? 0);
+        if (assignedId && !seen.has(assignedId)) {
+          console.log(`[TIMELINE] Adding assigned hotspot ${assignedId} to finalHotspots`);
+          finalHotspots.push({
+            hotspot_ID: assignedId,
+            hotspot_priority: 0,
+            hotspot_distance: 0,
+          });
+        }
+      }
+
+      return finalHotspots.map((h: any, index: number) => ({
         hotspot_ID: Number(h.hotspot_ID ?? 0) || 0,
         display_order: Number(h.hotspot_priority ?? index + 1) || index + 1,
         hotspot_priority: Number(h.hotspot_priority ?? 0) || 0,

@@ -75,6 +75,8 @@ export class TimelineEnricher {
         timeRange,
         type,
         locationId: row.hotspot_ID, // Add locationId field for frontend compatibility
+        isConflict: (row as any).isConflict || false,
+        conflictReason: (row as any).conflictReason || null,
       };
     });
   }

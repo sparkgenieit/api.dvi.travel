@@ -54,11 +54,7 @@ export class HotspotEngineService {
     // Pass existing hotspots (including deleted ones) to the builder
     // The builder/selector will filter out deleted:1 hotspots so they are NOT re-added
     const { hotspotRows, parkingRows } =
-      await this.timelineBuilder.buildTimelineForPlan(tx, planId);
-
-    if (!hotspotRows.length) {
-      return { shiftedItems: [], droppedItems: [] };
-    }
+      await this.timelineBuilder.buildTimelineForPlan(tx, planId, existingHotspots);
 
     // Initialize tracking arrays
     const shiftedItems: any[] = [];
@@ -152,6 +148,8 @@ export class HotspotEngineService {
     routeId: number,
     hotspotId: number,
   ): Promise<any> {
+    console.log(`\n🔍 PREVIEW-ADD: planId=${planId}, routeId=${routeId}, hotspotId=${hotspotId}`);
+    
     // 1) Fetch the current route details
     const currentRoute = await (tx as any).dvi_itinerary_route_details.findFirst({
       where: { itinerary_route_ID: routeId },
@@ -161,12 +159,17 @@ export class HotspotEngineService {
         next_visiting_location: true,
         direct_to_next_visiting_place: true,
         itinerary_route_date: true,
+        route_start_time: true,
+        route_end_time: true,
       },
     });
 
     if (!currentRoute) {
       throw new Error(`Route ${routeId} not found`);
     }
+    
+    console.log(`📍 Route ${routeId}: ${currentRoute.location_name} → ${currentRoute.next_visiting_location}`);
+    console.log(`⏰ Route timing: ${currentRoute.route_start_time} to ${currentRoute.route_end_time}`);
 
     // 2) Check if there's a next route that connects to this one
     let nextRoute = null;
@@ -215,23 +218,55 @@ export class HotspotEngineService {
       },
     });
 
-    // 4) Add the new hotspot to the list
-    existingHotspots.push({
-      itinerary_plan_ID: planId,
-      itinerary_route_ID: routeId,
-      hotspot_ID: hotspotId,
-      hotspot_plan_own_way: 1, // MARK AS MANUAL
-      item_type: 4,
+    // 4) Check if this hotspot is already assigned to this route to avoid duplicates
+    // For manual hotspots (item_type=4), we should not create duplicates
+    const existingManualHotspot = await (tx as any).dvi_itinerary_route_hotspot_details.findFirst({
+      where: {
+        itinerary_plan_ID: planId,
+        itinerary_route_ID: routeId,
+        hotspot_ID: hotspotId,
+        item_type: 4,
+        deleted: 0,
+      },
     });
 
-    // 5) Build the timeline only for the relevant routes
+    // If this hotspot is already assigned, reuse it instead of creating duplicate
+    let newHotspotRecord = existingManualHotspot;
+    if (!newHotspotRecord) {
+      // 5) Temporarily insert the new hotspot into the database so the timeline builder can find it
+      // IMPORTANT: Set placeholder times and order so timeline builder can process correctly
+      // Timeline builder will recalculate these based on scheduling logic
+      // hotspot_start_time and hotspot_end_time MUST NOT be null for DB constraints
+      // hotspot_order MUST NOT be 0 (reserved for other item types)
+      const placeholderTime = new Date('1970-01-01T00:00:00Z'); // Midnight UTC as default
+      const placeholderOrder = 999; // High number to place at end (will be recalculated)
+      
+      newHotspotRecord = await (tx as any).dvi_itinerary_route_hotspot_details.create({
+        data: {
+          itinerary_plan_ID: planId,
+          itinerary_route_ID: routeId,
+          hotspot_ID: hotspotId,
+          hotspot_plan_own_way: 1, // MARK AS MANUAL
+          item_type: 4,
+          hotspot_order: placeholderOrder, // Placeholder, will be recalculated
+          hotspot_start_time: placeholderTime, // Placeholder, will be recalculated
+          hotspot_end_time: placeholderTime, // Placeholder, will be recalculated
+          createdby: 1,
+          createdon: new Date(),
+          status: 1,
+          deleted: 0,
+        },
+      });
+    }
+
+    // 6) Build the timeline with the newly inserted hotspot available for processing
     const { hotspotRows } = await this.timelineBuilder.buildTimelineForPlan(tx, planId);
 
     // Initialize tracking arrays (not returned by buildTimelineForPlan)
     const shiftedItems: any[] = [];
     const droppedItems: any[] = [];
 
-    // 6) Filter hotspotRows to only include current and next route
+    // 7) Filter hotspotRows to only include current and next route
     const filteredRows = hotspotRows.filter(row => 
       routeIdsToInclude.includes(Number(row.itinerary_route_ID))
     );
@@ -245,6 +280,15 @@ export class HotspotEngineService {
              Number(r.hotspot_ID) === Number(hotspotId) && 
              r.item_type === 4
     );
+    
+    console.log(`📊 Preview result for hotspot ${hotspotId}:`, newHotspotRow ? 'FOUND' : 'NOT FOUND');
+    if (newHotspotRow) {
+      console.log(`   - Time: ${(newHotspotRow as any).timeRange}`);
+      console.log(`   - Conflict: ${(newHotspotRow as any).isConflict || false}`);
+      if ((newHotspotRow as any).isConflict) {
+        console.log(`   - Reason: ${(newHotspotRow as any).conflictReason}`);
+      }
+    }
 
     // 9) Check for conflicts in OTHER hotspots (only in included routes)
     const otherConflicts = enrichedTimeline.filter(

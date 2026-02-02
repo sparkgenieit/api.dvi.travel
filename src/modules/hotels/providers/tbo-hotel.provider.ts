@@ -521,13 +521,11 @@ export class TBOHotelProvider implements IHotelProvider {
       const tokenId = await this.authenticate();
 
       // Step 2: Build SendChangeRequest with RequestType=4 (TBO Official Format)
-      // IMPORTANT: confirmationRef contains the bookingId from the database tbo_booking_id field
-      // This is the numeric ID from TBO Book response, NOT the reference number
       const request = {
         BookingMode: 5,
         RequestType: 4, // 4 = HotelCancel
         Remarks: reason,
-        BookingId: parseInt(confirmationRef), // Must be Integer ID from Book Response
+        BookingId: parseInt(confirmationRef), // Must be Integer from Book Response
         EndUserIp: process.env.TBO_END_USER_IP || '192.168.1.1',
         TokenId: tokenId,
       };
