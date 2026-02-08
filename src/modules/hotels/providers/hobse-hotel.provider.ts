@@ -412,18 +412,21 @@ export class HobseHotelProvider implements IHotelProvider {
   async cancelBooking(
     confirmationRef: string,
     reason: string,
+    hotelId?: string,
   ): Promise<CancellationResult> {
     try {
       this.logger.log(
-        `❌ Cancelling HOBSE booking: ${confirmationRef}, Reason: ${reason}`
+        `❌ Cancelling HOBSE booking: ${confirmationRef}, Hotel: ${hotelId}, Reason: ${reason}`
       );
 
-      // HOBSE API call to SetBookingStatus with status='cancelled'
-      // confirmationRef contains the channelBookingId (e.g., "DVI-139-1769528592626")
+      // HOBSE API format as per documentation:
+      // - hobseBookingId (not bookingId)
+      // - hotelId (required)
+      // - bookingStatus: "1" = cancelled (numeric string, not 'cancelled')
       const cancellationRequest = {
-        bookingId: confirmationRef,
-        status: 'cancelled',
-        remarks: reason || 'Customer Requested',
+        hobseBookingId: confirmationRef,
+        hotelId: hotelId || '',
+        bookingStatus: '1', // 1 = cancelled
       };
 
       this.logger.debug(`📤 HOBSE Cancellation Request Payload: ${JSON.stringify(cancellationRequest)}`);
@@ -802,6 +805,31 @@ export class HobseHotelProvider implements IHotelProvider {
     this.logger.log(`✅ Payload written to ${payloadPath}`);
 
     const createResp = await this.postForm<any>('CreateBooking', createPayload);
+
+    this.logger.log('\n🎉 HOBSE CreateBooking RESPONSE RECEIVED:');
+    this.logger.log(`📥 Full response: ${JSON.stringify(createResp, null, 2)}`);
+    
+    // Check response structure
+    const responseStatus = createResp?.hobse?.response?.status;
+    const responseData = createResp?.hobse?.response?.data;
+    
+    this.logger.log(`\n📊 HOBSE CreateBooking Response Analysis:`);
+    this.logger.log(`   Status Success: ${responseStatus?.success}`);
+    this.logger.log(`   Status Code: ${responseStatus?.code}`);
+    this.logger.log(`   Status Message: ${responseStatus?.message}`);
+    this.logger.log(`   Has Response Data: ${!!responseData}`);
+    
+    if (responseData) {
+      this.logger.log(`   Response Data: ${JSON.stringify(responseData, null, 2)}`);
+    }
+    
+    if (responseStatus?.success === 'false' || responseStatus?.code !== '200') {
+      const errors = createResp?.hobse?.response?.errors;
+      this.logger.error(`❌ HOBSE CreateBooking FAILED!`);
+      this.logger.error(`   Errors: ${JSON.stringify(errors, null, 2)}`);
+    } else {
+      this.logger.log(`✅ HOBSE CreateBooking SUCCESS!`);
+    }
 
     return {
       provider: 'HOBSE',

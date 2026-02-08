@@ -85,13 +85,17 @@ export class HobseHotelBookingService {
           },
         });
 
+        // Extract HOBSE booking ID from response
+        const hobseBookingId = booking?.apiResponse?.hobse?.response?.data?.[0]?.hobseBookingId || channelBookingId;
+        this.logger.log(`📝 HOBSE Booking IDs - Channel: ${channelBookingId}, HOBSE: ${hobseBookingId}`);
+
         // 7) Save confirmation row
         const saved = await (this.prisma as any).hobse_hotel_booking_confirmation.create({
           data: {
             plan_id: planId,
             route_id: sel.routeId,
             hotel_code: sel.hotelCode,
-            booking_id: channelBookingId,
+            booking_id: hobseBookingId, // Store HOBSE's booking ID, not our channel ID
             check_in_date: new Date(sel.checkInDate),
             check_out_date: new Date(sel.checkOutDate),
             room_count: sel.numberOfRooms || 1,
@@ -109,7 +113,7 @@ export class HobseHotelBookingService {
           provider: 'HOBSE',
           routeId: sel.routeId,
           hotelId: sel.hotelCode,
-          channelBookingId,
+          channelBookingId: hobseBookingId, // Return HOBSE's booking ID
           dbId: saved.hobse_hotel_booking_confirmation_ID,
           status: 'success',
         });
@@ -165,7 +169,8 @@ export class HobseHotelBookingService {
         // Step 1: Call HOBSE API to cancel booking
         const cancellationResult = await this.hobseProvider.cancelBooking(
           booking.booking_id,
-          'Route cancelled by user'
+          'Route cancelled by user',
+          booking.hotel_code // Pass hotel ID as required by HOBSE API
         );
 
         this.logger.log(

@@ -579,6 +579,26 @@ export class ItinerariesController {
     return this.svc.getAvailableActivities(Number(hotspotId));
   }
 
+  @Post('activities/preview')
+  @ApiOperation({ summary: 'Preview activity addition to check for timing conflicts' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        planId: { type: 'number', example: 17940 },
+        routeId: { type: 'number', example: 1 },
+        routeHotspotId: { type: 'number', example: 123 },
+        hotspotId: { type: 'number', example: 35 },
+        activityId: { type: 'number', example: 180 },
+      },
+      required: ['planId', 'routeId', 'routeHotspotId', 'hotspotId', 'activityId'],
+    },
+  })
+  @ApiOkResponse({ description: 'Activity preview with conflict information' })
+  async previewActivityAddition(@Body() body: any) {
+    return this.svc.previewActivityAddition(body);
+  }
+
   @Post('activities/add')
   @ApiOperation({ summary: 'Add an activity to a hotspot in the itinerary' })
   @ApiBody({
@@ -594,6 +614,7 @@ export class ItinerariesController {
         startTime: { type: 'string', example: '10:00:00', nullable: true },
         endTime: { type: 'string', example: '11:00:00', nullable: true },
         duration: { type: 'string', example: '01:00:00', nullable: true },
+        skipConflictCheck: { type: 'boolean', example: false, nullable: true },
       },
       required: ['planId', 'routeId', 'routeHotspotId', 'hotspotId', 'activityId'],
     },
