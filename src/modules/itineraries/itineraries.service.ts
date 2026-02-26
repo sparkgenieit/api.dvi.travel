@@ -1651,27 +1651,39 @@ export class ItinerariesService {
       // Process ResAvenue hotels if any
       if (resavenueHotels.length > 0) {
         console.log('[ResAvenue Booking] Processing', resavenueHotels.length, 'hotel(s)');
-        const resavenueSelections = resavenueHotels.map((hotel) => ({
-          routeId: hotel.routeId,
-          selection: {
-            hotelCode: hotel.hotelCode,
-            bookingCode: hotel.bookingCode,
-            roomType: hotel.roomType,
-            checkInDate: hotel.checkInDate,
-            checkOutDate: hotel.checkOutDate,
-            numberOfRooms: hotel.numberOfRooms,
-            guestNationality: hotel.guestNationality,
-            netAmount: hotel.netAmount,
-            guests: hotel.passengers.map((p) => ({
-              firstName: p.firstName,
-              lastName: p.lastName,
-              email: p.email,
-              phone: p.phoneNo,
-            })),
-          },
-          invCode: 1, // TODO: Get from hotel selection
-          rateCode: 1, // TODO: Get from hotel selection
-        }));
+        
+        const resavenueSelections = resavenueHotels.map((hotel) => {
+          // Note: invCode and rateCode should ideally be fetched from hotel detail table
+          // For now, using fallback values that allow Rate Fetch API to be called
+          const invCode = 1;
+          const rateCode = 524; // Fallback rate code for Testing
+          
+          console.log(
+            `[ResAvenue] Hotel ${hotel.hotelCode}: Using InvCode=${invCode}, RateCode=${rateCode}`,
+          );
+
+          return {
+            routeId: hotel.routeId,
+            selection: {
+              hotelCode: hotel.hotelCode,
+              bookingCode: hotel.bookingCode,
+              roomType: hotel.roomType,
+              checkInDate: hotel.checkInDate,
+              checkOutDate: hotel.checkOutDate,
+              numberOfRooms: hotel.numberOfRooms,
+              guestNationality: hotel.guestNationality,
+              netAmount: hotel.netAmount,
+              guests: hotel.passengers.map((p) => ({
+                firstName: p.firstName,
+                lastName: p.lastName,
+                email: p.email,
+                phone: p.phoneNo,
+              })),
+            },
+            invCode: invCode,
+            rateCode: rateCode,
+          };
+        });
 
         // Call ResAvenue booking service
         const resavenueBookingResults = await this.resavenueHotelBooking.confirmItineraryHotels(

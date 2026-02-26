@@ -53,6 +53,17 @@ interface ResAvenueRatePlan {
   MealPlan: string;
 }
 
+interface RoomRateBreakup {
+  Amount: number;
+  EffectiveDate: string;
+}
+
+interface RoomRatesPayload {
+  RoomRate: {
+    Rates: RoomRateBreakup[];
+  };
+}
+
 @Injectable()
 export class ResAvenueHotelProvider implements IHotelProvider {
   private readonly BASE_URL = process.env.RESAVENUE_BASE_URL || 'http://203.109.97.241:8080/ChannelController';
@@ -428,16 +439,69 @@ export class ResAvenueHotelProvider implements IHotelProvider {
 
   /**
    * Confirm hotel booking using OTA_HotelResNotifRQ (Booking Push)
+   * Now includes per-night rate breakup from Rate Fetch API
    */
   async confirmBooking(bookingDetails: HotelConfirmationDTO): Promise<HotelConfirmationResult> {
     try {
       this.logger.log(`\n   📝 RESAVENUE: Confirming booking for hotel ${bookingDetails.hotelCode}`);
 
       // Extract room and rate codes from roomCode (format: "InvCode-RateCode")
-      const [invCode, rateCode] = bookingDetails.rooms[0].roomCode.split('-');
+      const [invCode, rateCodeStr] = bookingDetails.rooms[0].roomCode.split('-');
+      const rateCode = parseInt(rateCodeStr, 10);
+      const guestCount = bookingDetails.rooms[0].guestCount;
       const uniqueBookingRef = `DVI-${Date.now()}`;
       const now = new Date();
       const timestamp = now.toISOString().replace(/\.\d{3}Z$/, '');
+
+      // Step 1: Fetch rates for this booking to populate RoomRates breakup
+      this.logger.log(
+        `\n   Step 1️⃣ : Fetching rate details for RatePlan ${rateCode}...`
+      );
+      let rateFetchResponse: ResAvenueRate[];
+      try {
+        rateFetchResponse = await this.fetchResavenueRatesForBooking(
+          bookingDetails.hotelCode,
+          bookingDetails.checkInDate,
+          bookingDetails.checkOutDate,
+          [rateCode]
+        );
+      } catch (rateFetchError) {
+        this.logger.warn(
+          `   ⚠️  Rate Fetch failed: ${rateFetchError.message}. Using fallback rates.`
+        );
+        // Fallback: Create synthetic rate based on totalAmount from booking details
+        const nights = this.getStayNights(bookingDetails.checkInDate, bookingDetails.checkOutDate);
+        const perNightRate = Math.round(bookingDetails.totalPrice / nights.length);
+        
+        rateFetchResponse = [
+          {
+            RateCode: rateCode,
+            Rate: nights.map((night) => ({
+              Date: night,
+              Single: perNightRate,
+              Double: perNightRate,
+              Triple: perNightRate,
+              ExtraPax: 0,
+            })),
+          },
+        ];
+        
+        this.logger.log(
+          `   ✅ Using fallback rates: ₹${perNightRate} per night for ${nights.length} night(s)`
+        );
+      }
+
+      // Step 2: Build per-night rate breakup
+      this.logger.log(
+        `\n   Step 2️⃣ : Building per-night rate breakup for ${guestCount} guest(s)...`
+      );
+      const { roomRatesPayload, totalAmount } = this.buildRoomRatesBreakup(
+        bookingDetails.checkInDate,
+        bookingDetails.checkOutDate,
+        rateFetchResponse,
+        rateCode,
+        guestCount
+      );
 
       // Build OTA_HotelResNotifRQ according to ResAvenue API documentation
       const bookingRequest = {
@@ -489,19 +553,15 @@ export class ResAvenueHotelProvider implements IHotelProvider {
                     },
                     Total: {
                       CurrencyCode: 'INR',
-                      Amount: 0, // Will be calculated from rates
+                      Amount: totalAmount, // Set from Rate Fetch API
                     },
                     RatePlans: {
                       RatePlan: {
                         RatePlanName: '',
-                        RatePlanCode: rateCode,
+                        RatePlanCode: rateCode.toString(),
                       },
                     },
-                    RoomRates: {
-                      RoomRate: {
-                        Rates: [],
-                      },
-                    },
+                    RoomRates: roomRatesPayload, // ✅ Populated from buildRoomRatesBreakup
                     ResGuestRPHs: {
                       ResGuestRPH: {
                         RPH: 0,
@@ -515,7 +575,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
                     CurrencyCode: 'INR',
                     TotalTax: 0,
                     TaxType: 'Inclusive',
-                    TotalBookingAmount: 0,
+                    TotalBookingAmount: totalAmount, // Sum of per-night amounts
                     Commission: 0,
                     CommissionType: 'Inclusive',
                   },
@@ -538,7 +598,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
                               Surname: guest.lastName,
                             },
                             Email: guest.email,
-                            Telephone: guest.phone,
+                            Contact: guest.phone,
                           },
                         },
                       },
@@ -561,6 +621,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         },
       };
 
+      this.logger.log(`\n   Step 3️⃣ : Sending Booking Push to ResAvenue...`);
       this.logger.log(`🔐 Authentication being sent:`);
       this.logger.log(`   - Username: ${this.USERNAME}`);
       this.logger.log(`   - Password: ${this.PASSWORD}`);
@@ -568,18 +629,14 @@ export class ResAvenueHotelProvider implements IHotelProvider {
       
       this.logger.debug(`📤 Booking request: ${JSON.stringify(bookingRequest, null, 2)}`);
 
-      // Send booking push to ResAvenue with authentication
-      const authString = Buffer.from(`${this.USERNAME}:${this.PASSWORD}`).toString('base64');
-      this.logger.log(`🔐 Basic Auth Header: Basic ${authString}`);
-      
+      // Send booking push to ResAvenue with authentication via RequestorID in body
       const response = await this.http.post(
-        `${this.BASE_URL}/PropertyDetails`,
+        `${this.BASE_URL}/bookingNotification.auto?ota=AGENTSBOOKING`,
         bookingRequest,
         {
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
-            Authorization: `Basic ${authString}`,
           },
           timeout: 30000,
         }
@@ -594,7 +651,9 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         throw new Error(`Booking failed: ${remark}`);
       }
 
-      this.logger.log(`   ✅ Booking confirmed: ${uniqueBookingRef}`);
+      this.logger.log(`\n   ✅ Booking confirmed: ${uniqueBookingRef}`);
+      this.logger.log(`   💰 Total Amount: ₹${totalAmount}`);
+      this.logger.log(`   📊 Room Rates: ${roomRatesPayload.RoomRate.Rates.length} night(s)`);
 
       return {
         provider: 'ResAvenue',
@@ -604,15 +663,15 @@ export class ResAvenueHotelProvider implements IHotelProvider {
         checkIn: bookingDetails.checkInDate,
         checkOut: bookingDetails.checkOutDate,
         roomCount: bookingDetails.roomCount,
-        totalPrice: 0,
+        totalPrice: totalAmount,
         priceBreadown: {
-          roomCharges: 0,
+          roomCharges: totalAmount,
           taxes: 0,
           discounts: 0,
         },
         cancellationPolicy: 'As per hotel policy',
         status: 'confirmed',
-        bookingDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+        bookingDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       };
     } catch (error) {
       this.logger.error(`   ❌ Booking confirmation failed: ${error.message}`);
@@ -665,7 +724,7 @@ export class ResAvenueHotelProvider implements IHotelProvider {
       this.logger.debug(`📤 Cancellation request: ${JSON.stringify(cancellationRequest, null, 2)}`);
 
       const response = await this.http.post(
-        `${this.BASE_URL}/PropertyDetails`,
+        `${this.BASE_URL}/bookingNotification.auto?ota=AGENTSBOOKING`,
         cancellationRequest,
         {
           headers: {
@@ -697,6 +756,266 @@ export class ResAvenueHotelProvider implements IHotelProvider {
       this.logger.error(`   ❌ Cancellation failed: ${error.message}`);
       throw new InternalServerErrorException(`ResAvenue cancellation failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Fetch rates for booking (OTA_HotelRateRQ) - Used to populate RoomRates breakup
+   * Returns per-date pricing for specified rate codes
+   */
+  private async fetchResavenueRatesForBooking(
+    hotelCode: string,
+    startDate: string,
+    endDate: string,
+    rateCodes: number[]
+  ): Promise<ResAvenueRate[]> {
+    try {
+      const echoToken = `rate-book-${Date.now()}`;
+      
+      // Validate and normalize dates to ensure YYYY-MM-DD format
+      let normalizedStartDate = startDate;
+      let normalizedEndDate = endDate;
+      
+      // If date is a Date object, convert to ISO string
+      if (typeof startDate === 'object' && startDate instanceof Date) {
+        normalizedStartDate = startDate.toISOString().split('T')[0];
+      } else if (typeof startDate === 'string' && startDate.includes('T')) {
+        // If it's ISO datetime string, extract just the date part
+        normalizedStartDate = startDate.split('T')[0];
+      }
+      
+      if (typeof endDate === 'object' && endDate instanceof Date) {
+        normalizedEndDate = endDate.toISOString().split('T')[0];
+      } else if (typeof endDate === 'string' && endDate.includes('T')) {
+        normalizedEndDate = endDate.split('T')[0];
+      }
+
+      // DEBUG: Log exact parameters being sent
+      this.logger.log(`\n   🔍 [RATE FETCH DEBUG - REQUEST PARAMS]`);
+      this.logger.log(`      Hotel Code: ${hotelCode} (type: ${typeof hotelCode})`);
+      this.logger.log(`      Start Date: ${normalizedStartDate} (original: ${startDate}, type: ${typeof startDate})`);
+      this.logger.log(`      End Date: ${normalizedEndDate} (original: ${endDate}, type: ${typeof endDate})`);
+      this.logger.log(`      Rate Codes: ${JSON.stringify(rateCodes)} (types: ${rateCodes.map(r => typeof r).join(',')})`);
+      this.logger.log(`      Echo Token: ${echoToken}`);
+      this.logger.log(`      Endpoint: ${this.BASE_URL}/PropertyDetails`);
+      this.logger.log(`      Username: ${this.USERNAME}`);
+      this.logger.log(`      ID_Context: ${this.ID_CONTEXT}\n`);
+
+      // Validate date range
+      if (normalizedStartDate >= normalizedEndDate) {
+        throw new Error(`Invalid date range: Start (${normalizedStartDate}) must be before End (${normalizedEndDate})`);
+      }
+
+      const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, '');
+      const requestBody = {
+        OTA_HotelRateRQ: {
+          POS: {
+            RequestorID: {
+              User: this.USERNAME,
+              Password: this.PASSWORD,
+              ID_Context: this.ID_CONTEXT,
+            },
+          },
+          EchoToken: echoToken,
+          TimeStamp: timestamp,
+          HotelCode: hotelCode,
+          Start: normalizedStartDate,
+          End: normalizedEndDate,
+          RateCodes: rateCodes,
+        },
+      };
+
+      // DEBUG: Log exact request body being sent with AUTH
+      this.logger.log(`   🔍 [RATE FETCH DEBUG - FULL REQUEST BODY WITH AUTH]`);
+      this.logger.log(JSON.stringify(requestBody, null, 2));
+      
+      // Log auth credentials separately for debugging
+      this.logger.log(`\n   🔑 [RATE FETCH DEBUG - AUTHENTICATION DETAILS]`);
+      this.logger.log(`      Username: ${this.USERNAME}`);
+      this.logger.log(`      Password: ${this.PASSWORD ? '***REDACTED***' : 'NOT SET'}`);
+      this.logger.log(`      ID_Context: ${this.ID_CONTEXT}`);
+      this.logger.log(`      Base URL: ${this.BASE_URL}`);
+      this.logger.log(`      Full Endpoint: ${this.BASE_URL}/PropertyDetails\n`);
+
+      // Build auth without Basic header - use RequestorID in body instead
+      const axiosConfig = {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        timeout: 30000,
+      };
+
+      // Log the actual request being sent
+      this.logger.log(`   🌐 [RATE FETCH DEBUG - AXIOS REQUEST]`);
+      this.logger.log(`      Method: POST`);
+      this.logger.log(`      URL: ${this.BASE_URL}/PropertyDetails`);
+      this.logger.log(`      Headers: ${JSON.stringify(axiosConfig.headers, null, 2)}`);
+      this.logger.log(`      Data: ${JSON.stringify(requestBody, null, 2)}\n`);
+
+      const response = await this.http.post(
+        `${this.BASE_URL}/PropertyDetails`,
+        requestBody,
+        axiosConfig
+      );
+
+      // DEBUG: Log success response
+      this.logger.log(`\n   🔍 [RATE FETCH DEBUG - RESPONSE]`);
+      this.logger.log(`      Status: ${response.status}`);
+      this.logger.log(`      Rates Returned: ${response.data?.OTA_HotelRateRS?.Rates?.length || 0}`);
+
+      const rates = response.data?.OTA_HotelRateRS?.Rates || [];
+      this.logger.log(
+        `   ✅ Rate Fetch successful: ${rates.length} rate plan(s) with daily breakup`
+      );
+      return rates;
+    } catch (error: any) {
+      // DEBUG: Log exact error details with AUTH info
+      this.logger.error(`\n   ❌ [RATE FETCH DEBUG - ERROR RESPONSE]`);
+      this.logger.error(`      Status Code: ${error.response?.status || 'NO RESPONSE'}`);
+      this.logger.error(`      Status Text: ${error.response?.statusText || 'N/A'}`);
+      this.logger.error(`      Message: ${error.message}`);
+      
+      // Log auth that was attempted
+      this.logger.error(`\n   🔑 [RATE FETCH DEBUG - AUTH THAT WAS SENT]`);
+      this.logger.error(`      Username: ${this.USERNAME}`);
+      this.logger.error(`      Password: ${this.PASSWORD ? '***' : 'NOT SET'}`);
+      this.logger.error(`      ID_Context: ${this.ID_CONTEXT}`);
+      
+      if (error.response?.data) {
+        this.logger.error(`\n   📋 [RATE FETCH DEBUG - ERROR RESPONSE DATA]`);
+        this.logger.error(JSON.stringify(error.response.data, null, 2));
+      }
+      
+      if (error.config) {
+        this.logger.error(`\n   🌐 [RATE FETCH DEBUG - REQUEST CONFIG THAT FAILED]`);
+        this.logger.error(`      URL: ${error.config.url}`);
+        this.logger.error(`      Method: ${error.config.method}`);
+        this.logger.error(`      Headers: ${JSON.stringify(error.config.headers, null, 2)}`);
+        
+        // Try to parse and log the body if it exists
+        if (error.config.data) {
+          try {
+            const bodyData = typeof error.config.data === 'string' 
+              ? JSON.parse(error.config.data) 
+              : error.config.data;
+            this.logger.error(`      Request Body (with credentials):`);
+            this.logger.error(JSON.stringify(bodyData, null, 2));
+          } catch (e) {
+            this.logger.error(`      Request Body: ${error.config.data}`);
+          }
+        }
+      }
+
+      this.logger.error(`   ❌ Rate Fetch failed for hotel ${hotelCode}: ${error.message}\n`);
+      throw new InternalServerErrorException(
+        `Failed to fetch rates for booking: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Calculate stay nights (check-in to check-out, excluding check-out day)
+   */
+  private getStayNights(checkInDate: string, checkOutDate: string): string[] {
+    const nights: string[] = [];
+    const current = new Date(checkInDate);
+    const checkout = new Date(checkOutDate);
+
+    while (current < checkout) {
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      nights.push(`${year}-${month}-${day}`);
+      current.setDate(current.getDate() + 1);
+    }
+
+    return nights;
+  }
+
+  /**
+   * Build per-night rate breakup for RoomRates section of booking push
+   * Constructs the Rates array with Amount and EffectiveDate for each night
+   */
+  private buildRoomRatesBreakup(
+    checkInDate: string,
+    checkOutDate: string,
+    rateFetchResponse: ResAvenueRate[],
+    selectedRateCode: number,
+    guestCount: number
+  ): { roomRatesPayload: RoomRatesPayload; totalAmount: number } {
+    const nights = this.getStayNights(checkInDate, checkOutDate);
+    const rates: RoomRateBreakup[] = [];
+    let totalAmount = 0;
+
+    // Find the rate plan matching selectedRateCode in the API response
+    const selectedRatePlan = rateFetchResponse.find(
+      (r) => r.RateCode === selectedRateCode
+    );
+
+    if (!selectedRatePlan) {
+      throw new Error(
+        `Rate code ${selectedRateCode} not found in Rate Fetch response. ` +
+        `Available codes: ${rateFetchResponse.map((r) => r.RateCode).join(', ')}`
+      );
+    }
+
+    // For each night in the stay, find the matching rate
+    for (const night of nights) {
+      const dailyRate = selectedRatePlan.Rate.find((r) => r.Date === night);
+
+      if (!dailyRate) {
+        this.logger.error(
+          `   ⚠️  Missing rate for date ${night} in rate code ${selectedRateCode}`
+        );
+        throw new Error(
+          `No rate found for date ${night}. Available dates: ` +
+          `${selectedRatePlan.Rate.map((r) => r.Date).join(', ')}`
+        );
+      }
+
+      // Select price based on guest count
+      let nightlyAmount: number;
+      switch (guestCount) {
+        case 1:
+          nightlyAmount = dailyRate.Single;
+          break;
+        case 2:
+          nightlyAmount = dailyRate.Double;
+          break;
+        case 3:
+          nightlyAmount = dailyRate.Triple || dailyRate.Double;
+          break;
+        case 4:
+          // Quad: typically Triple + ExtraPax
+          nightlyAmount = (dailyRate.Triple || dailyRate.Double) + dailyRate.ExtraPax;
+          break;
+        default:
+          throw new Error(
+            `Unsupported guest count: ${guestCount}. Expected 1-4 guests.`
+          );
+      }
+
+      rates.push({
+        Amount: nightlyAmount,
+        EffectiveDate: night,
+      });
+
+      totalAmount += nightlyAmount;
+    }
+
+    this.logger.log(
+      `   📊 Room Rate Breakup: ${nights.length} night(s), ` +
+      `Total: ₹${totalAmount}, GuestCount: ${guestCount}`
+    );
+
+    return {
+      roomRatesPayload: {
+        RoomRate: {
+          Rates: rates,
+        },
+      },
+      totalAmount,
+    };
   }
 
   /**
