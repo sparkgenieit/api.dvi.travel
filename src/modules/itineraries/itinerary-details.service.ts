@@ -3,6 +3,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma.service';
 import { LatestItineraryQueryDto } from './dto/latest-itinerary-query.dto';
+// Add near top of file imports
+import { TourDetailsResponseDto } from './dto/tour-details.response.dto';
 
 // ---------------------------------------------------------------------------
 // DTOs for Itinerary Details response (shared shape with frontend)
@@ -254,6 +256,71 @@ export class ItineraryDetailsService {
     const month = dt.toLocaleString('en-US', { month: 'short' });
     return `${weekday}, ${month} ${this.pad2(dt.getDate())}, ${dt.getFullYear()}`;
   }
+
+  // INSIDE ItineraryDetailsService class
+async getTourDetails(quoteId: string): Promise<TourDetailsResponseDto> {
+  const plan = await this.prisma.dvi_itinerary_plan_details.findFirst({
+    where: { itinerary_quote_ID: quoteId, deleted: 0 },
+  });
+
+  if (!plan) throw new NotFoundException('Itinerary not found');
+
+  // Parse dates (your file already has parseDate helpers)
+  const start = this.parseDate((plan as any).trip_start_date ?? (plan as any).trip_start_date_time ?? null);
+  const end = this.parseDate((plan as any).trip_end_date ?? (plan as any).trip_end_date_time ?? null);
+
+  // Fallback if DB fields are slightly different
+  const startDateObj = start ?? new Date();
+  const endDateObj = end ?? startDateObj;
+
+  // Compute days/nights safely
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const diffDays = Math.max(1, Math.round((this.startOfDay(endDateObj).getTime() - this.startOfDay(startDateObj).getTime()) / msPerDay) + 1);
+  const nights = Math.max(0, diffDays - 1);
+
+  // Format "05 May 2026"
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, ' '); // "05 May 2026"
+
+  const adults = Number((plan as any).adult_count ?? 0);
+  const children = Number((plan as any).child_count ?? 0);
+  const infants = Number((plan as any).infant_count ?? 0);
+
+  const entryTicketRequired = Number((plan as any).entry_ticket_required ?? 0) === 1;
+
+  const nationalityIdRaw = (plan as any).nationality ?? null;
+  const nationalityId = nationalityIdRaw !== null ? Number(nationalityIdRaw) : null;
+
+  // If you have a nationality master table, resolve here.
+  // If not available in your schema, keep label null.
+  let nationalityLabel: string | null = null;
+
+  // Example optional resolution (ONLY keep if you actually have a table like dvi_nationality):
+  // const nat = nationalityId
+  //   ? await this.prisma.dvi_nationality.findFirst({ where: { id: nationalityId } })
+  //   : null;
+  // nationalityLabel = nat?.name ?? null;
+
+  return {
+    quoteId: plan.itinerary_quote_ID ?? quoteId,
+    startDate: fmt(startDateObj),
+    endDate: fmt(endDateObj),
+    tripNights: nights,
+    tripDays: diffDays,
+    entryTicketRequired,
+    nationality: {
+      id: nationalityId,
+      label: nationalityLabel,
+    },
+    pax: {
+      adults,
+      children,
+      infants,
+      total: adults + children + infants,
+    },
+    roomCount: Number((plan as any).room_count ?? 0),
+  };
+}
 
   /**
    * Extract TIME from DATETIME field and format as "hh:mm AM/PM".

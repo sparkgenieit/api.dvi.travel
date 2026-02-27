@@ -3,7 +3,7 @@
 // 1) Moving @Get(':id') to the VERY END (so it won’t swallow /customer-info, /confirmed, etc.)
 // 2) Enforcing numeric :id with ParseIntPipe (so "confirmed" never becomes NaN)
 // 3) Importing Request type correctly (your file used Request without import)
-
+import { TourDetailsResponseDto } from './dto/tour-details.response.dto';
 import {
   Body,
   Controller,
@@ -265,36 +265,55 @@ export class ItinerariesController {
     const shouldOptimizeRoute = type === 'itineary_basic_info_with_optimized_route';
     return this.svc.createPlan(dto, req, shouldOptimizeRoute);
   }
+@Get('details/:quoteId')
+@Public()
+@ApiOperation({
+  summary: 'Get full itinerary details by Quote ID',
+  description:
+    'Returns PHP-like consolidated itinerary details (plan, routes, vehicles, hotspots, hotels, costs, etc.) for a given Quote ID.',
+})
+@ApiParam({
+  name: 'quoteId',
+  required: true,
+  description: 'Quote ID generated for the itinerary',
+  example: 'DVI202512032',
+  schema: { type: 'string', default: 'DVI202512032' },
+})
+@ApiQuery({
+  name: 'groupType',
+  required: false,
+  description: 'Optional filter for hotel recommendation category (1-4)',
+  example: 4,
+  type: Number,
+})
+@ApiOkResponse({ description: 'Full itinerary details for the given quoteId' })
+async getItineraryDetails(
+  @Param('quoteId') quoteId: string,
+  @Query('groupType') groupType?: string,
+) {
+  const groupTypeNum = groupType !== undefined ? Number(groupType) : undefined;
+  return this.detailsService.getItineraryDetails(quoteId, groupTypeNum);
+}
 
-  @Get('details/:quoteId')
-  @Public()
-  @ApiOperation({
-    summary: 'Get full itinerary details by Quote ID',
-    description:
-      'Returns PHP-like consolidated itinerary details (plan, routes, vehicles, hotspots, hotels, costs, etc.) for a given Quote ID.',
-  })
-  @ApiParam({
-    name: 'quoteId',
-    required: true,
-    description: 'Quote ID generated for the itinerary',
-    example: 'DVI202512032',
-    schema: { type: 'string', default: 'DVI202512032' },
-  })
-  @ApiQuery({
-    name: 'groupType',
-    required: false,
-    description: 'Optional filter for hotel recommendation category (1-4)',
-    example: 4,
-    type: Number,
-  })
-  @ApiOkResponse({ description: 'Full itinerary details for the given quoteId' })
-  async getItineraryDetails(
-    @Param('quoteId') quoteId: string,
-    @Query('groupType') groupType?: string,
-  ) {
-    const groupTypeNum = groupType !== undefined ? Number(groupType) : undefined;
-    return this.detailsService.getItineraryDetails(quoteId, groupTypeNum);
-  }
+@Get('tour-details/:quoteId')
+@Public()
+@ApiOperation({
+  summary: 'Get tour header details by Quote ID',
+  description:
+    'Returns top-level Tour Itinerary Plan details (start/end, nights/days, pax, room count, nationality, entry ticket required).',
+})
+@ApiParam({
+  name: 'quoteId',
+  required: true,
+  example: 'DVI2026021007',
+})
+@ApiOkResponse({
+  description: 'Tour details for the given quoteId',
+  type: TourDetailsResponseDto,
+})
+async getTourDetails(@Param('quoteId') quoteId: string) {
+  return this.detailsService.getTourDetails(quoteId);
+}
 
   @Get('hotel_details/:quoteId')
   @ApiOperation({
@@ -322,7 +341,7 @@ export class ItinerariesController {
 
     try {
       // Use TBO service to fetch dynamic packages
-      const result = await this.hotelDetailsTboService.getHotelDetailsByQuoteIdFromTbo(quoteId);
+      const result = await this.hotelDetailsService.getHotelDetailsByQuoteId(quoteId);
       const duration = Date.now() - startTime;
 
       this.logger.log('\n✅ HOTEL PACKAGES GENERATED FROM TBO');
