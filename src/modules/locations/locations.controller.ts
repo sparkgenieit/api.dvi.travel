@@ -1,7 +1,32 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
-import { BulkTollPayloadDto, CreateLocationDto, ModifyLocationNameDto, UpdateLocationDto } from './dto/location.dto';
+import {
+  BulkTollPayloadDto,
+  CreateLocationDto,
+  LocationResponseDto,
+  ModifyLocationNameDto,
+  TollResponseDto,
+  UpdateLocationDto,
+} from './dto/location.dto';
 
 @ApiTags('Locations')
 @ApiBearerAuth()
@@ -14,57 +39,109 @@ export class LocationsController {
   @ApiQuery({ name: 'source', required: false })
   @ApiQuery({ name: 'destination', required: false })
   @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'pageSize', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      type: 'object',
+      properties: {
+        rows: { type: 'array', items: { $ref: '#/components/schemas/LocationResponseDto' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        pageSize: { type: 'number' },
+      },
+    },
+  })
   list(@Query() q: any) {
     return this.svc.list(q);
   }
 
   @Get('dropdowns')
   @ApiOperation({ summary: 'Fetch dropdown options for Source/Destination' })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      type: 'object',
+      properties: {
+        sources: { type: 'array', items: { type: 'string' } },
+        destinations: { type: 'array', items: { type: 'string' } },
+      },
+    },
+  })
   dropdowns() {
     return this.svc.dropdowns();
   }
 
   @Post()
-  @ApiOperation({ summary: 'Add Location (source→destination row)' })
+  @ApiOperation({ summary: 'Add Location (source fields only)' })
+  @ApiResponse({ status: 201, type: LocationResponseDto })
+  @ApiResponse({ status: 400, description: 'Validation error' })
   create(@Body() dto: CreateLocationDto) {
     return this.svc.create(dto);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a single Location row' })
+  @ApiOperation({ summary: 'Get a single Location by ID' })
+  @ApiResponse({ status: 200, type: LocationResponseDto })
+  @ApiResponse({ status: 404, description: 'Location not found' })
   get(@Param('id') id: string) {
     return this.svc.get(Number(id));
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Edit Location row' })
+  @ApiOperation({ summary: 'Update Location (all fields optional)' })
+  @ApiResponse({ status: 200, type: LocationResponseDto })
+  @ApiResponse({ status: 404, description: 'Location not found' })
   update(@Param('id') id: string, @Body() dto: UpdateLocationDto) {
     return this.svc.update(Number(id), dto);
   }
 
   @Patch(':id/modify-name')
-  @ApiOperation({ summary: 'Quick rename Source/Destination location string' })
+  @ApiOperation({
+    summary: 'Quick rename Source/Destination location string',
+  })
+  @ApiResponse({ status: 200, type: LocationResponseDto })
+  @ApiResponse({ status: 404, description: 'Location not found' })
   modifyName(@Param('id') id: string, @Body() dto: ModifyLocationNameDto) {
     return this.svc.modifyName(Number(id), dto.scope, dto.new_name);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Soft delete location row' })
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete location by ID' })
+  @ApiResponse({ status: 204, description: 'Location deleted' })
+  @ApiResponse({ status: 404, description: 'Location not found' })
   softDelete(@Param('id') id: string) {
     return this.svc.softDelete(Number(id));
   }
 
   @Get(':id/tolls')
-  @ApiOperation({ summary: 'Get toll charges grid for this location' })
+  @ApiOperation({ summary: 'Get toll charges for this location' })
+  @ApiResponse({
+    status: 200,
+    type: [TollResponseDto],
+  })
+  @ApiResponse({ status: 404, description: 'Location not found' })
   getTolls(@Param('id') id: string) {
     return this.svc.getTolls(Number(id));
   }
 
   @Post(':id/tolls')
-  @ApiOperation({ summary: 'Save toll charges (replace all for this location)' })
-  upsertTolls(@Param('id') id: string, @Body() body: BulkTollPayloadDto, @Req() req: any) {
+  @ApiOperation({ summary: 'Save/update toll charges for location' })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      type: 'object',
+      properties: { ok: { type: 'boolean' } },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Location not found' })
+  upsertTolls(
+    @Param('id') id: string,
+    @Body() body: BulkTollPayloadDto,
+    @Req() req: any,
+  ) {
     const userId = Number(req?.user?.id) || 0;
     return this.svc.upsertTolls(Number(id), body.items || [], userId);
   }

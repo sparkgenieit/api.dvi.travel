@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
+import { LocationResponseDto } from './dto/location.dto';
 
 type ListQuery = {
   search?: string;
@@ -12,6 +13,29 @@ type ListQuery = {
 @Injectable()
 export class LocationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Convert database row to API response format
+   * Handles field mapping from DB schema to API contract
+   */
+  private mapRowToResponse(row: any): LocationResponseDto {
+    return {
+      location_ID: Number(row.location_ID),
+      source_location: row.source_location || '',
+      source_city: row.source_location_city || '',
+      source_state: row.source_location_state || '',
+      source_latitude: String(row.source_location_lattitude || ''),
+      source_longitude: String(row.source_location_longitude || ''),
+      destination_location: row.destination_location || '',
+      destination_city: row.destination_location_city || '',
+      destination_state: row.destination_location_state || '',
+      destination_latitude: String(row.destination_location_lattitude || ''),
+      destination_longitude: String(row.destination_location_longitude || ''),
+      distance_km: Number(row.distance || 0),
+      duration_text: row.duration || '',
+      location_description: row.location_description || null,
+    };
+  }
 
   // ------ LIST + FILTERS ------
   async list(q: ListQuery) {
@@ -40,7 +64,12 @@ export class LocationsService {
       this.prisma.dvi_stored_locations.count({ where }),
     ]);
 
-    return { rows, total, page, pageSize };
+    return {
+      rows: rows.map(r => this.mapRowToResponse(r)),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async dropdowns() {
@@ -67,32 +96,41 @@ export class LocationsService {
   // ------ CRUD ------
   async create(payload: any) {
     const data = this.mapDtoToSchema(payload);
+    // For new locations, destination fields default to empty strings
     const created = await this.prisma.dvi_stored_locations.create({
       data: {
         ...data,
+        destination_location: '',
+        destination_location_city: '',
+        destination_location_state: '',
+        destination_location_lattitude: '',
+        destination_location_longitude: '',
+        distance: 0,
+        duration: '',
         status: 1,
         deleted: 0,
         createdon: new Date(),
       },
     });
-    return created;
+    return this.mapRowToResponse(created);
   }
 
   async get(id: number) {
     const row = await this.prisma.dvi_stored_locations.findFirst({
-      where: { location_ID: id, deleted: 0 },
+      where: { location_ID: BigInt(id), deleted: 0 },
     });
     if (!row) throw new NotFoundException('Location not found');
-    return row;
+    return this.mapRowToResponse(row);
   }
 
   async update(id: number, payload: any) {
     await this.get(id);
     const data = this.mapDtoToSchema(payload);
-    return this.prisma.dvi_stored_locations.update({
-      where: { location_ID: id },
+    const updated = await this.prisma.dvi_stored_locations.update({
+      where: { location_ID: BigInt(id) },
       data: { ...data, updatedon: new Date() },
     });
+    return this.mapRowToResponse(updated);
   }
 
   private mapDtoToSchema(dto: any) {
@@ -119,34 +157,38 @@ export class LocationsService {
   async softDelete(id: number) {
     await this.get(id);
     await this.prisma.dvi_stored_locations.update({
-      where: { location_ID: id },
+      where: { location_ID: BigInt(id) },
       data: { deleted: 1, updatedon: new Date() },
     });
     return { ok: true };
   }
 
-  // ------ Modify Location Name (quick rename like PHP) ------
+  // ------ Modify Location Name (quick rename) ------
   async modifyName(id: number, scope: 'source' | 'destination', newName: string) {
     await this.get(id);
     const data =
       scope === 'source'
         ? { source_location: newName }
         : { destination_location: newName };
-    return this.prisma.dvi_stored_locations.update({
-      where: { location_ID: id },
+    const updated = await this.prisma.dvi_stored_locations.update({
+      where: { location_ID: BigInt(id) },
       data: { ...data, updatedon: new Date() },
     });
+    return this.mapRowToResponse(updated);
   }
 
   // ------ TOLL CHARGES ------
   async getTolls(locationId: number) {
+    // Verify location exists
+    await this.get(locationId);
+
     // 1) Get all vehicle types (to render full grid)
     const vehicleTypes = await this.prisma.dvi_vehicle_type.findMany({
       where: { deleted: 0, status: 1 },
       orderBy: { vehicle_type_id: 'asc' },
       select: {
         vehicle_type_id: true,
-        vehicle_type_title: true, // <-- this is the name field in your schema
+        vehicle_type_title: true,
       },
     });
 
@@ -159,23 +201,22 @@ export class LocationsService {
       },
     });
 
-    // Ensure the map key is a number to match vehicle_types list
+    // Build toll map
     const tollMap = new Map<number, number>(
       existing.map((e) => [Number(e.vehicle_type_id), Number(e.toll_charge || 0)])
     );
 
-    // 3) Merge into UI rows
+    // 3) Return as array of toll objects
     return vehicleTypes.map((vt) => ({
       vehicle_type_id: vt.vehicle_type_id,
-      vehicle_type_name: vt.vehicle_type_title ?? '', // <-- fixed
+      vehicle_type_name: vt.vehicle_type_title ?? '',
       toll_charge: tollMap.get(Number(vt.vehicle_type_id)) ?? 0,
     }));
   }
 
   /**
-   * Simple & safe way (schema lacks a unique composite on (location_id, vehicle_type_id)):
-   * - delete all existing tolls for location
-   * - insert the provided list
+   * Save toll charges for location
+   * Deletes all existing and inserts new items from request
    */
   async upsertTolls(
     locationId: number,
@@ -185,10 +226,12 @@ export class LocationsService {
     const idBig = BigInt(locationId);
     await this.get(locationId);
 
+    // Delete all existing tolls for this location
     await this.prisma.dvi_vehicle_toll_charges.deleteMany({
       where: { location_id: idBig },
     });
 
+    // Insert new items if provided
     if (!items?.length) return { ok: true };
 
     await this.prisma.dvi_vehicle_toll_charges.createMany({
@@ -196,7 +239,7 @@ export class LocationsService {
         location_id: idBig,
         vehicle_type_id: it.vehicle_type_id,
         toll_charge: Number(it.toll_charge) || 0,
-        createdby: userId ?? 0,
+        createdby: Number(userId ?? 0),
         status: 1,
         deleted: 0,
         createdon: new Date(),
